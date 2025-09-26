@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>QA Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Firebase SDKs (Modular v10) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+	
+    // Your web app's Firebase configuration
+	const firebaseConfig = {
+	  apiKey: "AIzaSyCuTlQfSUTlgig_NF7bKV448v35UEuB0aA",
+	  authDomain: "fb-issue-record.firebaseapp.com",
+	  projectId: "fb-issue-record",
+	  storageBucket: "fb-issue-record.firebasestorage.app",
+	  messagingSenderId: "892738349977",
+	  appId: "1:892738349977:web:004b30f804e2937692c108"
+	};
+
+	// Initialize Firebase
+	const app = initializeApp(firebaseConfig);
+    window.db = getFirestore(app);
+    window.auth = getAuth(app);
+    window.GoogleAuthProvider = GoogleAuthProvider;
+    window.signInWithPopup = signInWithPopup;
+    window.signOut = signOut;
+    window.onAuthStateChanged = onAuthStateChanged;
+  </script>
+  <style>
+	.btn{ @apply px-4 py-2 rounded-2xl bg-slate-900 text-white shadow hover:opacity-90;}
+	.btn-secondary{ @apply px-4 py-2 rounded-2xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-50;}
+	.inp{ @apply w-full px-3 py-2 rounded-xl border border-slate-300 outline-none focus:ring-2 focus:ring-slate-400 bg-white;}
+	.lbl{ @apply block text-sm text-slate-600 mb-1;}
+	.th{ @apply px-3 py-2 text-left text-sm font-semibold border-b;}
+	td{ @apply px-3 py-2 border-b text-sm;}
+
+  </style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800">
+  <header class="bg-white shadow">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <h1 class="text-2xl font-semibold">QA Tracker</h1>
+      <div id="authArea" class="flex items-center gap-3">
+        <button id="btnSignIn" class="btn">使用 Google 登入</button>
+        <div id="userInfo" class="hidden items-center gap-2">
+          <span id="userEmail" class="text-sm text-slate-600"></span>
+          <button id="btnSignOut" class="btn-secondary">登出</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-6">
+    <section class="bg-white rounded-2xl shadow p-4 md:p-6 mb-6">
+      <h2 class="text-xl font-semibold mb-4">建立 / 編輯資料</h2>
+      <form id="recordForm" class="grid md:grid-cols-4 gap-4">
+        <!-- Row 1 -->
+        <div>
+          <label class="lbl">狀態</label>
+          <select id="status" class="inp">
+			  <option value="1" selected>正常</option>
+			  <option value="0">停用</option>
+			  <option value="2">結案</option>
+			</select>
+        </div>
+
+        <div>
+          <label class="lbl">完成日期</label>
+          <input id="completed_at" type="date" class="inp" />
+        </div>
+
+        <div>
+          <label class="lbl">Issue Number</label>
+          <input id="issue_number" type="number" class="inp" placeholder="例如 1234" />
+        </div>
+
+        <div>
+          <label class="lbl">Test Plan</label>
+          <select id="test_plan" class="inp">
+            <option value="N" selected>N</option>
+            <option value="Y">Y</option>
+          </select>
+        </div>
+
+        <!-- Row 2 -->
+        <div>
+          <label class="lbl">類型</label>
+          <select id="category" class="inp">
+            <option value="1" selected>1 = BUG</option>
+            <option value="2">2 = 改善</option>
+            <option value="3">3 = 優化</option>
+            <option value="4">4 = 模組</option>
+            <option value="5">5 = QA</option>
+          </select>
+        </div>
+
+        <div class="md:col-span-3">
+          <label class="lbl">功能</label>
+          <input id="feature" type="text" class="inp" placeholder="文字描述" />
+        </div>
+
+        <div class="md:col-span-4">
+          <label class="lbl">Memo</label>
+          <textarea id="memo" class="inp" rows="2" placeholder="備註（非必填）"></textarea>
+        </div>
+
+        <!-- Row 3 -->
+        <div>
+          <label class="lbl">開始測試日期</label>
+          <input id="test_start_date" type="date" class="inp" />
+        </div>
+
+        <div>
+          <label class="lbl">預計交付日期</label>
+          <input id="eta_date" type="date" class="inp" />
+        </div>
+
+        <div>
+          <label class="lbl">發現 BUG</label>
+          <select id="bug_found" class="inp">
+            <option value="0" selected>0 = 否</option>
+            <option value="1">1 = 是</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="lbl">可優化項目</label>
+          <input id="optimization_points" type="number" class="inp"
+       placeholder="數字；僅在 發現BUG=1 時可填"
+       min="0" step="1" disabled />
+        </div>
+
+        <!-- Row 4 -->
+        <div>
+          <label class="lbl">驗證失敗</label>
+          <select id="verify_failed" class="inp">
+            <option value="0" selected>0 = 否</option>
+            <option value="1">1 = 是</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="lbl">測試案例</label>
+          <input id="test_cases" type="number" class="inp" />
+        </div>
+
+        <div>
+          <label class="lbl">檔案數量</label>
+          <input id="file_count" type="number" class="inp" />
+        </div>
+
+        <div class="md:col-span-4 flex flex-wrap gap-3 items-end">
+          <button id="btnSave" class="btn" type="submit">儲存</button>
+          <button id="btnReset" class="btn-secondary" type="button">重設</button>
+          <a id="issue_link_preview" class="text-blue-600 underline hidden" href="#" target="_blank" rel="noopener">打開 Issue</a>
+          <span id="saveMsg" class="ml-2 text-sm text-green-600"></span>
+        </div>
+      </form>
+    </section>
+
+    <section class="bg-white rounded-2xl shadow p-4 md:p-6">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
+        <h2 class="text-xl font-semibold">資料列表</h2>
+        <div class="flex flex-wrap gap-2">
+          <input id="q_keyword" type="text" class="inp w-64" placeholder="搜尋 功能/Memo/Issue#"/>
+          <select id="q_status" class="inp">
+            <option value="">狀態 (全部)</option>
+            <option value="1">1</option>
+            <option value="0">0</option>
+            <option value="2">2</option>
+          </select>
+          <select id="q_category" class="inp">
+            <option value="">類型 (全部)</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select>
+          <button id="btnSearch" class="btn">搜尋</button>
+          <button id="btnExportCSV" class="btn-secondary">匯出 CSV</button>
+        </div>
+      </div>
+
+      <div class="overflow-auto">
+        <table class="min-w-full border whitespace-nowrap" id="recordsTable">
+          <thead class="bg-slate-100">
+            <tr>
+              <th class="th">Issue#</th>
+              <th class="th">連結</th>
+              <th class="th">狀態</th>
+              <th class="th">類型</th>
+              <th class="th">功能</th>
+              <th class="th">TestPlan</th>
+              <th class="th">BUG</th>
+              <th class="th">優化點數</th>
+              <th class="th">驗證失敗</th>
+              <th class="th">測試案例</th>
+              <th class="th">檔案數量</th>
+              <th class="th">開始測試</th>
+              <th class="th">預計交付</th>
+              <th class="th">完成日期</th>
+              <th class="th">Memo</th>
+              <th class="th">操作</th>
+            </tr>
+          </thead>
+          <tbody id="recordsTbody"></tbody>
+        </table>
+      </div>
+
+      <div class="flex justify-end mt-3 gap-2">
+        <button id="btnPrev" class="btn-secondary">上一頁</button>
+        <span id="pageInfo" class="text-sm text-slate-600 self-center"></span>
+        <button id="btnNext" class="btn-secondary">下一頁</button>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+  import {
+  collection, addDoc, serverTimestamp, query, orderBy, limit, startAfter, getDocs,
+  updateDoc, doc, deleteDoc, getDoc, where
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// Auth UI
+const btnSignIn = document.getElementById('btnSignIn');
+const btnSignOut = document.getElementById('btnSignOut');
+const userInfo = document.getElementById('userInfo');
+const userEmail = document.getElementById('userEmail');
+
+onAuthStateChanged(auth, (user)=>{
+  if(user){
+    btnSignIn.classList.add('hidden');
+    userInfo.classList.remove('hidden');
+    userEmail.textContent = user.email || user.uid;
+  }else{
+    btnSignIn.classList.remove('hidden');
+    userInfo.classList.add('hidden');
+    userEmail.textContent = '';
+  }
+});
+
+btnSignIn.addEventListener('click', async ()=>{
+  const provider = new GoogleAuthProvider();
+  await signInWithPopup(auth, provider);
+});
+
+btnSignOut.addEventListener('click', async ()=>{
+  await signOut(auth);
+});
+
+// Form refs
+const form = document.getElementById('recordForm');
+const saveMsg = document.getElementById('saveMsg');
+const previewLink = document.getElementById('issue_link_preview');
+
+const fields = {
+  status: document.getElementById('status'),
+  completed_at: document.getElementById('completed_at'),
+  issue_number: document.getElementById('issue_number'),
+  test_plan: document.getElementById('test_plan'),
+  category: document.getElementById('category'),
+  feature: document.getElementById('feature'),
+  memo: document.getElementById('memo'),
+  test_start_date: document.getElementById('test_start_date'),
+  eta_date: document.getElementById('eta_date'),
+  bug_found: document.getElementById('bug_found'),
+  optimization_points: document.getElementById('optimization_points'),
+  verify_failed: document.getElementById('verify_failed'),
+  test_cases: document.getElementById('test_cases'),
+  file_count: document.getElementById('file_count')
+};
+
+// Conditional enable for optimization_points
+fields.bug_found.addEventListener('change', ()=>{
+  const enabled = fields.bug_found.value === '1';
+  fields.optimization_points.disabled = !enabled;
+  if(!enabled) fields.optimization_points.value = '';
+});
+
+// Dynamic issue link preview
+const ISSUE_BASE = "https://gitlab.fb-tek.com/kh/imp/-/issues/";
+function updateIssuePreview(){
+  const n = fields.issue_number.value?.trim();
+  if(n){
+    previewLink.href = ISSUE_BASE + n;
+    previewLink.classList.remove('hidden');
+  }else{
+    previewLink.classList.add('hidden');
+  }
+}
+fields.issue_number.addEventListener('input', updateIssuePreview);
+
+// Save / Update logic
+let editingId = null;
+
+form.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const payload = buildPayload();
+  try{
+    if(editingId){
+      await updateDoc(doc(db, 'records', editingId), payload);
+      showMsg('已更新');
+    }else{
+      await addDoc(collection(db, 'records'), { ...payload, created_at: serverTimestamp() });
+      showMsg('已儲存');
+    }
+    form.reset();
+    updateIssuePreview();
+    editingId = null;
+    await reload();
+  }catch(err){
+    console.error(err);
+    showMsg('錯誤: ' + err.message, true);
+  }
+});
+
+document.getElementById('btnReset').addEventListener('click', ()=>{
+  editingId = null;
+  form.reset();
+  updateIssuePreview();
+  fields.optimization_points.disabled = fields.bug_found.value !== '1';
+});
+
+function buildPayload(){
+  const toNum = (v)=> {
+    if (v === '' || v === null || v === undefined) return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const toStr = (v)=> v?.trim() || null;
+  const toDate = (v)=> v ? new Date(v) : null;
+
+  // 預設狀態/測試計畫（雙保險；HTML 已預設，但再保一次）
+  if (!['0','1','2'].includes(String(fields.status.value))) {
+    fields.status.value = '1';
+  }
+  if (!['Y','N'].includes(String(fields.test_plan.value))) {
+    fields.test_plan.value = 'N';
+  }
+
+  // Issue 連結
+  const issue_number = toNum(fields.issue_number.value);
+  const ISSUE_BASE = "https://gitlab.fb-tek.com/kh/imp/-/issues/";
+  const issue_link = issue_number ? (ISSUE_BASE + issue_number) : null;
+
+  // 可優化項目：只有在 bug_found=1 時保留數字，否則一律 null
+  const bugFoundIsYes = String(fields.bug_found.value) === '1';
+  const optimization_points = bugFoundIsYes ? toNum(fields.optimization_points.value) : null;
+
+  return {
+    status: toNum(fields.status.value),                     // 1/0/2
+    completed_at: toDate(fields.completed_at.value),        // 今天(預設)
+    issue_number,
+    test_plan: toStr(fields.test_plan.value),               // 'N' (預設) or 'Y'
+    category: toNum(fields.category.value),
+    feature: toStr(fields.feature.value),
+    issue_link,
+    memo: toStr(fields.memo.value),
+    test_start_date: toDate(fields.test_start_date.value),  // 今天(預設)
+    eta_date: toDate(fields.eta_date.value),                // 本週五(預設)
+    bug_found: toNum(fields.bug_found.value) ?? 0,
+    optimization_points,
+    verify_failed: toNum(fields.verify_failed.value) ?? 0,
+    test_cases: toNum(fields.test_cases.value),
+    file_count: toNum(fields.file_count.value)
+  };
+}
+
+function showMsg(text, isErr=false){
+  saveMsg.textContent = text;
+  saveMsg.classList.toggle('text-red-600', !!isErr);
+  saveMsg.classList.toggle('text-green-600', !isErr);
+  setTimeout(()=>{ saveMsg.textContent=''; }, 2000);
+}
+
+// Table + pagination
+const tbody = document.getElementById('recordsTbody');
+const btnPrev = document.getElementById('btnPrev');
+const btnNext = document.getElementById('btnNext');
+const pageInfo = document.getElementById('pageInfo');
+
+const qKeyword = document.getElementById('q_keyword');
+const qStatus = document.getElementById('q_status');
+const qCategory = document.getElementById('q_category');
+const btnSearch = document.getElementById('btnSearch');
+
+let pageSize = 20;
+let lastVisible = null;
+let firstVisible = null;
+let prevStack = [];
+
+async function fetchPage(forward=true){
+  let qBase = query(collection(db, 'records'), orderBy('created_at', 'desc'), limit(pageSize));
+  // Filters
+  if(qStatus.value){
+    qBase = query(collection(db, 'records'),
+      where('status', '==', Number(qStatus.value)),
+      orderBy('created_at', 'desc'),
+      limit(pageSize));
+  }
+  if(qCategory.value){
+    qBase = query(collection(db, 'records'),
+      where('category', '==', Number(qCategory.value)),
+      orderBy('created_at', 'desc'),
+      limit(pageSize));
+  }
+  if(qStatus.value && qCategory.value){
+    qBase = query(collection(db, 'records'),
+      where('status', '==', Number(qStatus.value)),
+      where('category', '==', Number(qCategory.value)),
+      orderBy('created_at', 'desc'),
+      limit(pageSize));
+  }
+
+  if(forward && lastVisible){
+    qBase = query(qBase, startAfter(lastVisible));
+  }
+
+  const snap = await getDocs(qBase);
+  const docs = snap.docs;
+  if(docs.length>0){
+    firstVisible = docs[0];
+    lastVisible = docs[docs.length-1];
+  }
+
+  // Keyword filter (client-side)
+  const kw = qKeyword.value.trim().toLowerCase();
+  let rows = docs.map(d => ({id: d.id, ...d.data()}));
+  if(kw){
+    rows = rows.filter(r => {
+      const fields = [r.feature, r.memo, r.issue_number?.toString() ?? ''];
+      return fields.some(x => (x || '').toLowerCase().includes(kw));
+    });
+  }
+
+  renderRows(rows);
+  pageInfo.textContent = `共 ${rows.length} 筆`;
+  return {docs, rows};
+}
+
+function renderRows(rows){
+  tbody.innerHTML = '';
+  for(const r of rows){
+    const tr = document.createElement('tr');
+    const link = r.issue_link ? `<a class="text-blue-600 underline" href="${r.issue_link}" target="_blank" rel="noopener">連結</a>` : '';
+    tr.innerHTML = `
+      <td>${r.issue_number ?? ''}</td>
+      <td>${link}</td>
+      <td>${r.status ?? ''}</td>
+      <td>${r.category ?? ''}</td>
+      <td>${r.feature ?? ''}</td>
+      <td>${r.test_plan ?? ''}</td>
+      <td>${r.bug_found ?? 0}</td>
+      <td>${r.optimization_points ?? ''}</td>
+      <td>${r.verify_failed ?? 0}</td>
+      <td>${r.test_cases ?? ''}</td>
+      <td>${r.file_count ?? ''}</td>
+      <td>${fmtDate(r.test_start_date)}</td>
+      <td>${fmtDate(r.eta_date)}</td>
+      <td>${fmtDate(r.completed_at)}</td>
+      <td class="max-w-[360px] whitespace-pre-wrap">${r.memo ?? ''}</td>
+      <td>
+        <button class="btn-secondary text-xs" data-edit="${r.id}">編輯</button>
+        <button class="btn-secondary text-xs" data-del="${r.id}">刪除</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  // Delegate actions
+  tbody.querySelectorAll('button[data-edit]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const id = btn.getAttribute('data-edit');
+      const ref = doc(db, 'records', id);
+      const snap = await getDoc(ref);
+      if(snap.exists()){
+        loadToForm(id, snap.data());
+        window.scrollTo({top:0, behavior:'smooth'});
+      }
+    });
+  });
+  tbody.querySelectorAll('button[data-del]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const id = btn.getAttribute('data-del');
+      if(confirm('確定刪除這筆資料？')){
+        await deleteDoc(doc(db, 'records', id));
+        await reload();
+      }
+    });
+  });
+}
+
+function fmtDate(v){
+  if(!v) return '';
+  try{
+    if(v.toDate) v = v.toDate();
+    const yyyy = v.getFullYear();
+    const mm = String(v.getMonth()+1).padStart(2,'0');
+    const dd = String(v.getDate()).padStart(2,'0');
+    return `${yyyy}-${mm}-${dd}`;
+  }catch(_){
+    return '';
+  }
+}
+
+function loadToForm(id, data){
+  editingId = id;
+  fields.status.value = data.status ?? '';
+  fields.completed_at.value = data.completed_at ? fmtDate(data.completed_at) : '';
+  fields.issue_number.value = data.issue_number ?? '';
+  fields.test_plan.value = data.test_plan ?? '';
+  fields.category.value = data.category ?? '';
+  fields.feature.value = data.feature ?? '';
+  fields.memo.value = data.memo ?? '';
+  fields.test_start_date.value = data.test_start_date ? fmtDate(data.test_start_date) : '';
+  fields.eta_date.value = data.eta_date ? fmtDate(data.eta_date) : '';
+  fields.bug_found.value = data.bug_found ?? 0;
+  fields.verify_failed.value = data.verify_failed ?? 0;
+  fields.test_cases.value = data.test_cases ?? '';
+  fields.file_count.value = data.file_count ?? '';
+  fields.optimization_points.disabled = String(fields.bug_found.value) !== '1';
+  fields.optimization_points.value = data.optimization_points ?? '';
+  updateIssuePreview();
+}
+
+// Pagination & search
+btnNext.addEventListener('click', async ()=>{
+  prevStack.push(firstVisible);
+  await fetchPage(true);
+});
+btnPrev.addEventListener('click', async ()=>{
+  if(prevStack.length === 0) return;
+  lastVisible = prevStack.pop();
+  await reload(true);
+});
+btnSearch.addEventListener('click', async ()=>{
+  prevStack = [];
+  lastVisible = null;
+  await reload();
+});
+
+async function reload(forward=true){
+  await fetchPage(forward);
+}
+
+updateIssuePreview();
+reload();
+
+// CSV export (current table)
+document.getElementById('btnExportCSV').addEventListener('click', ()=>{
+  const rows = [["issue_number","issue_link","status","category","feature","test_plan","bug_found","optimization_points","verify_failed","test_cases","file_count","test_start_date","eta_date","completed_at","memo"]];
+  document.querySelectorAll("#recordsTbody tr").forEach(tr=>{
+    const cells = Array.from(tr.children).map(td => td.innerText.replaceAll('\n',' ').trim());
+    const [
+      issue_number, linkText, status, category, feature, test_plan, bug_found, optimization_points, verify_failed, test_cases, file_count, start, eta, done, memo
+    ] = cells;
+    const a = tr.querySelector('a');
+    const issue_link = a ? a.href : "";
+    rows.push([issue_number, issue_link, status, category, feature, test_plan, bug_found, optimization_points, verify_failed, test_cases, file_count, start, eta, done, memo]);
+  });
+  const csv = rows.map(r=> r.map(x => `"${(x??'').replaceAll('"','""')}"`).join(',')).join('\r\n');
+  const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'records.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+// ---------- Defaults on load ----------
+function formatDateInput(d) {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// 本週五（以週一為一週開始）
+function thisFriday(from = new Date()) {
+  const d = new Date(from);
+  const day = d.getDay(); // 0(日)~6(六)
+  // 讓週一為 1，週五為 5
+  const map = {0:7,1:1,2:2,3:3,4:4,5:5,6:6};
+  const dow = map[day];
+  const delta = 5 - dow; // 距離週五的天數
+  d.setDate(d.getDate() + delta);
+  return d;
+}
+
+// 嚴格控管「可優化項目」啟用/清空
+function toggleOptimizationPoints() {
+  const enabled = fields.bug_found.value === '1';
+  fields.optimization_points.disabled = !enabled;
+  if (!enabled) {
+    fields.optimization_points.value = '';
+  }
+}
+
+// 設定預設值（僅在建立新資料或初次載入時）
+function setDefaultsIfEmpty() {
+  // 狀態：若沒值或不是 0/1/2，就設為 1
+  if (!['0','1','2'].includes(String(fields.status.value))) {
+    fields.status.value = '1';
+  }
+  // TestPlan：若不是 Y/N，就設為 N
+  if (!['Y','N'].includes(String(fields.test_plan.value))) {
+    fields.test_plan.value = 'N';
+  }
+  // 完成日期/開始測試日期 預設今天（若空白）
+  const today = new Date();
+  if (!fields.completed_at.value) {
+    fields.completed_at.value = formatDateInput(today);
+  }
+  if (!fields.test_start_date.value) {
+    fields.test_start_date.value = formatDateInput(today);
+  }
+  // 預計交付日期 預設本週五（若空白）
+  if (!fields.eta_date.value) {
+    fields.eta_date.value = formatDateInput(thisFriday(today));
+  }
+  // 套用「可優化項目」啟用規則
+  toggleOptimizationPoints();
+}
+
+// 初次載入時套用預設
+setDefaultsIfEmpty();
+// 變更「發現 BUG」即時套用可優化項目規則
+fields.bug_found.addEventListener('change', toggleOptimizationPoints);
+  
+  </script>
+</body>
+</html>
