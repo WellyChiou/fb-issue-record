@@ -3,26 +3,40 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>QA Tracker</title>
+  <title>QA Tracker · Loading Overlay & Layout</title>
+
+  <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 600: '#4f46e5', 700: '#4338ca' }
+          },
+          boxShadow: { soft: '0 2px 10px rgba(0,0,0,.06)' }
+        }
+      }
+    }
+  </script>
+
   <!-- Firebase SDKs (Modular v10) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-	
-    // Your web app's Firebase configuration
-	const firebaseConfig = {
-	  apiKey: "AIzaSyCuTlQfSUTlgig_NF7bKV448v35UEuB0aA",
-	  authDomain: "fb-issue-record.firebaseapp.com",
-	  projectId: "fb-issue-record",
-	  storageBucket: "fb-issue-record.firebasestorage.app",
-	  messagingSenderId: "892738349977",
-	  appId: "1:892738349977:web:004b30f804e2937692c108"
-	};
 
-	// Initialize Firebase
-	const app = initializeApp(firebaseConfig);
+    // Replace with your own if needed
+    const firebaseConfig = {
+      apiKey: "AIzaSyCuTlQfSUTlgig_NF7bKV448v35UEuB0aA",
+      authDomain: "fb-issue-record.firebaseapp.com",
+      projectId: "fb-issue-record",
+      storageBucket: "fb-issue-record.firebasestorage.app",
+      messagingSenderId: "892738349977",
+      appId: "1:892738349977:web:004b30f804e2937692c108"
+    };
+
+    const app = initializeApp(firebaseConfig);
     window.db = getFirestore(app);
     window.auth = getAuth(app);
     window.GoogleAuthProvider = GoogleAuthProvider;
@@ -30,56 +44,79 @@
     window.signOut = signOut;
     window.onAuthStateChanged = onAuthStateChanged;
   </script>
-  <style>
-	.btn{ @apply px-4 py-2 rounded-2xl bg-slate-900 text-white shadow hover:opacity-90;}
-	.btn-secondary{ @apply px-4 py-2 rounded-2xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-50;}
-	.inp{ @apply w-full px-3 py-2 rounded-xl border border-slate-300 outline-none focus:ring-2 focus:ring-slate-400 bg-white;}
-	.lbl{ @apply block text-sm text-slate-600 mb-1;}
-	.th{ @apply px-3 py-2 text-left text-sm font-semibold border-b;}
-	td{ @apply px-3 py-2 border-b text-sm;}
 
+  <style>
+    .btn{ padding:.6rem 1rem; border-radius:1rem; background:#0f172a; color:#fff; font-weight:600; box-shadow:0 1px 3px rgba(0,0,0,.15); }
+    .btn:hover{ opacity:.95 }
+    .btn-secondary{ padding:.55rem 1rem; border-radius:1rem; border:1px solid #cbd5e1; background:#fff; color:#334155; }
+    .btn-secondary:hover{ background:#f8fafc }
+    .inp{ width:100%; padding:.55rem .75rem; border-radius:.75rem; border:1px solid #cbd5e1; outline:none; background:#fff; }
+    .inp:focus{ box-shadow:0 0 0 3px rgba(79,70,229,.2); border-color:#a5b4fc; }
+    .chip{ display:inline-flex; align-items:center; gap:.35rem; padding:.15rem .5rem; border-radius:9999px; font-size:.75rem; font-weight:600; }
+    .chip-green{ background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; }
+    .chip-gray{ background:#f1f5f9; color:#334155; border:1px solid #e2e8f0; }
+    .chip-red{ background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+    .chip-indigo{ background:#eef2ff; color:#3730a3; border:1px solid #c7d2fe; }
+    .chip-amber{ background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+    .table-head th{ position:sticky; top:0; background:#f8fafc; }
+    .row{ border-bottom:1px solid #e2e8f0; }
+    .row:nth-child(even){ background:#fcfcfd; }
+    .overlay {
+      position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      background:rgba(255,255,255,.8); backdrop-filter:saturate(180%) blur(2px);
+    }
   </style>
 </head>
+
 <body class="min-h-screen bg-slate-50 text-slate-800">
-  <header class="bg-white shadow">
-    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-      <h1 class="text-2xl font-semibold">QA Tracker</h1>
+  <!-- Header -->
+  <header class="bg-gradient-to-r from-brand-600 to-brand-700 text-white shadow">
+    <div class="max-w-7xl mx-auto px-5 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-xl bg-white/15 grid place-items-center font-bold">QA</div>
+        <h1 class="text-xl md:text-2xl font-semibold">QA Tracker</h1>
+      </div>
       <div id="authArea" class="flex items-center gap-3">
-        <button id="btnSignIn" class="btn">使用 Google 登入</button>
-        <div id="userInfo" class="hidden items-center gap-2">
-          <span id="userEmail" class="text-sm text-slate-600"></span>
+        <button id="btnSignIn" class="btn bg-white text-brand-700">使用 Google 登入</button>
+        <div id="userInfo" class="hidden items-center gap-3">
+          <span id="userEmail" class="text-sm opacity-90"></span>
           <button id="btnSignOut" class="btn-secondary">登出</button>
         </div>
       </div>
     </div>
   </header>
 
-  <main class="max-w-6xl mx-auto px-4 py-6">
-    <section class="bg-white rounded-2xl shadow p-4 md:p-6 mb-6">
-      <h2 class="text-xl font-semibold mb-4">建立 / 編輯資料</h2>
+  <main class="max-w-7xl mx-auto px-5 py-6 space-y-6">
+    <!-- Create/Edit Card -->
+    <section class="bg-white rounded-2xl shadow-soft p-5 md:p-6 border border-slate-100">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg md:text-xl font-semibold">建立 / 編輯資料</h2>
+        <div class="text-xs text-slate-500">* 全部欄位皆為非必填</div>
+      </div>
+
       <form id="recordForm" class="grid md:grid-cols-4 gap-4">
         <!-- Row 1 -->
         <div>
-          <label class="lbl">狀態</label>
+          <label class="block text-sm text-slate-600 mb-1">狀態</label>
           <select id="status" class="inp">
-			  <option value="1" selected>正常</option>
-			  <option value="0">停用</option>
-			  <option value="2">結案</option>
-			</select>
+            <option value="0">中止驗證</option>
+            <option value="1" selected>驗證中</option>
+            <option value="2">驗證完成</option>
+          </select>
         </div>
 
         <div>
-          <label class="lbl">完成日期</label>
+          <label class="block text-sm text-slate-600 mb-1">完成日期</label>
           <input id="completed_at" type="date" class="inp" />
         </div>
 
         <div>
-          <label class="lbl">Issue Number</label>
+          <label class="block text-sm text-slate-600 mb-1">Issue Number</label>
           <input id="issue_number" type="number" class="inp" placeholder="例如 1234" />
         </div>
 
         <div>
-          <label class="lbl">Test Plan</label>
+          <label class="block text-sm text-slate-600 mb-1">Test Plan</label>
           <select id="test_plan" class="inp">
             <option value="N" selected>N</option>
             <option value="Y">Y</option>
@@ -88,131 +125,148 @@
 
         <!-- Row 2 -->
         <div>
-          <label class="lbl">類型</label>
+          <label class="block text-sm text-slate-600 mb-1">類型</label>
           <select id="category" class="inp">
-            <option value="1" selected>1 = BUG</option>
-            <option value="2">2 = 改善</option>
-            <option value="3">3 = 優化</option>
-            <option value="4">4 = 模組</option>
-            <option value="5">5 = QA</option>
+            <option value="1" selected>BUG</option>
+            <option value="2">改善</option>
+            <option value="3">優化</option>
+            <option value="4">模組</option>
+            <option value="5">QA</option>
           </select>
         </div>
 
         <div class="md:col-span-3">
-          <label class="lbl">功能</label>
+          <label class="block text-sm text-slate-600 mb-1">功能</label>
           <input id="feature" type="text" class="inp" placeholder="文字描述" />
         </div>
 
         <div class="md:col-span-4">
-          <label class="lbl">Memo</label>
+          <label class="block text-sm text-slate-600 mb-1">Memo</label>
           <textarea id="memo" class="inp" rows="2" placeholder="備註（非必填）"></textarea>
         </div>
 
         <!-- Row 3 -->
         <div>
-          <label class="lbl">開始測試日期</label>
+          <label class="block text-sm text-slate-600 mb-1">開始測試日期</label>
           <input id="test_start_date" type="date" class="inp" />
         </div>
 
         <div>
-          <label class="lbl">預計交付日期</label>
+          <label class="block text-sm text-slate-600 mb-1">預計交付日期</label>
           <input id="eta_date" type="date" class="inp" />
         </div>
 
         <div>
-          <label class="lbl">發現 BUG</label>
+          <label class="block text-sm text-slate-600 mb-1">發現 BUG</label>
           <select id="bug_found" class="inp">
-            <option value="0" selected>0 = 否</option>
-            <option value="1">1 = 是</option>
+            <option value="0" selected>否</option>
+            <option value="1">是</option>
           </select>
         </div>
 
         <div>
-          <label class="lbl">可優化項目</label>
-          <input id="optimization_points" type="number" class="inp"
-       placeholder="數字；僅在 發現BUG=1 時可填"
-       min="0" step="1" disabled />
+          <label class="block text-sm text-slate-600 mb-1">可優化項目</label>
+          <input id="optimization_points" type="number" class="inp" placeholder="數字；僅在 發現BUG=1 時可填" min="0" step="1" disabled />
         </div>
 
         <!-- Row 4 -->
         <div>
-          <label class="lbl">驗證失敗</label>
+          <label class="block text-sm text-slate-600 mb-1">驗證失敗</label>
           <select id="verify_failed" class="inp">
-            <option value="0" selected>0 = 否</option>
-            <option value="1">1 = 是</option>
+            <option value="0" selected>否</option>
+            <option value="1">是</option>
           </select>
         </div>
 
         <div>
-          <label class="lbl">測試案例</label>
+          <label class="block text-sm text-slate-600 mb-1">測試案例</label>
           <input id="test_cases" type="number" class="inp" />
         </div>
 
         <div>
-          <label class="lbl">檔案數量</label>
+          <label class="block text-sm text-slate-600 mb-1">檔案數量</label>
           <input id="file_count" type="number" class="inp" />
         </div>
 
         <div class="md:col-span-4 flex flex-wrap gap-3 items-end">
           <button id="btnSave" class="btn" type="submit">儲存</button>
           <button id="btnReset" class="btn-secondary" type="button">重設</button>
-          <a id="issue_link_preview" class="text-blue-600 underline hidden" href="#" target="_blank" rel="noopener">打開 Issue</a>
+          <a id="issue_link_preview" class="text-brand-700 font-semibold underline hidden" href="#" target="_blank" rel="noopener">打開 Issue</a>
           <span id="saveMsg" class="ml-2 text-sm text-green-600"></span>
         </div>
       </form>
     </section>
 
-    <section class="bg-white rounded-2xl shadow p-4 md:p-6">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
-        <h2 class="text-xl font-semibold">資料列表</h2>
-        <div class="flex flex-wrap gap-2">
-          <input id="q_keyword" type="text" class="inp w-64" placeholder="搜尋 功能/Memo/Issue#"/>
-          <select id="q_status" class="inp">
-            <option value="">狀態 (全部)</option>
-            <option value="1">1</option>
-            <option value="0">0</option>
-            <option value="2">2</option>
-          </select>
-          <select id="q_category" class="inp">
-            <option value="">類型 (全部)</option>
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-          </select>
-          <button id="btnSearch" class="btn">搜尋</button>
-          <button id="btnExportCSV" class="btn-secondary">匯出 CSV</button>
+    <!-- List Card -->
+    <section id="listSection" class="relative bg-white rounded-2xl shadow-soft p-5 md:p-6 border border-slate-100">
+      <!-- Title row -->
+      <div class="mb-3">
+        <h2 class="text-lg md:text-xl font-semibold">資料列表</h2>
+      </div>
+
+      <!-- Filters single row -->
+      <div class="flex flex-wrap items-center gap-2 mb-2">
+        <input id="q_keyword" type="text" class="inp w-64" placeholder="搜尋 功能/Memo/Issue#"/>
+        <select id="q_status" class="inp">
+          <option value="" selected>狀態 (全部)</option>
+          <option value="0">中止驗證</option>
+          <option value="1">驗證中</option>
+          <option value="2">驗證完成</option>
+        </select>
+        <select id="q_category" class="inp">
+          <option value="" selected>類型 (全部)</option>
+          <option value="1">BUG</option>
+          <option value="2">改善</option>
+          <option value="3">優化</option>
+          <option value="4">模組</option>
+          <option value="5">QA</option>
+        </select>
+      </div>
+
+      <!-- Buttons row (right aligned) -->
+      <div class="flex justify-end gap-2 mb-3">
+        <button id="btnSearch" class="btn">搜尋</button>
+        <button id="btnExportCSV" class="btn-secondary">匯出 CSV</button>
+      </div>
+
+      <!-- Overlay (center big) -->
+      <div id="loadingOverlay" class="overlay hidden">
+        <div class="flex flex-col items-center gap-3 bg-white/80 rounded-2xl px-6 py-6 shadow-soft border border-slate-200">
+          <svg class="animate-spin h-8 w-8 text-brand-700" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+          </svg>
+          <div class="text-slate-700 font-medium">查詢中，請稍候…</div>
         </div>
       </div>
 
-      <div class="overflow-auto">
-        <table class="min-w-full border whitespace-nowrap" id="recordsTable">
-          <thead class="bg-slate-100">
+      <div id="tableWrap" class="overflow-auto border rounded-2xl">
+        <table class="min-w-full text-sm">
+          <thead class="table-head text-slate-600 text-xs uppercase tracking-wide">
             <tr>
-              <th class="th">Issue#</th>
-              <th class="th">連結</th>
-              <th class="th">狀態</th>
-              <th class="th">類型</th>
-              <th class="th">功能</th>
-              <th class="th">TestPlan</th>
-              <th class="th">BUG</th>
-              <th class="th">優化點數</th>
-              <th class="th">驗證失敗</th>
-              <th class="th">測試案例</th>
-              <th class="th">檔案數量</th>
-              <th class="th">開始測試</th>
-              <th class="th">預計交付</th>
-              <th class="th">完成日期</th>
-              <th class="th">Memo</th>
-              <th class="th">操作</th>
+              <th class="px-3 py-2 text-left">Issue#</th>
+              <th class="px-3 py-2 text-left">連結</th>
+              <th class="px-3 py-2 text-left">狀態</th>
+              <th class="px-3 py-2 text-left">類型</th>
+              <th class="px-3 py-2 text-left">功能</th>
+              <th class="px-3 py-2 text-left">TestPlan</th>
+              <th class="px-3 py-2 text-left">BUG</th>
+              <th class="px-3 py-2 text-left">優化點數</th>
+              <th class="px-3 py-2 text-left">驗證失敗</th>
+              <th class="px-3 py-2 text-left">測試案例</th>
+              <th class="px-3 py-2 text-left">檔案數量</th>
+              <th class="px-3 py-2 text-left">開始測試</th>
+              <th class="px-3 py-2 text-left">預計交付</th>
+              <th class="px-3 py-2 text-left">完成日期</th>
+              <th class="px-3 py-2 text-left">Memo</th>
+              <th class="px-3 py-2 text-left">操作</th>
             </tr>
           </thead>
           <tbody id="recordsTbody"></tbody>
         </table>
       </div>
 
-      <div class="flex justify-end mt-3 gap-2">
+      <div id="pager" class="flex justify-end mt-3 gap-2">
         <button id="btnPrev" class="btn-secondary">上一頁</button>
         <span id="pageInfo" class="text-sm text-slate-600 self-center"></span>
         <button id="btnNext" class="btn-secondary">下一頁</button>
@@ -220,421 +274,449 @@
     </section>
   </main>
 
+  <!-- App logic -->
   <script type="module">
-  import {
-  collection, addDoc, serverTimestamp, query, orderBy, limit, startAfter, getDocs,
-  updateDoc, doc, deleteDoc, getDoc, where
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import {
+      collection, addDoc, serverTimestamp, query, orderBy, limit, startAfter, getDocs,
+      updateDoc, doc, deleteDoc, getDoc, where
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// Auth UI
-const btnSignIn = document.getElementById('btnSignIn');
-const btnSignOut = document.getElementById('btnSignOut');
-const userInfo = document.getElementById('userInfo');
-const userEmail = document.getElementById('userEmail');
+    // Auth UI
+    const btnSignIn = document.getElementById('btnSignIn');
+    const btnSignOut = document.getElementById('btnSignOut');
+    const userInfo = document.getElementById('userInfo');
+    const userEmail = document.getElementById('userEmail');
 
-onAuthStateChanged(auth, (user)=>{
-  if(user){
-    btnSignIn.classList.add('hidden');
-    userInfo.classList.remove('hidden');
-    userEmail.textContent = user.email || user.uid;
-  }else{
-    btnSignIn.classList.remove('hidden');
-    userInfo.classList.add('hidden');
-    userEmail.textContent = '';
-  }
-});
+    onAuthStateChanged(auth, (user)=>{
+      if(user){
+        btnSignIn.classList.add('hidden');
+        userInfo.classList.remove('hidden');
+        userEmail.textContent = user.email || user.uid;
+      }else{
+        btnSignIn.classList.remove('hidden');
+        userInfo.classList.add('hidden');
+        userEmail.textContent = '';
+      }
+    });
 
-btnSignIn.addEventListener('click', async ()=>{
-  const provider = new GoogleAuthProvider();
-  await signInWithPopup(auth, provider);
-});
+    btnSignIn.addEventListener('click', async ()=>{
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    });
 
-btnSignOut.addEventListener('click', async ()=>{
-  await signOut(auth);
-});
+    btnSignOut.addEventListener('click', async ()=>{
+      await signOut(auth);
+    });
 
-// Form refs
-const form = document.getElementById('recordForm');
-const saveMsg = document.getElementById('saveMsg');
-const previewLink = document.getElementById('issue_link_preview');
+    // Form refs
+    const form = document.getElementById('recordForm');
+    const saveMsg = document.getElementById('saveMsg');
+    const previewLink = document.getElementById('issue_link_preview');
 
-const fields = {
-  status: document.getElementById('status'),
-  completed_at: document.getElementById('completed_at'),
-  issue_number: document.getElementById('issue_number'),
-  test_plan: document.getElementById('test_plan'),
-  category: document.getElementById('category'),
-  feature: document.getElementById('feature'),
-  memo: document.getElementById('memo'),
-  test_start_date: document.getElementById('test_start_date'),
-  eta_date: document.getElementById('eta_date'),
-  bug_found: document.getElementById('bug_found'),
-  optimization_points: document.getElementById('optimization_points'),
-  verify_failed: document.getElementById('verify_failed'),
-  test_cases: document.getElementById('test_cases'),
-  file_count: document.getElementById('file_count')
-};
+    const fields = {
+      status: document.getElementById('status'),
+      completed_at: document.getElementById('completed_at'),
+      issue_number: document.getElementById('issue_number'),
+      test_plan: document.getElementById('test_plan'),
+      category: document.getElementById('category'),
+      feature: document.getElementById('feature'),
+      memo: document.getElementById('memo'),
+      test_start_date: document.getElementById('test_start_date'),
+      eta_date: document.getElementById('eta_date'),
+      bug_found: document.getElementById('bug_found'),
+      optimization_points: document.getElementById('optimization_points'),
+      verify_failed: document.getElementById('verify_failed'),
+      test_cases: document.getElementById('test_cases'),
+      file_count: document.getElementById('file_count')
+    };
 
-// Conditional enable for optimization_points
-fields.bug_found.addEventListener('change', ()=>{
-  const enabled = fields.bug_found.value === '1';
-  fields.optimization_points.disabled = !enabled;
-  if(!enabled) fields.optimization_points.value = '';
-});
+    // Conditional enable for optimization_points
+    fields.bug_found.addEventListener('change', ()=>{
+      const enabled = fields.bug_found.value === '1';
+      fields.optimization_points.disabled = !enabled;
+      if(!enabled) fields.optimization_points.value = '';
+    });
 
-// Dynamic issue link preview
-const ISSUE_BASE = "https://gitlab.fb-tek.com/kh/imp/-/issues/";
-function updateIssuePreview(){
-  const n = fields.issue_number.value?.trim();
-  if(n){
-    previewLink.href = ISSUE_BASE + n;
-    previewLink.classList.remove('hidden');
-  }else{
-    previewLink.classList.add('hidden');
-  }
-}
-fields.issue_number.addEventListener('input', updateIssuePreview);
-
-// Save / Update logic
-let editingId = null;
-
-form.addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const payload = buildPayload();
-  try{
-    if(editingId){
-      await updateDoc(doc(db, 'records', editingId), payload);
-      showMsg('已更新');
-    }else{
-      await addDoc(collection(db, 'records'), { ...payload, created_at: serverTimestamp() });
-      showMsg('已儲存');
+    // Dynamic issue link preview
+    const ISSUE_BASE = "https://gitlab.fb-tek.com/kh/imp/-/issues/";
+    function updateIssuePreview(){
+      const n = fields.issue_number.value?.trim();
+      if(n){
+        previewLink.href = ISSUE_BASE + n;
+        previewLink.classList.remove('hidden');
+      }else{
+        previewLink.classList.add('hidden');
+      }
     }
-    form.reset();
-    updateIssuePreview();
-    editingId = null;
-    await reload();
-  }catch(err){
-    console.error(err);
-    showMsg('錯誤: ' + err.message, true);
-  }
-});
+    fields.issue_number.addEventListener('input', updateIssuePreview);
 
-document.getElementById('btnReset').addEventListener('click', ()=>{
-  editingId = null;
-  form.reset();
-  updateIssuePreview();
-  fields.optimization_points.disabled = fields.bug_found.value !== '1';
-});
+    // Save / Update logic
+    let editingId = null;
 
-function buildPayload(){
-  const toNum = (v)=> {
-    if (v === '' || v === null || v === undefined) return null;
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
-  };
-  const toStr = (v)=> v?.trim() || null;
-  const toDate = (v)=> v ? new Date(v) : null;
-
-  // 預設狀態/測試計畫（雙保險；HTML 已預設，但再保一次）
-  if (!['0','1','2'].includes(String(fields.status.value))) {
-    fields.status.value = '1';
-  }
-  if (!['Y','N'].includes(String(fields.test_plan.value))) {
-    fields.test_plan.value = 'N';
-  }
-
-  // Issue 連結
-  const issue_number = toNum(fields.issue_number.value);
-  const ISSUE_BASE = "https://gitlab.fb-tek.com/kh/imp/-/issues/";
-  const issue_link = issue_number ? (ISSUE_BASE + issue_number) : null;
-
-  // 可優化項目：只有在 bug_found=1 時保留數字，否則一律 null
-  const bugFoundIsYes = String(fields.bug_found.value) === '1';
-  const optimization_points = bugFoundIsYes ? toNum(fields.optimization_points.value) : null;
-
-  return {
-    status: toNum(fields.status.value),                     // 1/0/2
-    completed_at: toDate(fields.completed_at.value),        // 今天(預設)
-    issue_number,
-    test_plan: toStr(fields.test_plan.value),               // 'N' (預設) or 'Y'
-    category: toNum(fields.category.value),
-    feature: toStr(fields.feature.value),
-    issue_link,
-    memo: toStr(fields.memo.value),
-    test_start_date: toDate(fields.test_start_date.value),  // 今天(預設)
-    eta_date: toDate(fields.eta_date.value),                // 本週五(預設)
-    bug_found: toNum(fields.bug_found.value) ?? 0,
-    optimization_points,
-    verify_failed: toNum(fields.verify_failed.value) ?? 0,
-    test_cases: toNum(fields.test_cases.value),
-    file_count: toNum(fields.file_count.value)
-  };
-}
-
-function showMsg(text, isErr=false){
-  saveMsg.textContent = text;
-  saveMsg.classList.toggle('text-red-600', !!isErr);
-  saveMsg.classList.toggle('text-green-600', !isErr);
-  setTimeout(()=>{ saveMsg.textContent=''; }, 2000);
-}
-
-// Table + pagination
-const tbody = document.getElementById('recordsTbody');
-const btnPrev = document.getElementById('btnPrev');
-const btnNext = document.getElementById('btnNext');
-const pageInfo = document.getElementById('pageInfo');
-
-const qKeyword = document.getElementById('q_keyword');
-const qStatus = document.getElementById('q_status');
-const qCategory = document.getElementById('q_category');
-const btnSearch = document.getElementById('btnSearch');
-
-let pageSize = 20;
-let lastVisible = null;
-let firstVisible = null;
-let prevStack = [];
-
-async function fetchPage(forward=true){
-  let qBase = query(collection(db, 'records'), orderBy('created_at', 'desc'), limit(pageSize));
-  // Filters
-  if(qStatus.value){
-    qBase = query(collection(db, 'records'),
-      where('status', '==', Number(qStatus.value)),
-      orderBy('created_at', 'desc'),
-      limit(pageSize));
-  }
-  if(qCategory.value){
-    qBase = query(collection(db, 'records'),
-      where('category', '==', Number(qCategory.value)),
-      orderBy('created_at', 'desc'),
-      limit(pageSize));
-  }
-  if(qStatus.value && qCategory.value){
-    qBase = query(collection(db, 'records'),
-      where('status', '==', Number(qStatus.value)),
-      where('category', '==', Number(qCategory.value)),
-      orderBy('created_at', 'desc'),
-      limit(pageSize));
-  }
-
-  if(forward && lastVisible){
-    qBase = query(qBase, startAfter(lastVisible));
-  }
-
-  const snap = await getDocs(qBase);
-  const docs = snap.docs;
-  if(docs.length>0){
-    firstVisible = docs[0];
-    lastVisible = docs[docs.length-1];
-  }
-
-  // Keyword filter (client-side)
-  const kw = qKeyword.value.trim().toLowerCase();
-  let rows = docs.map(d => ({id: d.id, ...d.data()}));
-  if(kw){
-    rows = rows.filter(r => {
-      const fields = [r.feature, r.memo, r.issue_number?.toString() ?? ''];
-      return fields.some(x => (x || '').toLowerCase().includes(kw));
-    });
-  }
-
-  renderRows(rows);
-  pageInfo.textContent = `共 ${rows.length} 筆`;
-  return {docs, rows};
-}
-
-function renderRows(rows){
-  tbody.innerHTML = '';
-  for(const r of rows){
-    const tr = document.createElement('tr');
-    const link = r.issue_link ? `<a class="text-blue-600 underline" href="${r.issue_link}" target="_blank" rel="noopener">連結</a>` : '';
-    tr.innerHTML = `
-      <td>${r.issue_number ?? ''}</td>
-      <td>${link}</td>
-      <td>${r.status ?? ''}</td>
-      <td>${r.category ?? ''}</td>
-      <td>${r.feature ?? ''}</td>
-      <td>${r.test_plan ?? ''}</td>
-      <td>${r.bug_found ?? 0}</td>
-      <td>${r.optimization_points ?? ''}</td>
-      <td>${r.verify_failed ?? 0}</td>
-      <td>${r.test_cases ?? ''}</td>
-      <td>${r.file_count ?? ''}</td>
-      <td>${fmtDate(r.test_start_date)}</td>
-      <td>${fmtDate(r.eta_date)}</td>
-      <td>${fmtDate(r.completed_at)}</td>
-      <td class="max-w-[360px] whitespace-pre-wrap">${r.memo ?? ''}</td>
-      <td>
-        <button class="btn-secondary text-xs" data-edit="${r.id}">編輯</button>
-        <button class="btn-secondary text-xs" data-del="${r.id}">刪除</button>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  }
-
-  // Delegate actions
-  tbody.querySelectorAll('button[data-edit]').forEach(btn=>{
-    btn.addEventListener('click', async ()=>{
-      const id = btn.getAttribute('data-edit');
-      const ref = doc(db, 'records', id);
-      const snap = await getDoc(ref);
-      if(snap.exists()){
-        loadToForm(id, snap.data());
-        window.scrollTo({top:0, behavior:'smooth'});
-      }
-    });
-  });
-  tbody.querySelectorAll('button[data-del]').forEach(btn=>{
-    btn.addEventListener('click', async ()=>{
-      const id = btn.getAttribute('data-del');
-      if(confirm('確定刪除這筆資料？')){
-        await deleteDoc(doc(db, 'records', id));
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const payload = buildPayload();
+      try{
+        showLoading(true);
+        if(editingId){
+          await updateDoc(doc(db, 'records', editingId), payload);
+          showMsg('已更新');
+        }else{
+          await addDoc(collection(db, 'records'), { ...payload, created_at: serverTimestamp() });
+          showMsg('已儲存');
+        }
+        form.reset();
+        setDefaultsIfEmpty();
+        updateIssuePreview();
+        editingId = null;
         await reload();
+      }catch(err){
+        console.error(err);
+        showMsg('錯誤: ' + err.message, true);
+      } finally{
+        showLoading(false);
       }
     });
-  });
-}
 
-function fmtDate(v){
-  if(!v) return '';
-  try{
-    if(v.toDate) v = v.toDate();
-    const yyyy = v.getFullYear();
-    const mm = String(v.getMonth()+1).padStart(2,'0');
-    const dd = String(v.getDate()).padStart(2,'0');
-    return `${yyyy}-${mm}-${dd}`;
-  }catch(_){
-    return '';
-  }
-}
+    document.getElementById('btnReset').addEventListener('click', ()=>{
+      editingId = null;
+      form.reset();
+      setDefaultsIfEmpty();
+      updateIssuePreview();
+      fields.optimization_points.disabled = fields.bug_found.value !== '1';
+    });
 
-function loadToForm(id, data){
-  editingId = id;
-  fields.status.value = data.status ?? '';
-  fields.completed_at.value = data.completed_at ? fmtDate(data.completed_at) : '';
-  fields.issue_number.value = data.issue_number ?? '';
-  fields.test_plan.value = data.test_plan ?? '';
-  fields.category.value = data.category ?? '';
-  fields.feature.value = data.feature ?? '';
-  fields.memo.value = data.memo ?? '';
-  fields.test_start_date.value = data.test_start_date ? fmtDate(data.test_start_date) : '';
-  fields.eta_date.value = data.eta_date ? fmtDate(data.eta_date) : '';
-  fields.bug_found.value = data.bug_found ?? 0;
-  fields.verify_failed.value = data.verify_failed ?? 0;
-  fields.test_cases.value = data.test_cases ?? '';
-  fields.file_count.value = data.file_count ?? '';
-  fields.optimization_points.disabled = String(fields.bug_found.value) !== '1';
-  fields.optimization_points.value = data.optimization_points ?? '';
-  updateIssuePreview();
-}
+    function buildPayload(){
+      const toNum = (v)=> {
+        if (v === '' || v === null || v === undefined) return null;
+        const n = Number(v);
+        return Number.isFinite(n) ? n : null;
+      };
+      const toStr = (v)=> v?.trim() || null;
+      const toDate = (v)=> v ? new Date(v) : null;
 
-// Pagination & search
-btnNext.addEventListener('click', async ()=>{
-  prevStack.push(firstVisible);
-  await fetchPage(true);
-});
-btnPrev.addEventListener('click', async ()=>{
-  if(prevStack.length === 0) return;
-  lastVisible = prevStack.pop();
-  await reload(true);
-});
-btnSearch.addEventListener('click', async ()=>{
-  prevStack = [];
-  lastVisible = null;
-  await reload();
-});
+      if (!['0','1','2'].includes(String(fields.status.value))) {
+        fields.status.value = '1';
+      }
+      if (!['Y','N'].includes(String(fields.test_plan.value))) {
+        fields.test_plan.value = 'N';
+      }
 
-async function reload(forward=true){
-  await fetchPage(forward);
-}
+      const issue_number = toNum(fields.issue_number.value);
+      const issue_link = issue_number ? (ISSUE_BASE + issue_number) : null;
 
-updateIssuePreview();
-reload();
+      const bugFoundIsYes = String(fields.bug_found.value) === '1';
+      const optimization_points = bugFoundIsYes ? toNum(fields.optimization_points.value) : null;
 
-// CSV export (current table)
-document.getElementById('btnExportCSV').addEventListener('click', ()=>{
-  const rows = [["issue_number","issue_link","status","category","feature","test_plan","bug_found","optimization_points","verify_failed","test_cases","file_count","test_start_date","eta_date","completed_at","memo"]];
-  document.querySelectorAll("#recordsTbody tr").forEach(tr=>{
-    const cells = Array.from(tr.children).map(td => td.innerText.replaceAll('\n',' ').trim());
-    const [
-      issue_number, linkText, status, category, feature, test_plan, bug_found, optimization_points, verify_failed, test_cases, file_count, start, eta, done, memo
-    ] = cells;
-    const a = tr.querySelector('a');
-    const issue_link = a ? a.href : "";
-    rows.push([issue_number, issue_link, status, category, feature, test_plan, bug_found, optimization_points, verify_failed, test_cases, file_count, start, eta, done, memo]);
-  });
-  const csv = rows.map(r=> r.map(x => `"${(x??'').replaceAll('"','""')}"`).join(',')).join('\r\n');
-  const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'records.csv';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-});
+      return {
+        status: toNum(fields.status.value),
+        completed_at: toDate(fields.completed_at.value),
+        issue_number,
+        test_plan: toStr(fields.test_plan.value),
+        category: toNum(fields.category.value),
+        feature: toStr(fields.feature.value),
+        issue_link,
+        memo: toStr(fields.memo.value),
+        test_start_date: toDate(fields.test_start_date.value),
+        eta_date: toDate(fields.eta_date.value),
+        bug_found: toNum(fields.bug_found.value) ?? 0,
+        optimization_points,
+        verify_failed: toNum(fields.verify_failed.value) ?? 0,
+        test_cases: toNum(fields.test_cases.value),
+        file_count: toNum(fields.file_count.value)
+      };
+    }
 
-// ---------- Defaults on load ----------
-function formatDateInput(d) {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth()+1).padStart(2,'0');
-  const dd = String(d.getDate()).padStart(2,'0');
-  return `${yyyy}-${mm}-${dd}`;
-}
+    function showMsg(text, isErr=false){
+      saveMsg.textContent = text;
+      saveMsg.classList.toggle('text-red-600', !!isErr);
+      saveMsg.classList.toggle('text-green-600', !isErr);
+      setTimeout(()=>{ saveMsg.textContent=''; }, 1800);
+    }
 
-// 本週五（以週一為一週開始）
-function thisFriday(from = new Date()) {
-  const d = new Date(from);
-  const day = d.getDay(); // 0(日)~6(六)
-  // 讓週一為 1，週五為 5
-  const map = {0:7,1:1,2:2,3:3,4:4,5:5,6:6};
-  const dow = map[day];
-  const delta = 5 - dow; // 距離週五的天數
-  d.setDate(d.getDate() + delta);
-  return d;
-}
+    // Table + pagination
+    const listSection = document.getElementById('listSection');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const tableWrap = document.getElementById('tableWrap');
+    const pager = document.getElementById('pager');
+    const tbody = document.getElementById('recordsTbody');
+    const btnPrev = document.getElementById('btnPrev');
+    const btnNext = document.getElementById('btnNext');
+    const pageInfo = document.getElementById('pageInfo');
 
-// 嚴格控管「可優化項目」啟用/清空
-function toggleOptimizationPoints() {
-  const enabled = fields.bug_found.value === '1';
-  fields.optimization_points.disabled = !enabled;
-  if (!enabled) {
-    fields.optimization_points.value = '';
-  }
-}
+    const qKeyword = document.getElementById('q_keyword');
+    const qStatus = document.getElementById('q_status');
+    const qCategory = document.getElementById('q_category');
+    const btnSearch = document.getElementById('btnSearch');
 
-// 設定預設值（僅在建立新資料或初次載入時）
-function setDefaultsIfEmpty() {
-  // 狀態：若沒值或不是 0/1/2，就設為 1
-  if (!['0','1','2'].includes(String(fields.status.value))) {
-    fields.status.value = '1';
-  }
-  // TestPlan：若不是 Y/N，就設為 N
-  if (!['Y','N'].includes(String(fields.test_plan.value))) {
-    fields.test_plan.value = 'N';
-  }
-  // 完成日期/開始測試日期 預設今天（若空白）
-  const today = new Date();
-  if (!fields.completed_at.value) {
-    fields.completed_at.value = formatDateInput(today);
-  }
-  if (!fields.test_start_date.value) {
-    fields.test_start_date.value = formatDateInput(today);
-  }
-  // 預計交付日期 預設本週五（若空白）
-  if (!fields.eta_date.value) {
-    fields.eta_date.value = formatDateInput(thisFriday(today));
-  }
-  // 套用「可優化項目」啟用規則
-  toggleOptimizationPoints();
-}
+    let pageSize = 20;
+    let lastVisible = null;
+    let firstVisible = null;
+    let prevStack = [];
 
-// 初次載入時套用預設
-setDefaultsIfEmpty();
-// 變更「發現 BUG」即時套用可優化項目規則
-fields.bug_found.addEventListener('change', toggleOptimizationPoints);
-  
+    function showLoading(show){
+      if(show){
+        loadingOverlay.classList.remove('hidden');
+        tableWrap.classList.add('invisible');
+        pager.classList.add('invisible');
+      }else{
+        loadingOverlay.classList.add('hidden');
+        tableWrap.classList.remove('invisible');
+        pager.classList.remove('invisible');
+      }
+    }
+
+    async function fetchPage(forward=true){
+      showLoading(true);
+      try{
+        let qBase = query(collection(db, 'records'), orderBy('created_at', 'desc'), limit(pageSize));
+        if(qStatus.value){
+          qBase = query(collection(db, 'records'),
+            where('status', '==', Number(qStatus.value)),
+            orderBy('created_at', 'desc'),
+            limit(pageSize));
+        }
+        if(qCategory.value){
+          qBase = query(collection(db, 'records'),
+            where('category', '==', Number(qCategory.value)),
+            orderBy('created_at', 'desc'),
+            limit(pageSize));
+        }
+        if(qStatus.value && qCategory.value){
+          qBase = query(collection(db, 'records'),
+            where('status', '==', Number(qStatus.value)),
+            where('category', '==', Number(qCategory.value)),
+            orderBy('created_at', 'desc'),
+            limit(pageSize));
+        }
+
+        if(forward && lastVisible){
+          qBase = query(qBase, startAfter(lastVisible));
+        }
+
+        const snap = await getDocs(qBase);
+        const docs = snap.docs;
+        if(docs.length>0){
+          firstVisible = docs[0];
+          lastVisible = docs[docs.length-1];
+        }
+
+        const kw = qKeyword.value.trim().toLowerCase();
+        let rows = docs.map(d => ({id: d.id, ...d.data()}));
+        if(kw){
+          rows = rows.filter(r => {
+            const pool = [r.feature, r.memo, r.issue_number?.toString() ?? ''];
+            return pool.some(x => (x || '').toLowerCase().includes(kw));
+          });
+        }
+
+        renderRows(rows);
+        pageInfo.textContent = `共 ${rows.length} 筆`;
+        return {docs, rows};
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    const statusChip = (v)=>{
+      if(v === 1) return '<span class="chip chip-green">驗證中</span>';
+      if(v === 0) return '<span class="chip chip-gray">中止驗證</span>';
+      if(v === 2) return '<span class="chip chip-amber">驗證完成</span>';
+      return '';
+    };
+    const categoryChip = (v)=>{
+      const map = {
+        1: ['BUG','chip-red'],
+        2: ['改善','chip-indigo'],
+        3: ['優化','chip-indigo'],
+        4: ['模組','chip-gray'],
+        5: ['QA','chip-gray']
+      };
+      const item = map[v];
+      return item ? `<span class="chip ${item[1]}">${item[0]}</span>` : '';
+    };
+
+    function renderRows(rows){
+      tbody.innerHTML = '';
+      for(const r of rows){
+        const tr = document.createElement('tr');
+        tr.className = 'row';
+        const link = r.issue_link ? `<a class="text-brand-700 underline font-medium" href="${r.issue_link}" target="_blank" rel="noopener">連結</a>` : '';
+        tr.innerHTML = `
+          <td class="px-3 py-2">${r.issue_number ?? ''}</td>
+          <td class="px-3 py-2">${link}</td>
+          <td class="px-3 py-2">${statusChip(r.status)}</td>
+          <td class="px-3 py-2">${categoryChip(r.category)}</td>
+          <td class="px-3 py-2">${r.feature ?? ''}</td>
+          <td class="px-3 py-2">${r.test_plan ?? ''}</td>
+          <td class="px-3 py-2">${r.bug_found ?? 0}</td>
+          <td class="px-3 py-2">${r.optimization_points ?? ''}</td>
+          <td class="px-3 py-2">${r.verify_failed ?? 0}</td>
+          <td class="px-3 py-2">${r.test_cases ?? ''}</td>
+          <td class="px-3 py-2">${r.file_count ?? ''}</td>
+          <td class="px-3 py-2">${fmtDate(r.test_start_date)}</td>
+          <td class="px-3 py-2">${fmtDate(r.eta_date)}</td>
+          <td class="px-3 py-2">${fmtDate(r.completed_at)}</td>
+          <td class="px-3 py-2 max-w-[420px] whitespace-pre-wrap">${r.memo ?? ''}</td>
+          <td class="px-3 py-2">
+            <div class="flex gap-2">
+              <button class="btn-secondary text-xs" data-edit="${r.id}">編輯</button>
+              <button class="btn-secondary text-xs" data-del="${r.id}">刪除</button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      }
+
+      tbody.querySelectorAll('button[data-edit]').forEach(btn=>{
+        btn.addEventListener('click', async ()=>{
+          const id = btn.getAttribute('data-edit');
+          const ref = doc(db, 'records', id);
+          const snap = await getDoc(ref);
+          if(snap.exists()){
+            loadToForm(id, snap.data());
+            window.scrollTo({top:0, behavior:'smooth'});
+          }
+        });
+      });
+      tbody.querySelectorAll('button[data-del]').forEach(btn=>{
+        btn.addEventListener('click', async ()=>{
+          const id = btn.getAttribute('data-del');
+          if(confirm('確定刪除這筆資料？')){
+            await deleteDoc(doc(db, 'records', id));
+            await reload();
+          }
+        });
+      });
+    }
+
+    function fmtDate(v){
+      if(!v) return '';
+      try{
+        if(v.toDate) v = v.toDate();
+        const yyyy = v.getFullYear();
+        const mm = String(v.getMonth()+1).padStart(2,'0');
+        const dd = String(v.getDate()).padStart(2,'0');
+        return `${yyyy}-${mm}-${dd}`;
+      }catch(_){
+        return '';
+      }
+    }
+
+    function loadToForm(id, data){
+      editingId = id;
+      fields.status.value = data.status ?? '1';
+      fields.completed_at.value = data.completed_at ? fmtDate(data.completed_at) : '';
+      fields.issue_number.value = data.issue_number ?? '';
+      fields.test_plan.value = data.test_plan ?? 'N';
+      fields.category.value = data.category ?? '';
+      fields.feature.value = data.feature ?? '';
+      fields.memo.value = data.memo ?? '';
+      fields.test_start_date.value = data.test_start_date ? fmtDate(data.test_start_date) : '';
+      fields.eta_date.value = data.eta_date ? fmtDate(data.eta_date) : '';
+      fields.bug_found.value = data.bug_found ?? 0;
+      fields.verify_failed.value = data.verify_failed ?? 0;
+      fields.test_cases.value = data.test_cases ?? '';
+      fields.file_count.value = data.file_count ?? '';
+      fields.optimization_points.disabled = String(fields.bug_found.value) !== '1';
+      fields.optimization_points.value = data.optimization_points ?? '';
+      updateIssuePreview();
+    }
+
+    // Pagination & search
+    btnNext.addEventListener('click', async ()=>{
+      prevStack.push(firstVisible);
+      await fetchPage(true);
+    });
+    btnPrev.addEventListener('click', async ()=>{
+      if(prevStack.length === 0) return;
+      lastVisible = prevStack.pop();
+      await reload(true);
+    });
+    btnSearch.addEventListener('click', async ()=>{
+      prevStack = [];
+      lastVisible = null;
+      await reload();
+    });
+
+    async function reload(forward=true){
+      await fetchPage(forward);
+    }
+
+    // CSV export (current table)
+    document.getElementById('btnExportCSV').addEventListener('click', ()=>{
+      const rows = [["issue_number","issue_link","status","category","feature","test_plan","bug_found","optimization_points","verify_failed","test_cases","file_count","test_start_date","eta_date","completed_at","memo"]];
+      document.querySelectorAll("#recordsTbody tr").forEach(tr=>{
+        const cells = Array.from(tr.children).map(td => td.innerText.replaceAll('\\n',' ').trim());
+        const [
+          issue_number, linkText, status, category, feature, test_plan, bug_found, optimization_points, verify_failed, test_cases, file_count, start, eta, done, memo
+        ] = cells;
+        const a = tr.querySelector('a');
+        const issue_link = a ? a.href : "";
+        rows.push([issue_number, issue_link, status, category, feature, test_plan, bug_found, optimization_points, verify_failed, test_cases, file_count, start, eta, done, memo]);
+      });
+      const csv = rows.map(r=> r.map(x => `"${(x??'').replaceAll('"','""')}"`).join(',')).join('\\r\\n');
+      const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'records.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+
+    // ---------- Defaults on load ----------
+    function formatDateInput(d) {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      const dd = String(d.getDate()).padStart(2,'0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    function thisFriday(from = new Date()) {
+      const d = new Date(from);
+      const day = d.getDay();
+      const map = {0:7,1:1,2:2,3:3,4:4,5:5,6:6};
+      const dow = map[day];
+      const delta = 5 - dow;
+      d.setDate(d.getDate() + delta);
+      return d;
+    }
+
+    function toggleOptimizationPoints() {
+      const enabled = fields.bug_found.value === '1';
+      fields.optimization_points.disabled = !enabled;
+      if (!enabled) {
+        fields.optimization_points.value = '';
+      }
+    }
+
+    function setDefaultsIfEmpty() {
+      if (!['0','1','2'].includes(String(fields.status.value))) {
+        fields.status.value = '1';
+      }
+      if (!['Y','N'].includes(String(fields.test_plan.value))) {
+        fields.test_plan.value = 'N';
+      }
+      const today = new Date();
+      //if (!fields.completed_at.value) {
+       // fields.completed_at.value = formatDateInput(today);
+      //}
+      if (!fields.test_start_date.value) {
+        fields.test_start_date.value = formatDateInput(today);
+      }
+      if (!fields.eta_date.value) {
+        fields.eta_date.value = formatDateInput(thisFriday(today));
+      }
+      toggleOptimizationPoints();
+    }
+
+    // 初次載入：套預設 + 立刻查詢
+    setDefaultsIfEmpty();
+    reload();
+    fields.bug_found.addEventListener('change', toggleOptimizationPoints);
   </script>
 </body>
 </html>
