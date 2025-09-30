@@ -99,8 +99,8 @@
         <div>
           <label class="block text-sm text-slate-600 mb-1">狀態</label>
           <select id="status" class="inp">
-            <option value="0">中止驗證</option>
             <option value="1" selected>驗證中</option>
+            <option value="0">中止驗證</option>
             <option value="2">驗證完成</option>
           </select>
         </div>
@@ -209,8 +209,8 @@
         <input id="q_keyword" type="text" class="inp w-64" placeholder="搜尋 功能/Memo/Issue#"/>
         <select id="q_status" class="inp">
           <option value="" selected>狀態 (全部)</option>
-          <option value="0">中止驗證</option>
           <option value="1">驗證中</option>
+          <option value="0">中止驗證</option>
           <option value="2">驗證完成</option>
         </select>
         <select id="q_category" class="inp">
@@ -453,6 +453,8 @@
     let lastVisible = null;
     let firstVisible = null;
     let prevStack = [];
+	let _cacheRows = [];   // 全部查回後、已排序的全集資料
+	let _pageIndex = 0;    // 目前頁碼（0-based）
 
     function showLoading(show){
       if(show){
@@ -465,58 +467,89 @@
         pager.classList.remove('invisible');
       }
     }
+	
+	// 小工具：安全取得 created_at 的毫秒值
+	function _toMillis(v){
+	  if (!v) return 0;
+	  if (typeof v.toMillis === 'function') return v.toMillis();
+	  if (typeof v.toDate === 'function') return v.toDate().getTime();
+	  if (v instanceof Date) return v.getTime();
+	  if (typeof v === 'number') return v;
+	  return 0;
+	}
 
-    async function fetchPage(forward=true){
-      showLoading(true);
-      try{
-        let qBase = query(collection(db, 'records'), orderBy('created_at', 'desc'), limit(pageSize));
-        if(qStatus.value){
-          qBase = query(collection(db, 'records'),
-            where('status', '==', Number(qStatus.value)),
-            orderBy('created_at', 'desc'),
-            limit(pageSize));
-        }
-        if(qCategory.value){
-          qBase = query(collection(db, 'records'),
-            where('category', '==', Number(qCategory.value)),
-            orderBy('created_at', 'desc'),
-            limit(pageSize));
-        }
-        if(qStatus.value && qCategory.value){
-          qBase = query(collection(db, 'records'),
-            where('status', '==', Number(qStatus.value)),
-            where('category', '==', Number(qCategory.value)),
-            orderBy('created_at', 'desc'),
-            limit(pageSize));
-        }
 
-        if(forward && lastVisible){
-          qBase = query(qBase, startAfter(lastVisible));
-        }
+	async function fetchPage(forward = true) {
+	  showLoading(true);
+	  try {
+		// 1) 蒐集查詢條件（不使用 orderBy、不用游標）
+		const constraints = [ limit(2000) ]; // 視資料量調整
+		if (qStatus.value !== '')   constraints.push(where('status', '==', Number(qStatus.value)));
+		if (qCategory.value !== '') constraints.push(where('category', '==', Number(qCategory.value)));
 
-        const snap = await getDocs(qBase);
-        const docs = snap.docs;
-        if(docs.length>0){
-          firstVisible = docs[0];
-          lastVisible = docs[docs.length-1];
-        }
+		const kw = (qKeyword?.value ?? '').trim();
+		const kwIsNumber = kw !== '' && !Number.isNaN(Number(kw));
+		const kwIsText   = kw !== '' && !kwIsNumber;
 
-        const kw = qKeyword.value.trim().toLowerCase();
-        let rows = docs.map(d => ({id: d.id, ...d.data()}));
-        if(kw){
-          rows = rows.filter(r => {
-            const pool = [r.feature, r.memo, r.issue_number?.toString() ?? ''];
-            return pool.some(x => (x || '').toLowerCase().includes(kw));
-          });
-        }
+		if (kwIsNumber) {
+		  constraints.push(where('issue_number', '==', Number(kw)));
+		} else if (kwIsText) {
+		  // 前綴搜尋（仍避免使用 orderBy，以免觸發複合索引）
+		  constraints.push(where('feature', '>=', kw));
+		  constraints.push(where('feature', '<=', kw + '\uf8ff'));
+		}
 
-        renderRows(rows);
-        pageInfo.textContent = `共 ${rows.length} 筆`;
-        return {docs, rows};
-      } finally {
-        showLoading(false);
-      }
-    }
+		// 2) 一次撈回
+		const qBase = query(collection(db, 'records'), ...constraints);
+		const snap  = await getDocs(qBase);
+		let rows    = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+		// 3) （可選）文字關鍵字再做一次前端包含過濾，縮小結果
+		if (kwIsText) {
+		  const low = kw.toLowerCase();
+		  rows = rows.filter(r => {
+			const pool = [
+			  r.feature,
+			  r.memo,
+			  (r.issue_number ?? '').toString()
+			];
+			return pool.some(x => (x || '').toLowerCase().includes(low));
+		  });
+		}
+
+		// 4) 前端排序：issue_number ↓、status ↓、created_at ↓
+		rows.sort((a, b) => {
+		  const n1 = Number(a.issue_number ?? 0);
+		  const n2 = Number(b.issue_number ?? 0);
+		  if (n1 !== n2) return n2 - n1; // issue_number 大的在前
+
+		  const s1 = Number(a.status ?? 0);
+		  const s2 = Number(b.status ?? 0);
+		  if (s1 !== s2) return s2 - s1; // status 大的在前
+
+		  return _toMillis(b.created_at) - _toMillis(a.created_at); // 新的在前
+		});
+
+		// 5) 快取 + 顯示第一頁
+		_cacheRows = rows;
+		_pageIndex = 0;
+
+		const total = _cacheRows.length;
+		const pageRows = _cacheRows.slice(0, pageSize);
+		renderRows(pageRows);
+
+		const totalPages = Math.max(1, Math.ceil(total / pageSize));
+		pageInfo.textContent = `共 ${total} 筆（第 ${_pageIndex + 1} / ${totalPages} 頁）`;
+
+	  } catch (err) {
+		console.error('Query error:', err);
+		showMsg('查詢錯誤：' + (err?.message || err), true);
+		renderRows([]);
+		pageInfo.textContent = '共 0 筆';
+	  } finally {
+		showLoading(false);
+	  }
+	}
 
     const statusChip = (v)=>{
       if(v === 1) return '<span class="chip chip-green">驗證中</span>';
@@ -624,20 +657,30 @@
     }
 
     // Pagination & search
-    btnNext.addEventListener('click', async ()=>{
-      prevStack.push(firstVisible);
-      await fetchPage(true);
-    });
-    btnPrev.addEventListener('click', async ()=>{
-      if(prevStack.length === 0) return;
-      lastVisible = prevStack.pop();
-      await reload(true);
-    });
-    btnSearch.addEventListener('click', async ()=>{
-      prevStack = [];
-      lastVisible = null;
-      await reload();
-    });
+	btnNext.addEventListener('click', ()=>{
+	  if (_cacheRows.length === 0) return;
+	  const totalPages = Math.max(1, Math.ceil(_cacheRows.length / pageSize));
+	  _pageIndex = Math.min(_pageIndex + 1, totalPages - 1);
+	  const start = _pageIndex * pageSize;
+	  renderRows(_cacheRows.slice(start, start + pageSize));
+	  pageInfo.textContent = `共 ${_cacheRows.length} 筆（第 ${_pageIndex + 1} / ${totalPages} 頁）`;
+	});
+
+	btnPrev.addEventListener('click', ()=>{
+	  if (_cacheRows.length === 0) return;
+	  const totalPages = Math.max(1, Math.ceil(_cacheRows.length / pageSize));
+	  _pageIndex = Math.max(_pageIndex - 1, 0);
+	  const start = _pageIndex * pageSize;
+	  renderRows(_cacheRows.slice(start, start + pageSize));
+	  pageInfo.textContent = `共 ${_cacheRows.length} 筆（第 ${_pageIndex + 1} / ${totalPages} 頁）`;
+	});
+
+	// 「搜尋」維持原本行為：重置並重新查詢
+	btnSearch.addEventListener('click', async () => {
+		_pageIndex = 0;
+		_cacheRows = [];
+		await reload(); // 內部會呼叫 fetchPage()，並重建快取
+	});
 
     async function reload(forward=true){
       await fetchPage(forward);
