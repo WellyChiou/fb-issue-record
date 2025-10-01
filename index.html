@@ -99,9 +99,9 @@
         <div>
           <label class="block text-sm text-slate-600 mb-1">狀態</label>
           <select id="status" class="inp">
-            <option value="1" selected>驗證中</option>
-            <option value="0">中止驗證</option>
-            <option value="2">驗證完成</option>
+            <option value="1" selected>執行中</option>
+            <option value="0">執行中止</option>
+            <option value="2">完成</option>
           </select>
         </div>
 
@@ -118,8 +118,8 @@
         <div>
           <label class="block text-sm text-slate-600 mb-1">Test Plan</label>
           <select id="test_plan" class="inp">
-            <option value="N" selected>N</option>
-            <option value="Y">Y</option>
+            <option value="0" selected>N</option>
+            <option value="1">Y</option>
           </select>
         </div>
 
@@ -140,21 +140,45 @@
           <input id="feature" type="text" class="inp" placeholder="文字描述" />
         </div>
 
+        <!-- Row 3 -->
         <div class="md:col-span-4">
           <label class="block text-sm text-slate-600 mb-1">Memo</label>
           <textarea id="memo" class="inp" rows="2" placeholder="備註（非必填）"></textarea>
         </div>
 
-        <!-- Row 3 -->
-        <div>
+        <!-- Row 4 -->
+        <div class="md:col-span-2">
           <label class="block text-sm text-slate-600 mb-1">開始測試日期</label>
           <input id="test_start_date" type="date" class="inp" />
         </div>
 
-        <div>
+        <div class="md:col-span-2">
           <label class="block text-sm text-slate-600 mb-1">預計交付日期</label>
           <input id="eta_date" type="date" class="inp" />
         </div>
+		
+
+        <!-- Row 5 -->
+        <div>
+          <label class="block text-sm text-slate-600 mb-1">驗證失敗</label>
+          <select id="verify_failed" class="inp">
+            <option value="0" selected>否</option>
+            <option value="1">是</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm text-slate-600 mb-1">測試案例</label>
+          <input id="test_cases" type="number" class="inp" value="0" />
+        </div>
+
+        <div>
+          <label class="block text-sm text-slate-600 mb-1">檔案數量</label>
+          <input id="file_count" type="number" class="inp" value="0" />
+        </div>
+
+        <div class="md:col-span-1">
+		</div>
+        <!-- Row 6 -->
 
         <div>
           <label class="block text-sm text-slate-600 mb-1">發現 BUG</label>
@@ -168,31 +192,15 @@
           <label class="block text-sm text-slate-600 mb-1">可優化項目</label>
           <input id="optimization_points" type="number" class="inp" placeholder="數字；僅在 發現BUG=1 時可填" min="0" step="1" disabled />
         </div>
+        <div class="md:col-span-2">
+		</div>
 
-        <!-- Row 4 -->
-        <div>
-          <label class="block text-sm text-slate-600 mb-1">驗證失敗</label>
-          <select id="verify_failed" class="inp">
-            <option value="0" selected>否</option>
-            <option value="1">是</option>
-          </select>
-        </div>
-
-        <div>
-          <label class="block text-sm text-slate-600 mb-1">測試案例</label>
-          <input id="test_cases" type="number" class="inp" />
-        </div>
-
-        <div>
-          <label class="block text-sm text-slate-600 mb-1">檔案數量</label>
-          <input id="file_count" type="number" class="inp" />
-        </div>
-
+        <!-- Row 7 -->
         <div class="md:col-span-4 flex flex-wrap gap-3 items-end">
           <button id="btnSave" class="btn" type="submit">儲存</button>
           <button id="btnReset" class="btn-secondary" type="button">重設</button>
-          <a id="issue_link_preview" class="text-brand-700 font-semibold underline hidden" href="#" target="_blank" rel="noopener">打開 Issue</a>
           <span id="saveMsg" class="ml-2 text-sm text-green-600"></span>
+          <a id="issue_link_preview" class="text-brand-700 font-semibold underline hidden" href="#" target="_blank" rel="noopener">打開 Issue</a>
         </div>
       </form>
     </section>
@@ -209,9 +217,9 @@
         <input id="q_keyword" type="text" class="inp w-64" placeholder="搜尋 功能/Memo/Issue#"/>
         <select id="q_status" class="inp">
           <option value="" selected>狀態 (全部)</option>
-          <option value="1">驗證中</option>
-          <option value="0">中止驗證</option>
-          <option value="2">驗證完成</option>
+          <option value="1">執行中</option>
+          <option value="0">執行中止</option>
+          <option value="2">完成</option>
         </select>
         <select id="q_category" class="inp">
           <option value="" selected>類型 (全部)</option>
@@ -249,14 +257,11 @@
               <th class="px-3 py-2 text-left">狀態</th>
               <th class="px-3 py-2 text-left">類型</th>
               <th class="px-3 py-2 text-left">功能</th>
-              <th class="px-3 py-2 text-left">TestPlan</th>
+              <th class="px-3 py-2 text-left">Test Plan</th>
               <th class="px-3 py-2 text-left">BUG</th>
-              <th class="px-3 py-2 text-left">優化點數</th>
               <th class="px-3 py-2 text-left">驗證失敗</th>
-              <th class="px-3 py-2 text-left">測試案例</th>
-              <th class="px-3 py-2 text-left">檔案數量</th>
-              <th class="px-3 py-2 text-left">開始測試</th>
-              <th class="px-3 py-2 text-left">預計交付</th>
+              <th class="px-3 py-2 text-left">開始測試日期</th>
+              <th class="px-3 py-2 text-left">預計交付日期</th>
               <th class="px-3 py-2 text-left">完成日期</th>
               <th class="px-3 py-2 text-left">Memo</th>
               <th class="px-3 py-2 text-left">操作</th>
@@ -398,15 +403,15 @@
       if (!['0','1','2'].includes(String(fields.status.value))) {
         fields.status.value = '1';
       }
-      if (!['Y','N'].includes(String(fields.test_plan.value))) {
-        fields.test_plan.value = 'N';
+      if (!['1','0'].includes(String(fields.test_plan.value))) {
+        fields.test_plan.value = '0';
       }
 
       const issue_number = toNum(fields.issue_number.value);
       const issue_link = issue_number ? (ISSUE_BASE + issue_number) : null;
 
       const bugFoundIsYes = String(fields.bug_found.value) === '1';
-      const optimization_points = bugFoundIsYes ? toNum(fields.optimization_points.value) : null;
+      const optimization_points = bugFoundIsYes ? toNum(fields.optimization_points.value) : 0;
 
       return {
         status: toNum(fields.status.value),
@@ -552,9 +557,9 @@
 	}
 
     const statusChip = (v)=>{
-      if(v === 1) return '<span class="chip chip-green">驗證中</span>';
-      if(v === 0) return '<span class="chip chip-gray">中止驗證</span>';
-      if(v === 2) return '<span class="chip chip-amber">驗證完成</span>';
+      if(v === 1) return '<span class="chip chip-green">執行中</span>';
+      if(v === 0) return '<span class="chip chip-gray">執行中止</span>';
+      if(v === 2) return '<span class="chip chip-amber">完成</span>';
       return '';
     };
     const categoryChip = (v)=>{
@@ -568,7 +573,9 @@
       const item = map[v];
       return item ? `<span class="chip ${item[1]}">${item[0]}</span>` : '';
     };
-
+	
+	const toYN = (v) => (v === 1 || v === '1' || String(v).toUpperCase() === 'Y') ? 'Y' : 'N';
+	
     function renderRows(rows){
       tbody.innerHTML = '';
       for(const r of rows){
@@ -581,12 +588,9 @@
           <td class="px-3 py-2">${statusChip(r.status)}</td>
           <td class="px-3 py-2">${categoryChip(r.category)}</td>
           <td class="px-3 py-2">${r.feature ?? ''}</td>
-          <td class="px-3 py-2">${r.test_plan ?? ''}</td>
-          <td class="px-3 py-2">${r.bug_found ?? 0}</td>
-          <td class="px-3 py-2">${r.optimization_points ?? ''}</td>
-          <td class="px-3 py-2">${r.verify_failed ?? 0}</td>
-          <td class="px-3 py-2">${r.test_cases ?? ''}</td>
-          <td class="px-3 py-2">${r.file_count ?? ''}</td>
+          <td class="px-3 py-2">${toYN(r.test_plan)}</td>
+          <td class="px-3 py-2">${toYN(r.bug_found)}</td>
+          <td class="px-3 py-2">${toYN(r.verify_failed)}</td>
           <td class="px-3 py-2">${fmtDate(r.test_start_date)}</td>
           <td class="px-3 py-2">${fmtDate(r.eta_date)}</td>
           <td class="px-3 py-2">${fmtDate(r.completed_at)}</td>
@@ -641,7 +645,7 @@
       fields.status.value = data.status ?? '1';
       fields.completed_at.value = data.completed_at ? fmtDate(data.completed_at) : '';
       fields.issue_number.value = data.issue_number ?? '';
-      fields.test_plan.value = data.test_plan ?? 'N';
+      fields.test_plan.value = data.test_plan ?? '0';
       fields.category.value = data.category ?? '';
       fields.feature.value = data.feature ?? '';
       fields.memo.value = data.memo ?? '';
@@ -734,6 +738,36 @@
       if (!enabled) {
         fields.optimization_points.value = '';
       }
+
+	  // 發現 BUG = 是 時的自動欄位處理
+	  if (fields.bug_found.value === '1') {
+		// 清空開始測試日期、預計交付日期
+		fields.test_start_date.value = '';
+		fields.eta_date.value = '';
+
+		// 完成日期帶入今日
+		const today = new Date();
+		const yyyy = today.getFullYear();
+		const mm = String(today.getMonth() + 1).padStart(2, '0');
+		const dd = String(today.getDate()).padStart(2, '0');
+		fields.completed_at.value = `${yyyy}-${mm}-${dd}`;
+		// 預設完成
+		fields.status.value = '2';
+		
+	  }else{
+		const today = new Date();
+		fields.completed_at.value = '';
+	
+		if (!fields.test_start_date.value) {
+			fields.test_start_date.value = formatDateInput(today);
+		}
+		if (!fields.eta_date.value) {
+			fields.eta_date.value = formatDateInput(thisFriday(today));
+		}
+		// 執行中
+		fields.status.value = '1';
+		
+	  }
     }
 
     function setDefaultsIfEmpty() {
@@ -741,7 +775,7 @@
         fields.status.value = '1';
       }
       if (!['Y','N'].includes(String(fields.test_plan.value))) {
-        fields.test_plan.value = 'N';
+        fields.test_plan.value = '0';
       }
       const today = new Date();
       //if (!fields.completed_at.value) {
