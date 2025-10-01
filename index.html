@@ -360,6 +360,12 @@
 
     form.addEventListener('submit', async (e)=>{
       e.preventDefault();
+      // 驗證 issue_number 是否有填
+	  if (!fields.issue_number.value || fields.issue_number.value.trim() === '') {
+		showMsg('錯誤: 請填寫 Issue Number', true);
+		fields.issue_number.focus();
+		return; // 中斷，不進行儲存
+	  }
       const payload = buildPayload();
       try{
         showLoading(true);
@@ -436,7 +442,7 @@
       saveMsg.textContent = text;
       saveMsg.classList.toggle('text-red-600', !!isErr);
       saveMsg.classList.toggle('text-green-600', !isErr);
-      setTimeout(()=>{ saveMsg.textContent=''; }, 1800);
+      setTimeout(()=>{ saveMsg.textContent=''; }, 5000);
     }
 
     // Table + pagination
