@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>QA Tracker · Loading Overlay & Layout</title>
+  <title>QA Tracker</title>
 
   <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -662,7 +662,7 @@
       fields.test_cases.value = data.test_cases ?? '';
       fields.file_count.value = data.file_count ?? '';
       fields.optimization_points.disabled = String(fields.bug_found.value) !== '1';
-      fields.optimization_points.value = data.optimization_points ?? '';
+      fields.optimization_points.value = (data.optimization_points === 0 || data.optimization_points == null) ? '' : data.optimization_points;
       updateIssuePreview();
     }
 
