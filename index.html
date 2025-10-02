@@ -66,14 +66,31 @@
     .chip-red{ background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
     .chip-indigo{ background:#eef2ff; color:#3730a3; border:1px solid #c7d2fe; }
     .chip-amber{ background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
-    .table-head th{ position:sticky; top:0; background:#f8fafc; }
+    .table-head th{
+	  position:sticky; top:0; background:#f8fafc;
+	  white-space: nowrap;           /* 表頭不換行 */
+	}
+	#tableWrap tbody td{
+	  white-space: normal;     /* 允許自動換行 */
+	  word-break: break-word;  /* 長字/URL 也能斷行 */
+	}
     .row{ border-bottom:1px solid #e2e8f0; }
     .row:nth-child(even){ background:#fcfcfd; }
     .overlay {
       position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
       background:rgba(255,255,255,.8); backdrop-filter:saturate(180%) blur(2px);
     }
-	
+	/* 固定欄寬：由 table-fixed + colgroup 決定 */
+	#tableWrap table { table-layout: fixed; }
+
+	/* 表頭單行顯示（完整看到標題） */
+	.table-head th { white-space: nowrap; }
+
+	/* 內容遇到長字/URL 會自動斷行，不撐寬 */
+	#tableWrap tbody td{
+	  white-space: normal;
+	  word-break: break-word;
+	}
 	  /* 實心色系 */
 	.btn-primary{ background:#4f46e5; color:#fff; }   /* 品牌靛藍 */
 	.btn-primary:hover{ background:#4338ca; }
@@ -328,26 +345,45 @@
         </div>
       </div>
 
-      <div id="tableWrap" class="overflow-auto border rounded-2xl">
-        <table class="min-w-full text-sm">
-          <thead class="table-head text-slate-600 text-xs uppercase tracking-wide">
-            <tr>
-              <th class="px-3 py-2 text-left">Issue#</th>
-              <th class="px-3 py-2 text-left">連結</th>
-              <th class="px-3 py-2 text-left">狀態</th>
-              <th class="px-3 py-2 text-left">類型</th>
-              <th class="px-3 py-2 text-left">功能</th>
-              <th class="px-3 py-2 text-left">Test Plan</th>
-              <th class="px-3 py-2 text-left">BUG</th>
-              <th class="px-3 py-2 text-left">驗證失敗</th>
-              <th class="px-3 py-2 text-left">開始測試日期</th>
-              <th class="px-3 py-2 text-left">預計交付日期</th>
-              <th class="px-3 py-2 text-left">完成日期</th>
-              <th class="px-3 py-2 text-left">測試案例</th>
-              <th class="px-3 py-2 text-left">Memo</th>
-              <th class="px-3 py-2 text-left">操作</th>
-            </tr>
-          </thead>
+      <div id="tableWrap" class="overflow-x-auto border rounded-2xl">
+		<div id="tableWrap" class="overflow-x-auto border rounded-2xl">
+			<table class="table-fixed min-w-[2050px] text-sm">
+			    <!-- ✅ 把 colgroup 放在這裡（thead 前面） -->
+				<colgroup>
+				  <col style="width:70px" />  <!-- Issue# -->
+				  <col style="width:50px"  />  <!-- 連結 -->
+				  <col style="width:60px" />  <!-- 狀態 -->
+				  <col style="width:50px" />  <!-- 類型 -->
+				  <col style="width:115px" />  <!-- 功能 -->
+				  <col style="width:50px" />  <!-- Test Plan -->
+				  <col style="width:50px"  />  <!-- BUG -->
+				  <col style="width:50px" />  <!-- 驗證失敗 -->
+				  <col style="width:100px" />  <!-- 開始測試日期 -->
+				  <col style="width:100px" />  <!-- 預計交付日期 -->
+				  <col style="width:100px" />  <!-- 完成日期 -->
+				  <col style="width:100px" />  <!-- 測試案例 -->
+				  <col style="width:400px" />  <!-- Memo -->
+				  <col style="width:140px" />  <!-- 操作 -->
+				</colgroup>
+
+				<thead class="table-head text-slate-600 text-xs uppercase tracking-wide">
+					<tr>
+					  <th class="px-3 py-2 text-left">Issue#</th>
+					  <th class="px-3 py-2 text-left">連結</th>
+					  <th class="px-3 py-2 text-left">狀態</th>
+					  <th class="px-3 py-2 text-left">類型</th>
+					  <th class="px-3 py-2 text-left">功能</th>
+					  <th class="px-3 py-2 text-left">Test Plan</th>
+					  <th class="px-3 py-2 text-left">BUG</th>
+					  <th class="px-3 py-2 text-left">驗證失敗</th>
+					  <th class="px-3 py-2 text-left">開始測試日期</th>
+					  <th class="px-3 py-2 text-left">預計交付日期</th>
+					  <th class="px-3 py-2 text-left">完成日期</th>
+					  <th class="px-3 py-2 text-left">測試案例</th>
+					  <th class="px-3 py-2 text-left">Memo</th>
+					  <th class="px-3 py-2 text-left">操作</th>
+					</tr>
+			  </thead>
           <tbody id="recordsTbody"></tbody>
         </table>
       </div>
@@ -355,8 +391,8 @@
 		<div id="pager" class="flex flex-wrap items-center justify-end mt-3 gap-2">
 		  <label for="pageSize" class="text-sm text-slate-600">每頁</label>
 		  <select id="pageSize" class="inp w-24">
-			<option value="10">10</option>
-			<option value="20" selected>20</option>
+			<option value="10" selected>10</option>
+			<option value="20">20</option>
 			<option value="50">50</option>
 			<option value="100">100</option>
 			<option value="all">全部</option>
@@ -744,7 +780,7 @@
           <td class="px-3 py-2">${fmtDate(r.eta_date)}</td>
           <td class="px-3 py-2">${fmtDate(r.completed_at)}</td>
           <td class="px-3 py-2">${r.test_cases ?? ''}</td>
-          <td class="px-3 py-2 max-w-[420px] whitespace-pre-wrap">${r.memo ?? ''}</td>
+          <td class="px-3 py-2 whitespace-pre-wrap break-words">${r.memo ?? ''}</td>
           <td class="px-3 py-2">
             <div class="flex gap-2">
               <button class="btn  text-xs" data-edit="${r.id}">編輯</button>
