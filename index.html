@@ -263,6 +263,7 @@
               <th class="px-3 py-2 text-left">開始測試日期</th>
               <th class="px-3 py-2 text-left">預計交付日期</th>
               <th class="px-3 py-2 text-left">完成日期</th>
+              <th class="px-3 py-2 text-left">測試案例</th>
               <th class="px-3 py-2 text-left">Memo</th>
               <th class="px-3 py-2 text-left">操作</th>
             </tr>
@@ -600,6 +601,7 @@
           <td class="px-3 py-2">${fmtDate(r.test_start_date)}</td>
           <td class="px-3 py-2">${fmtDate(r.eta_date)}</td>
           <td class="px-3 py-2">${fmtDate(r.completed_at)}</td>
+          <td class="px-3 py-2">${r.test_cases ?? ''}</td>
           <td class="px-3 py-2 max-w-[420px] whitespace-pre-wrap">${r.memo ?? ''}</td>
           <td class="px-3 py-2">
             <div class="flex gap-2">
