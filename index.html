@@ -318,11 +318,21 @@
         </table>
       </div>
 
-      <div id="pager" class="flex justify-end mt-3 gap-2">
-        <button id="btnPrev" class="btn-secondary">上一頁</button>
-        <span id="pageInfo" class="text-sm text-slate-600 self-center"></span>
-        <button id="btnNext" class="btn-secondary">下一頁</button>
-      </div>
+		<div id="pager" class="flex flex-wrap items-center justify-end mt-3 gap-2">
+		  <label for="pageSize" class="text-sm text-slate-600">每頁</label>
+		  <select id="pageSize" class="inp w-24">
+			<option value="10">10</option>
+			<option value="20" selected>20</option>
+			<option value="50">50</option>
+			<option value="100">100</option>
+			<option value="all">全部</option>
+		  </select>
+
+		  <button id="btnPrev" class="btn-secondary">上一頁</button>
+		  <span id="pageInfo" class="text-sm text-slate-600 self-center"></span>
+		  <button id="btnNext" class="btn-secondary">下一頁</button>
+		</div>
+
     </section>
   </main>
 
@@ -495,6 +505,7 @@
     const btnPrev = document.getElementById('btnPrev');
     const btnNext = document.getElementById('btnNext');
     const pageInfo = document.getElementById('pageInfo');
+    const pageSizeSel = document.getElementById('pageSize'); 
 
     const qKeyword = document.getElementById('q_keyword');
     const qStatus = document.getElementById('q_status');
@@ -505,7 +516,7 @@
 	const btnClear = document.getElementById('btnClear');
 	const btnExportExcel = document.getElementById('btnExportExcel');
 
-    let pageSize = 20;
+    let pageSize = pageSizeSel.value;
     let lastVisible = null;
     let firstVisible = null;
     let prevStack = [];
@@ -587,6 +598,7 @@
 		// 5) 快取 + 顯示第一頁
 		_cacheRows = rows;
 		_pageIndex = 0;
+		renderPage();
 
 		const total = _cacheRows.length;
 		const pageRows = _cacheRows.slice(0, pageSize);
@@ -622,6 +634,19 @@
       const item = map[v];
       return item ? `<span class="chip ${item[1]}">${item[0]}</span>` : '';
     };
+	
+	function renderPage() {
+	  const total = _cacheRows.length;
+	  const totalPages = pageSize === Number.MAX_SAFE_INTEGER
+		? 1
+		: Math.max(1, Math.ceil(total / pageSize));
+
+	  const start = pageSize === Number.MAX_SAFE_INTEGER ? 0 : _pageIndex * pageSize;
+	  const end   = pageSize === Number.MAX_SAFE_INTEGER ? total : start + pageSize;
+
+	  renderRows(_cacheRows.slice(start, end));
+	  pageInfo.textContent = `共 ${total} 筆（第 ${Math.min(_pageIndex + 1, totalPages)} / ${totalPages} 頁）`;
+	}
 	
 	const toYN = (v) => (v === 1 || v === '1' || String(v).toUpperCase() === 'Y') ? 'Y' : 'N';
 	
@@ -711,22 +736,30 @@
     }
 
     // Pagination & search
-	btnNext.addEventListener('click', ()=>{
+	
+	pageSizeSel.addEventListener('change', () => {
+	  const v = pageSizeSel.value;
+	  pageSize = (v === 'all') ? Number.MAX_SAFE_INTEGER : Number(v);
+	  _pageIndex = 0;     // 變更每頁筆數後回到第1頁
+	  renderPage();
+	});
+	
+	
+	btnNext.addEventListener('click', () => {
 	  if (_cacheRows.length === 0) return;
+	  if (pageSize === Number.MAX_SAFE_INTEGER) return; // 顯示全部時不需要翻頁
+
 	  const totalPages = Math.max(1, Math.ceil(_cacheRows.length / pageSize));
 	  _pageIndex = Math.min(_pageIndex + 1, totalPages - 1);
-	  const start = _pageIndex * pageSize;
-	  renderRows(_cacheRows.slice(start, start + pageSize));
-	  pageInfo.textContent = `共 ${_cacheRows.length} 筆（第 ${_pageIndex + 1} / ${totalPages} 頁）`;
+	  renderPage();
 	});
 
-	btnPrev.addEventListener('click', ()=>{
+	btnPrev.addEventListener('click', () => {
 	  if (_cacheRows.length === 0) return;
-	  const totalPages = Math.max(1, Math.ceil(_cacheRows.length / pageSize));
+	  if (pageSize === Number.MAX_SAFE_INTEGER) return;
+
 	  _pageIndex = Math.max(_pageIndex - 1, 0);
-	  const start = _pageIndex * pageSize;
-	  renderRows(_cacheRows.slice(start, start + pageSize));
-	  pageInfo.textContent = `共 ${_cacheRows.length} 筆（第 ${_pageIndex + 1} / ${totalPages} 頁）`;
+	  renderPage();
 	});
 	
 	// 清空查詢條件
