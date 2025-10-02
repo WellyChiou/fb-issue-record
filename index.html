@@ -8,6 +8,7 @@
   <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
   <style>
     /* 預設先隱藏，避免尚未檢查登入時閃出畫面 */
     body { display: none; }
@@ -292,6 +293,8 @@
         <button id="btnSearch" class="btn">搜尋</button>
 		<button id="btnClear" class="btn-secondary">清空</button>
         <button id="btnExportExcel" class="btn-secondary">匯出 Excel</button>
+        <button id="btnBulkUpdate" class="btn-secondary" hidden >更新現有資料</button>
+		
       </div>
 
       <!-- Overlay (center big) -->
@@ -351,7 +354,7 @@
   <script type="module">
     import {
       collection, addDoc, serverTimestamp, query, orderBy, limit, startAfter, getDocs,
-      updateDoc, doc, deleteDoc, getDoc, where
+      updateDoc, doc, deleteDoc, getDoc, where, writeBatch
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     // Auth UI
@@ -360,11 +363,11 @@
     const userEmail = document.getElementById('userEmail');
 
 	onAuthStateChanged(auth, (user) => {
-	 console.log('user',user)
 	 if (user) {
 		document.body.style.display = 'block'; // 顯示 body 內容
 		userInfo.classList.remove('hidden');
 		userEmail.textContent = user.email || user.uid;
+		reload();
 	 } else {
 		// 已經登出 → 直接導向 login.html
 		location.href = "login.html";
@@ -469,10 +472,10 @@
       try{
         showLoading(true);
         if(editingId){
-          await updateDoc(doc(db, 'records', editingId), payload);
+          await updateDoc(doc(db, 'records', editingId), { ...payload, updated_by_uid: u?.uid ?? null, updated_at: serverTimestamp() });
           showMsg('已更新');
         }else{
-          await addDoc(collection(db, 'records'), { ...payload, created_at: serverTimestamp() });
+          await addDoc(collection(db, 'records'), { ...payload, created_by_uid: u?.uid ?? null, created_at: serverTimestamp() });
           showMsg('已儲存');
         }
         form.reset();
@@ -599,13 +602,16 @@
 	  showLoading(true);
 	  try {
 		// 1) 蒐集查詢條件（不使用 orderBy、不用游標）
-		const constraints = [ limit(2000) ]; // 視資料量調整
+		const constraints = [ limit(10000) ]; // 視資料量調整
 		if (qStatus.value !== '')   constraints.push(where('status', '==', Number(qStatus.value)));
 		if (qCategory.value !== '') constraints.push(where('category', '==', Number(qCategory.value)));
 		if (qTestPlan.value !== '') constraints.push(where('test_plan', '==', qTestPlan.value)); // test_plan 為 '0'/'1'（字串）
 		if (qBugFound.value !== '') constraints.push(where('bug_found', '==', Number(qBugFound.value))); // bug_found 為數字 0/1
-
-
+		
+		// 只能查到自己建立的資料
+		const u = auth.currentUser;
+		if (u?.uid) constraints.push(where('created_by_uid', '==', u.uid)); // ★ 新增這行
+		
 		const kw = (qKeyword?.value ?? '').trim();
 		const kwIsNumber = kw !== '' && !Number.isNaN(Number(kw));
 		const kwIsText   = kw !== '' && !kwIsNumber;
@@ -1055,8 +1061,34 @@
 
     // 初次載入：套預設 + 立刻查詢
     setDefaultsIfEmpty();
-    reload();
     fields.bug_found.addEventListener('change', toggleOptimizationPoints);
+	
+	
+	
+	
+	// 針對「目前查詢結果」逐筆更新
+	async function bulkUpdateCurrentCache() {
+	  const u = auth.currentUser;
+	  if (!u) throw new Error('未登入');
+	  if (!_cacheRows || _cacheRows.length === 0) return;
+
+	  // 500 筆一個批次
+	  for (let i = 0; i < _cacheRows.length; i += 500) {
+		const chunk = _cacheRows.slice(i, i + 500);
+		const batch = writeBatch(db);
+		chunk.forEach(row => {
+		  batch.update(doc(db, 'records', row.id), {
+			created_by_uid: u.uid,
+			created_at: serverTimestamp(),
+			updated_by_uid: u.uid,
+			updated_at: serverTimestamp(),
+		  });
+		});
+		await batch.commit();
+	  }
+	  await reload(); // 你原本的重查函式:contentReference[oaicite:2]{index=2}
+	}
+	document.getElementById('btnBulkUpdate').addEventListener('click', bulkUpdateCurrentCache);
   </script>
 </body>
 </html>
