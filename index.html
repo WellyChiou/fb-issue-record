@@ -95,124 +95,134 @@
   </header>
 
   <main class="max-w-7xl mx-auto px-5 py-6 space-y-6">
-    <!-- Create/Edit Card -->
-    <section class="bg-white rounded-2xl shadow-soft p-5 md:p-6 border border-slate-100">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg md:text-xl font-semibold">建立 / 編輯資料</h2>
-        <div class="text-xs text-slate-500">* 全部欄位皆為非必填</div>
-      </div>
+  
+	<!-- Modal：建立 / 編輯資料 -->
+	<div id="recordModal" class="fixed inset-0 z-[100] hidden" aria-hidden="true">
+	  <!-- 背景 -->
+	  <div class="absolute inset-0 bg-black/40"></div>
 
-      <form id="recordForm" class="grid md:grid-cols-4 gap-4">
-        <!-- Row 1 -->
-        <div>
-          <label class="block text-sm text-slate-600 mb-1">狀態</label>
-          <select id="status" class="inp">
-            <option value="1" selected>執行中</option>
-            <option value="0">執行中止</option>
-            <option value="2">完成</option>
-          </select>
-        </div>
+	  <!-- 面板 -->
+	  <div class="relative w-full h-full grid place-items-center p-4">
+		<div data-modal-panel
+			 class="w-full max-w-4xl bg-white rounded-2xl shadow-soft border border-slate-100">
+		  <!-- Header -->
+		  <div class="flex items-center justify-between px-5 py-4 border-b">
+			<div>
+			  <h2 id="modalTitle" class="text-lg md:text-xl font-semibold">建立 / 編輯資料</h2>
+			  <div class="text-xs text-slate-500">* 全部欄位皆為非必填</div>
+			</div>
+			<button id="btnModalClose" class="btn-secondary">關閉</button>
+		  </div>
 
-        <div>
-          <label class="block text-sm text-slate-600 mb-1">完成日期</label>
-          <input id="completed_at" type="date" class="inp" />
-        </div>
+		  <!-- Body（沿用你的 form 與欄位） -->
+		  <div class="p-5 md:p-6">
+			<form id="recordForm" class="grid md:grid-cols-4 gap-4">
+			  <!-- === 以下保留你的原欄位區塊即可 === -->
+			  <!-- Row 1 -->
+			  <div>
+				<label class="block text-sm text-slate-600 mb-1">狀態</label>
+				<select id="status" class="inp">
+				  <option value="1" selected>執行中</option>
+				  <option value="0">執行中止</option>
+				  <option value="2">完成</option>
+				</select>
+			  </div>
+			  <div>
+				<label class="block text-sm text-slate-600 mb-1">完成日期</label>
+				<input id="completed_at" type="date" class="inp" />
+			  </div>
+			  <div>
+				<label class="block text-sm text-slate-600 mb-1">Issue Number</label>
+				<input id="issue_number" type="number" class="inp" placeholder="例如 1234" />
+			  </div>
+			  <div>
+				<label class="block text-sm text-slate-600 mb-1">Test Plan</label>
+				<select id="test_plan" class="inp">
+				  <option value="0" selected>否</option>
+				  <option value="1">是</option>
+				</select>
+			  </div>
 
-        <div>
-          <label class="block text-sm text-slate-600 mb-1">Issue Number</label>
-          <input id="issue_number" type="number" class="inp" placeholder="例如 1234" />
-        </div>
+			  <!-- Row 2 -->
+			  <div>
+				<label class="block text-sm text-slate-600 mb-1">類型</label>
+				<select id="category" class="inp">
+				  <option value="1" selected>BUG</option>
+				  <option value="2">改善</option>
+				  <option value="3">優化</option>
+				  <option value="4">模組</option>
+				  <option value="5">QA</option>
+				</select>
+			  </div>
+			  <div class="md:col-span-3">
+				<label class="block text-sm text-slate-600 mb-1">功能</label>
+				<input id="feature" type="text" class="inp" placeholder="文字描述" />
+			  </div>
 
-        <div>
-          <label class="block text-sm text-slate-600 mb-1">Test Plan</label>
-          <select id="test_plan" class="inp">
-            <option value="0" selected>否</option>
-            <option value="1">是</option>
-          </select>
-        </div>
+			  <!-- Row 3 -->
+			  <div class="md:col-span-4">
+				<label class="block text-sm text-slate-600 mb-1">Memo</label>
+				<textarea id="memo" class="inp" rows="2" placeholder="備註（非必填）"></textarea>
+			  </div>
 
-        <!-- Row 2 -->
-        <div>
-          <label class="block text-sm text-slate-600 mb-1">類型</label>
-          <select id="category" class="inp">
-            <option value="1" selected>BUG</option>
-            <option value="2">改善</option>
-            <option value="3">優化</option>
-            <option value="4">模組</option>
-            <option value="5">QA</option>
-          </select>
-        </div>
+			  <!-- Row 4 -->
+			  <div class="md:col-span-2">
+				<label class="block text-sm text-slate-600 mb-1">開始測試日期</label>
+				<input id="test_start_date" type="date" class="inp" />
+			  </div>
+			  <div class="md:col-span-2">
+				<label class="block text-sm text-slate-600 mb-1">預計交付日期</label>
+				<input id="eta_date" type="date" class="inp" />
+			  </div>
 
-        <div class="md:col-span-3">
-          <label class="block text-sm text-slate-600 mb-1">功能</label>
-          <input id="feature" type="text" class="inp" placeholder="文字描述" />
-        </div>
+			  <!-- Row 5 -->
+			  <div>
+				<label class="block text-sm text-slate-600 mb-1">驗證失敗</label>
+				<select id="verify_failed" class="inp">
+				  <option value="0" selected>否</option>
+				  <option value="1">是</option>
+				</select>
+			  </div>
+			  <div>
+				<label class="block text-sm text-slate-600 mb-1">測試案例</label>
+				<input id="test_cases" type="number" class="inp" value="0" />
+			  </div>
+			  <div>
+				<label class="block text-sm text-slate-600 mb-1">檔案數量</label>
+				<input id="file_count" type="number" class="inp" value="0" />
+			  </div>
+			  <div class="md:col-span-1"></div>
 
-        <!-- Row 3 -->
-        <div class="md:col-span-4">
-          <label class="block text-sm text-slate-600 mb-1">Memo</label>
-          <textarea id="memo" class="inp" rows="2" placeholder="備註（非必填）"></textarea>
-        </div>
+			  <!-- Row 6 -->
+			  <div>
+				<label class="block text-sm text-slate-600 mb-1">發現 BUG</label>
+				<select id="bug_found" class="inp">
+				  <option value="0" selected>否</option>
+				  <option value="1">是</option>
+				</select>
+			  </div>
+			  <div>
+				<label class="block text-sm text-slate-600 mb-1">可優化項目</label>
+				<input id="optimization_points" type="number" class="inp" placeholder="數字；僅在 發現BUG=1 時可填" min="0" step="1" disabled />
+			  </div>
+			  <div class="md:col-span-2"></div>
 
-        <!-- Row 4 -->
-        <div class="md:col-span-2">
-          <label class="block text-sm text-slate-600 mb-1">開始測試日期</label>
-          <input id="test_start_date" type="date" class="inp" />
-        </div>
-
-        <div class="md:col-span-2">
-          <label class="block text-sm text-slate-600 mb-1">預計交付日期</label>
-          <input id="eta_date" type="date" class="inp" />
-        </div>
-		
-
-        <!-- Row 5 -->
-        <div>
-          <label class="block text-sm text-slate-600 mb-1">驗證失敗</label>
-          <select id="verify_failed" class="inp">
-            <option value="0" selected>否</option>
-            <option value="1">是</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-sm text-slate-600 mb-1">測試案例</label>
-          <input id="test_cases" type="number" class="inp" value="0" />
-        </div>
-
-        <div>
-          <label class="block text-sm text-slate-600 mb-1">檔案數量</label>
-          <input id="file_count" type="number" class="inp" value="0" />
-        </div>
-
-        <div class="md:col-span-1">
+			  <!-- Row 7 -->
+			  <div class="md:col-span-4 flex flex-wrap gap-3 items-end">
+				<button id="btnSave" class="btn" type="submit">儲存</button>
+				<button id="btnReset" class="btn-secondary" type="button">重設</button>
+				<span id="saveMsg" class="ml-2 text-sm text-green-600"></span>
+				<a id="issue_link_preview" class="text-brand-700 font-semibold underline hidden"
+				   href="#" target="_blank" rel="noopener">打開 Issue</a>
+			  </div>
+			</form>
+		  </div>
 		</div>
-        <!-- Row 6 -->
+	  </div>
+	</div>
 
-        <div>
-          <label class="block text-sm text-slate-600 mb-1">發現 BUG</label>
-          <select id="bug_found" class="inp">
-            <option value="0" selected>否</option>
-            <option value="1">是</option>
-          </select>
-        </div>
-
-        <div>
-          <label class="block text-sm text-slate-600 mb-1">可優化項目</label>
-          <input id="optimization_points" type="number" class="inp" placeholder="數字；僅在 發現BUG=1 時可填" min="0" step="1" disabled />
-        </div>
-        <div class="md:col-span-2">
-		</div>
-
-        <!-- Row 7 -->
-        <div class="md:col-span-4 flex flex-wrap gap-3 items-end">
-          <button id="btnSave" class="btn" type="submit">儲存</button>
-          <button id="btnReset" class="btn-secondary" type="button">重設</button>
-          <span id="saveMsg" class="ml-2 text-sm text-green-600"></span>
-          <a id="issue_link_preview" class="text-brand-700 font-semibold underline hidden" href="#" target="_blank" rel="noopener">打開 Issue</a>
-        </div>
-      </form>
-    </section>
-
+  
+  
     <!-- List Card -->
     <section id="listSection" class="relative bg-white rounded-2xl shadow-soft p-5 md:p-6 border border-slate-100">
       <!-- Title row -->
@@ -278,6 +288,7 @@
 
       <!-- Buttons row (right aligned) -->
       <div class="flex justify-end gap-2 mb-3">
+		<button id="btnCreate" class="btn">新增 Issue</button>
         <button id="btnSearch" class="btn">搜尋</button>
 		<button id="btnClear" class="btn-secondary">清空</button>
         <button id="btnExportExcel" class="btn-secondary">匯出 Excel</button>
@@ -363,7 +374,44 @@
     btnSignOut.addEventListener('click', async ()=>{
       await signOut(auth);
     });
+	// === Modal 控制 ===
+	const recordModal   = document.getElementById('recordModal');
+	const modalPanel    = recordModal.querySelector('[data-modal-panel]');
+	const btnModalClose = document.getElementById('btnModalClose');
+	const btnCreate     = document.getElementById('btnCreate');
+	const modalTitle    = document.getElementById('modalTitle');
+	
+	function openModal(mode = 'create') {
+	  modalTitle.textContent = (mode === 'edit') ? '編輯資料' : '新增 Issue';
+	  recordModal.classList.remove('hidden');
+	  document.body.classList.add('overflow-hidden');
+	  // 聚焦第一個欄位
+	  setTimeout(() => document.getElementById('issue_number')?.focus(), 0);
+	}
+	function closeModal() {
+	  recordModal.classList.add('hidden');
+	  document.body.classList.remove('overflow-hidden');
+	}
 
+	btnModalClose.addEventListener('click', closeModal);
+	recordModal.addEventListener('click', (e) => {
+	  if (!modalPanel.contains(e.target)) closeModal();
+	});
+	document.addEventListener('keydown', (e) => {
+	  if (e.key === 'Escape' && !recordModal.classList.contains('hidden')) closeModal();
+	});
+
+	// 新增 Issue：清表單 → 打開 Modal
+	btnCreate.addEventListener('click', () => {
+	  editingId = null;
+	  form.reset();
+	  setDefaultsIfEmpty();
+	  updateIssuePreview();
+	  openModal('create');
+	});
+	
+	
+	
     // Form refs
     const form = document.getElementById('recordForm');
     const saveMsg = document.getElementById('saveMsg');
@@ -431,6 +479,7 @@
         setDefaultsIfEmpty();
         updateIssuePreview();
         editingId = null;
+        closeModal(); // 成功就關閉 Modal
         await reload();
       }catch(err){
         console.error(err);
@@ -687,7 +736,7 @@
           const snap = await getDoc(ref);
           if(snap.exists()){
             loadToForm(id, snap.data());
-            window.scrollTo({top:0, behavior:'smooth'});
+			openModal('edit'); 
           }
         });
       });
