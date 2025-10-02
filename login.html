@@ -107,7 +107,7 @@
             try {
                 await auth.signInWithEmailAndPassword(email, password);
                 console.log("登入成功！");
-                window.location.href = 'admin.html'; // 登入成功後跳轉到 admin.html
+                window.location.href = 'index.html'; // 登入成功後跳轉到 index.html
             } catch (error) {
                 console.error("登入失敗：", error.code, error.message);
                 errorMessageDiv.classList.remove('hidden');

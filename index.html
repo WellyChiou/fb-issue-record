@@ -8,6 +8,10 @@
   <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    /* 預設先隱藏，避免尚未檢查登入時閃出畫面 */
+    body { display: none; }
+  </style>
   <script>
     tailwind.config = {
       theme: {
@@ -44,6 +48,8 @@
     window.signInWithPopup = signInWithPopup;
     window.signOut = signOut;
     window.onAuthStateChanged = onAuthStateChanged;
+
+  // === 認證檢查結束 ===
   </script>
 
   <style>
@@ -77,13 +83,14 @@
         <div class="w-8 h-8 rounded-xl bg-white/15 grid place-items-center font-bold">QA</div>
         <h1 class="text-xl md:text-2xl font-semibold">QA Tracker</h1>
       </div>
-      <div id="authArea" class="flex items-center gap-3">
-        <button id="btnSignIn" class="btn bg-white text-brand-700">使用 Google 登入</button>
-        <div id="userInfo" class="hidden items-center gap-3">
-          <span id="userEmail" class="text-sm opacity-90"></span>
-          <button id="btnSignOut" class="btn-secondary">登出</button>
-        </div>
-      </div>
+		<div id="authArea" class="flex items-center gap-3">
+		  <!-- <button id="btnSignIn" class="btn bg-white text-brand-700">使用 Google 登入</button> -->
+		  <div id="userInfo" class="hidden items-center gap-3">
+			<span id="userEmail" class="text-sm opacity-90"></span>
+			<button id="btnSignOut" class="btn-secondary">登出</button>
+		  </div>
+		</div>
+
     </div>
   </header>
 
@@ -327,27 +334,21 @@
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     // Auth UI
-    const btnSignIn = document.getElementById('btnSignIn');
     const btnSignOut = document.getElementById('btnSignOut');
     const userInfo = document.getElementById('userInfo');
     const userEmail = document.getElementById('userEmail');
 
-    onAuthStateChanged(auth, (user)=>{
-      if(user){
-        btnSignIn.classList.add('hidden');
-        userInfo.classList.remove('hidden');
-        userEmail.textContent = user.email || user.uid;
-      }else{
-        btnSignIn.classList.remove('hidden');
-        userInfo.classList.add('hidden');
-        userEmail.textContent = '';
-      }
-    });
-
-    btnSignIn.addEventListener('click', async ()=>{
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-    });
+	onAuthStateChanged(auth, (user) => {
+	 console.log('user',user)
+	 if (user) {
+		document.body.style.display = 'block'; // 顯示 body 內容
+		userInfo.classList.remove('hidden');
+		userEmail.textContent = user.email || user.uid;
+	 } else {
+		// 已經登出 → 直接導向 login.html
+		location.href = "login.html";
+	 }
+	});
 
     btnSignOut.addEventListener('click', async ()=>{
       await signOut(auth);
