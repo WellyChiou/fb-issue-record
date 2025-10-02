@@ -7,6 +7,7 @@
 
   <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -118,8 +119,8 @@
         <div>
           <label class="block text-sm text-slate-600 mb-1">Test Plan</label>
           <select id="test_plan" class="inp">
-            <option value="0" selected>N</option>
-            <option value="1">Y</option>
+            <option value="0" selected>否</option>
+            <option value="1">是</option>
           </select>
         </div>
 
@@ -212,29 +213,67 @@
         <h2 class="text-lg md:text-xl font-semibold">資料列表</h2>
       </div>
 
-      <!-- Filters single row -->
-      <div class="flex flex-wrap items-center gap-2 mb-2">
-        <input id="q_keyword" type="text" class="inp w-64" placeholder="搜尋 功能/Memo/Issue#"/>
-        <select id="q_status" class="inp">
-          <option value="" selected>狀態 (全部)</option>
-          <option value="1">執行中</option>
-          <option value="0">執行中止</option>
-          <option value="2">完成</option>
-        </select>
-        <select id="q_category" class="inp">
-          <option value="" selected>類型 (全部)</option>
-          <option value="1">BUG</option>
-          <option value="2">改善</option>
-          <option value="3">優化</option>
-          <option value="4">模組</option>
-          <option value="5">QA</option>
-        </select>
-      </div>
+	<!-- Filters block -->
+	<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+
+	  <!-- 關鍵字 -->
+	  <div class="flex flex-col">
+		<label for="q_keyword" class="text-sm text-slate-600 font-medium mb-1">關鍵字</label>
+		<input id="q_keyword" type="text" class="inp" placeholder="搜尋 功能/Memo/Issue#"/>
+	  </div>
+
+	  <!-- 狀態 -->
+	  <div class="flex flex-col">
+		<label for="q_status" class="text-sm text-slate-600 font-medium mb-1">狀態</label>
+		<select id="q_status" class="inp">
+		  <option value="" selected>全部</option>
+		  <option value="1">執行中</option>
+		  <option value="0">執行中止</option>
+		  <option value="2">完成</option>
+		</select>
+	  </div>
+
+	  <!-- 類型 -->
+	  <div class="flex flex-col">
+		<label for="q_category" class="text-sm text-slate-600 font-medium mb-1">類型</label>
+		<select id="q_category" class="inp">
+		  <option value="" selected>全部</option>
+		  <option value="1">BUG</option>
+		  <option value="2">改善</option>
+		  <option value="3">優化</option>
+		  <option value="4">模組</option>
+		  <option value="5">QA</option>
+		</select>
+	  </div>
+
+	  <!-- Test Plan -->
+	  <div class="flex flex-col">
+		<label for="q_test_plan" class="text-sm text-slate-600 font-medium mb-1">Test Plan</label>
+		<select id="q_test_plan" class="inp">
+		  <option value="" selected>全部</option>
+		  <option value="1">是</option>
+		  <option value="0">否</option>
+		</select>
+	  </div>
+
+	  <!-- 發現BUG -->
+	  <div class="flex flex-col">
+		<label for="q_bug_found" class="text-sm text-slate-600 font-medium mb-1">發現BUG</label>
+		<select id="q_bug_found" class="inp">
+		  <option value="" selected>全部</option>
+		  <option value="1">是</option>
+		  <option value="0">否</option>
+		</select>
+	  </div>
+
+	</div>
+
 
       <!-- Buttons row (right aligned) -->
       <div class="flex justify-end gap-2 mb-3">
         <button id="btnSearch" class="btn">搜尋</button>
-        <button id="btnExportCSV" class="btn-secondary">匯出 CSV</button>
+		<button id="btnClear" class="btn-secondary">清空</button>
+        <button id="btnExportExcel" class="btn-secondary">匯出 Excel</button>
       </div>
 
       <!-- Overlay (center big) -->
@@ -459,7 +498,11 @@
     const qKeyword = document.getElementById('q_keyword');
     const qStatus = document.getElementById('q_status');
     const qCategory = document.getElementById('q_category');
+	const qTestPlan = document.getElementById('q_test_plan');
+	const qBugFound  = document.getElementById('q_bug_found');
     const btnSearch = document.getElementById('btnSearch');
+	const btnClear = document.getElementById('btnClear');
+	const btnExportExcel = document.getElementById('btnExportExcel');
 
     let pageSize = 20;
     let lastVisible = null;
@@ -498,6 +541,9 @@
 		const constraints = [ limit(2000) ]; // 視資料量調整
 		if (qStatus.value !== '')   constraints.push(where('status', '==', Number(qStatus.value)));
 		if (qCategory.value !== '') constraints.push(where('category', '==', Number(qCategory.value)));
+		if (qTestPlan.value !== '') constraints.push(where('test_plan', '==', qTestPlan.value)); // test_plan 為 '0'/'1'（字串）
+		if (qBugFound.value !== '') constraints.push(where('bug_found', '==', Number(qBugFound.value))); // bug_found 為數字 0/1
+
 
 		const kw = (qKeyword?.value ?? '').trim();
 		const kwIsNumber = kw !== '' && !Number.isNaN(Number(kw));
@@ -505,11 +551,7 @@
 
 		if (kwIsNumber) {
 		  constraints.push(where('issue_number', '==', Number(kw)));
-		} else if (kwIsText) {
-		  // 前綴搜尋（仍避免使用 orderBy，以免觸發複合索引）
-		  constraints.push(where('feature', '>=', kw));
-		  constraints.push(where('feature', '<=', kw + '\uf8ff'));
-		}
+		} 
 
 		// 2) 一次撈回
 		const qBase = query(collection(db, 'records'), ...constraints);
@@ -520,14 +562,13 @@
 		if (kwIsText) {
 		  const low = kw.toLowerCase();
 		  rows = rows.filter(r => {
-			const pool = [
-			  r.feature,
-			  r.memo,
-			  (r.issue_number ?? '').toString()
-			];
-			return pool.some(x => (x || '').toLowerCase().includes(low));
+			const featureMatch = (r.feature || '').toLowerCase().includes(low);
+			const memoMatch    = (r.memo || '').toLowerCase().includes(low);
+			const issueMatch   = (r.issue_number ?? '').toString().toLowerCase().includes(low);
+			return featureMatch || memoMatch || issueMatch;
 		  });
 		}
+
 
 		// 4) 前端排序：issue_number ↓、status ↓、created_at ↓
 		rows.sort((a, b) => {
@@ -686,7 +727,22 @@
 	  renderRows(_cacheRows.slice(start, start + pageSize));
 	  pageInfo.textContent = `共 ${_cacheRows.length} 筆（第 ${_pageIndex + 1} / ${totalPages} 頁）`;
 	});
+	
+	// 清空查詢條件
+	btnClear.addEventListener('click', () => {
+	  // 清空輸入框
+	  qKeyword.value = '';
+	  qStatus.value = '';
+	  qCategory.value = '';
+	  qTestPlan.value = '';
+	  qBugFound.value = '';
 
+	  // 重載查詢結果
+	  _pageIndex = 0;
+	  _cacheRows = [];
+	  reload();
+	});
+	
 	// 「搜尋」維持原本行為：重置並重新查詢
 	btnSearch.addEventListener('click', async () => {
 		_pageIndex = 0;
@@ -698,29 +754,145 @@
       await fetchPage(forward);
     }
 
-    // CSV export (current table)
-    document.getElementById('btnExportCSV').addEventListener('click', ()=>{
-      const rows = [["issue_number","issue_link","status","category","feature","test_plan","bug_found","optimization_points","verify_failed","test_cases","file_count","test_start_date","eta_date","completed_at","memo"]];
-      document.querySelectorAll("#recordsTbody tr").forEach(tr=>{
-        const cells = Array.from(tr.children).map(td => td.innerText.replaceAll('\\n',' ').trim());
-        const [
-          issue_number, linkText, status, category, feature, test_plan, bug_found, optimization_points, verify_failed, test_cases, file_count, start, eta, done, memo
-        ] = cells;
-        const a = tr.querySelector('a');
-        const issue_link = a ? a.href : "";
-        rows.push([issue_number, issue_link, status, category, feature, test_plan, bug_found, optimization_points, verify_failed, test_cases, file_count, start, eta, done, memo]);
-      });
-      const csv = rows.map(r=> r.map(x => `"${(x??'').replaceAll('"','""')}"`).join(',')).join('\\r\\n');
-      const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'records.csv';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    });
+	// 關鍵字查詢綁定 Enter 按鍵
+	qKeyword.addEventListener('keydown', (e) => {
+	  if (e.key === 'Enter') {
+		e.preventDefault();
+		btnSearch.click();
+	  }
+	});
+
+    // Excel export (current table)
+	btnExportExcel.addEventListener('click', () => {
+	  // ---- Sheet 1：標題 & 全部資料 ----
+	  // 先抓 thead 的文字，並移除最後一個「操作」
+	  let headers = Array.from(document.querySelectorAll('#tableWrap thead th'))
+		.map(th => th.innerText.trim());
+	  if (headers[headers.length - 1] === '操作') {
+		headers = headers.slice(0, -1);
+	  }
+
+	  // 對應欄位的純文字轉換（不要用 chip/HTML）
+	  const statusText = (v) => {
+		const n = Number(v);
+		if (n === 1) return '執行中';
+		if (n === 0) return '執行中止';
+		if (n === 2) return '完成';
+		return '';
+	  };
+	  const categoryText = (v) => {
+		const map = {1:'BUG', 2:'改善', 3:'優化', 4:'模組', 5:'QA'};
+		return map[Number(v)] || '';
+	  };
+	  const toYN = (v) => (v === 1 || v === '1' || String(v).toUpperCase() === 'Y') ? 'Y' : 'N';
+	  const fmt = (v) => {
+		if (!v) return '';
+		try {
+		  if (typeof v.toDate === 'function') v = v.toDate();
+		  const yyyy = v.getFullYear();
+		  const mm = String(v.getMonth()+1).padStart(2,'0');
+		  const dd = String(v.getDate()).padStart(2,'0');
+		  return `${yyyy}-${mm}-${dd}`;
+		} catch { return ''; }
+	  };
+
+	  // 依照目前 thead 的欄位順序，組出每列資料
+	  // 你表格 <thead> 的順序是（最後一欄「操作」在匯出時給空字串）：
+	  // Issue# | 連結 | 狀態 | 類型 | 功能 | Test Plan | BUG | 驗證失敗 | 開始測試日期 | 預計交付日期 | 完成日期 | 測試案例 | Memo | 操作
+	  const rowsAll = _cacheRows.map(r => ([
+		r.issue_number ?? '',
+		r.issue_link ?? '',
+		statusText(r.status),
+		categoryText(r.category),
+		r.feature ?? '',
+		toYN(r.test_plan),
+		toYN(r.bug_found),
+		toYN(r.verify_failed),
+		fmt(r.test_start_date),
+		fmt(r.eta_date),
+		fmt(r.completed_at),
+		r.test_cases ?? '',
+		(r.memo ?? '').toString().replaceAll('\n',' '),
+		'' // 操作欄（匯出不需要）
+	  ]));
+
+	  const ws1 = XLSX.utils.aoa_to_sheet([headers, ...rowsAll]);
+
+	// ------------- Sheet 2：摘要（依「開始測試日期」分月統計 + 季度彙總，限定狀態=完成） -------------
+	const monthly = new Map(); // key: 'YYYY-MM' -> {A,B,C,D,E,F,G}
+
+	for (const r of _cacheRows) {
+	  // 只統計「完成」
+	  if (Number(r.status) !== 2) continue;
+
+	  // 以開始測試日期分月；若沒填，改用 completed_at -> created_at
+	  let d = r?.test_start_date || r?.completed_at || r?.created_at;
+	  if (!d) continue;
+	  d = (typeof d.toDate === 'function') ? d.toDate() : d;
+	  if (!(d instanceof Date) || isNaN(d)) continue;
+
+	  const y = d.getFullYear();
+	  const m = d.getMonth() + 1; // 1~12
+	  const key = `${y}-${String(m).padStart(2, '0')}`;
+
+	  if (!monthly.has(key)) monthly.set(key, { A:0, B:0, C:0, D:0, E:0, F:0, G:0 });
+	  const acc = monthly.get(key);
+
+	  const bug   = Number(r.bug_found ?? 0);
+	  const tp    = (r.test_plan === 1 || r.test_plan === '1') ? 1 : 0;
+	  const opt   = Number(r.optimization_points ?? 0);
+	  const cases = Number(r.test_cases ?? 0);
+	  const vf    = Number(r.verify_failed ?? 0);
+	  const files = Number(r.file_count ?? 0);
+
+	  if (bug === 1) acc.A += 1;         // A: 發現BUG=1 的筆數
+	  acc.B += Number.isFinite(opt) ? opt : 0; // B: 可優化項目數
+	  if (tp === 1) acc.C += 1;          // C: Test Plan=1 的筆數
+	  if (bug === 0 && tp === 0) acc.D += 1;   // D: BUG=0 且 TP=0 的筆數
+	  acc.E += Number.isFinite(cases) ? cases : 0; // E: 測試案例總數
+	  if (vf === 1) acc.F += 1;          // F: 驗證失敗=1 的筆數
+	  acc.G += Number.isFinite(files) ? files : 0; // G: 檔案數總數
+	}
+
+	// 每月敘述
+	const lines = [['Monthly Summary']]; // 標題列
+	const sortedMonths = Array.from(monthly.entries()).sort((a,b) => a[0].localeCompare(b[0]));
+	for (const [key, v] of sortedMonths) {
+	  const monthNum = Number(key.slice(5)); // 'YYYY-MM' -> 取 MM
+	  const text = `${monthNum}月 發現 ${v.B} 個可優化項目，開立 ${v.A} 張優化 issues｜ 產生 ${v.C} 份測試報告｜ ${v.D} 張驗證單，複驗 ${v.F} 張單｜ 建立 ${v.G} 個測試範本、${v.E} 項測試案例`;
+	  lines.push([text]);
+	}
+
+	// 轉成「季度」彙總：以月 → 季度
+	function quarterOf(month) { return Math.floor((month - 1) / 3) + 1; } // 1~12 → 1~4
+	const quarterly = new Map(); // key: 'YYYY-Qn' -> {A..G}
+	for (const [ym, v] of sortedMonths) {
+	  const y = ym.slice(0, 4);
+	  const m = Number(ym.slice(5));
+	  const qKey = `${y}-Q${quarterOf(m)}`;
+	  if (!quarterly.has(qKey)) quarterly.set(qKey, { A:0, B:0, C:0, D:0, E:0, F:0, G:0 });
+	  const acc = quarterly.get(qKey);
+	  acc.A += v.A; acc.B += v.B; acc.C += v.C; acc.D += v.D; acc.E += v.E; acc.F += v.F; acc.G += v.G;
+	}
+
+	// 季度敘述（接在月度後面）
+	lines.push([''], ['Quarterly Summary']); // 空列 + 標題
+	const sortedQuarters = Array.from(quarterly.entries()).sort((a,b) => a[0].localeCompare(b[0]));
+	for (const [qKey, v] of sortedQuarters) {
+	  const [year, qLabel] = qKey.split('-'); // e.g. 2025-Q1
+	  const textQ = `${qLabel}: 發現 ${v.B} 個可優化項目，開立 ${v.A} 張優化 issues｜ 產生 ${v.C} 份測試報告｜ ${v.D} 張驗證單，複驗 ${v.F} 張單｜ 建立 ${v.G} 個測試範本、${v.E} 項測試案例`;
+	  lines.push([`${year} ${textQ}`]);
+	}
+
+	const ws2 = XLSX.utils.aoa_to_sheet(lines);
+
+
+	  // ------------- 輸出 -------------
+	  const wb = XLSX.utils.book_new();
+	  XLSX.utils.book_append_sheet(wb, ws1, '列表');
+	  XLSX.utils.book_append_sheet(wb, ws2, '摘要');
+	  XLSX.writeFile(wb, 'records.xlsx');
+	});
 
     // ---------- Defaults on load ----------
     function formatDateInput(d) {
@@ -782,7 +954,7 @@
       if (!['0','1','2'].includes(String(fields.status.value))) {
         fields.status.value = '1';
       }
-      if (!['Y','N'].includes(String(fields.test_plan.value))) {
+      if (!['1','0'].includes(String(fields.test_plan.value))) {
         fields.test_plan.value = '0';
       }
       const today = new Date();
