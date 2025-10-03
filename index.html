@@ -624,7 +624,7 @@
 	const btnClear = document.getElementById('btnClear');
 	const btnExportExcel = document.getElementById('btnExportExcel');
 
-    let pageSize = pageSizeSel.value;
+    let pageSize = Number(pageSizeSel.value);  // 一開始就轉成 number
     let lastVisible = null;
     let firstVisible = null;
     let prevStack = [];
@@ -710,14 +710,6 @@
 		_cacheRows = rows;
 		_pageIndex = 0;
 		renderPage();
-
-		const total = _cacheRows.length;
-		const pageRows = _cacheRows.slice(0, pageSize);
-		renderRows(pageRows);
-
-		const totalPages = Math.max(1, Math.ceil(total / pageSize));
-		pageInfo.textContent = `共 ${total} 筆（第 ${_pageIndex + 1} / ${totalPages} 頁）`;
-
 	  } catch (err) {
 		console.error('Query error:', err);
 		showMsg('查詢錯誤：' + (err?.message || err), true);
@@ -747,13 +739,14 @@
     };
 	
 	function renderPage() {
+	  const size = (pageSize === Number.MAX_SAFE_INTEGER) ? Number.MAX_SAFE_INTEGER : Number(pageSize);
 	  const total = _cacheRows.length;
-	  const totalPages = pageSize === Number.MAX_SAFE_INTEGER
+	  const totalPages = (size === Number.MAX_SAFE_INTEGER)
 		? 1
-		: Math.max(1, Math.ceil(total / pageSize));
+		: Math.max(1, Math.ceil(total / size));
 
-	  const start = pageSize === Number.MAX_SAFE_INTEGER ? 0 : _pageIndex * pageSize;
-	  const end   = pageSize === Number.MAX_SAFE_INTEGER ? total : start + pageSize;
+	  const start = (size === Number.MAX_SAFE_INTEGER) ? 0 : _pageIndex * size;
+	  const end   = (size === Number.MAX_SAFE_INTEGER) ? total : start + size;
 
 	  renderRows(_cacheRows.slice(start, end));
 	  pageInfo.textContent = `共 ${total} 筆（第 ${Math.min(_pageIndex + 1, totalPages)} / ${totalPages} 頁）`;
