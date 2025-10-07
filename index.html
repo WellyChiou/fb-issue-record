@@ -331,6 +331,7 @@
 	  <button id="btnSearch" class="btn btn-info">搜尋</button>
 	  <button id="btnClear" class="btn btn-secondary">清空</button>
 	  <button id="btnExportExcel" class="btn btn-success">匯出 Excel</button>
+	  <button id="btnGitlabIssues" class="btn btn-outline">查看 GitLab Issues</button>
 	  <button id="btnBulkUpdate" class="btn btn-warning" hidden>更新現有資料</button>
 	</div>
 
@@ -408,6 +409,26 @@
 		</div>
 
     </section>
+	
+	<!-- 🟢 GitLab Issues Modal -->
+	<div id="gitlabModal" class="fixed inset-0 z-[120] hidden">
+	  <!-- 背景 -->
+	  <div class="absolute inset-0 bg-black/40"></div>
+
+	  <!-- 面板 -->
+	  <div class="relative w-full h-full grid place-items-center p-4">
+		<div class="bg-white rounded-2xl shadow-soft border border-slate-100 w-full max-w-3xl">
+		  <div class="flex items-center justify-between px-5 py-4 border-b">
+			<h2 class="text-lg md:text-xl font-semibold">指派給我的 GitLab Issues</h2>
+			<button id="btnCloseGitlabModal" class="btn-secondary">關閉</button>
+		  </div>
+		  <div id="gitlabIssuesBody" class="p-5 max-h-[70vh] overflow-y-auto">
+			<p class="text-slate-500 text-sm">尚未載入</p>
+		  </div>
+		</div>
+	  </div>
+	</div>
+
   </main>
 
   <!-- App logic -->
@@ -1160,6 +1181,60 @@
 		
 	  }
     }
+
+	// === 🟢 GitLab Issues Integration ===
+	const btnGitlabIssues = document.getElementById('btnGitlabIssues');
+	const gitlabModal = document.getElementById('gitlabModal');
+	const btnCloseGitlabModal = document.getElementById('btnCloseGitlabModal');
+	const gitlabIssuesBody = document.getElementById('gitlabIssuesBody');
+
+	const GITLAB_API = "https://gitlab.fb-tek.com/api/v4/projects/kh%2Fimp/issues";
+	const TOKEN = "w1K2dummuEz62ErrWi_N"; // ⚠️ 僅內部使用，請勿公開
+	const ASSIGNEE = "Welly.Chiu"; // 或直接改成登入者名稱
+
+	btnGitlabIssues.addEventListener('click', async () => {
+	  gitlabModal.classList.remove('hidden');
+	  gitlabIssuesBody.innerHTML = `<p class="text-slate-500 text-sm">讀取中...</p>`;
+
+	  try {
+		const url = `${GITLAB_API}?assignee_username=${ASSIGNEE}&state=opened&per_page=50`;
+		const res = await fetch(url, {
+		  headers: { "PRIVATE-TOKEN": TOKEN, "Accept": "application/json" }
+		});
+		if (!res.ok) throw new Error("GitLab API 錯誤：" + res.status);
+
+		const issues = await res.json();
+		if (issues.length === 0) {
+		  gitlabIssuesBody.innerHTML = `<p class="text-slate-600 text-sm">目前沒有指派給你的 Issue。</p>`;
+		  return;
+		}
+
+		gitlabIssuesBody.innerHTML = `
+		  <ul class="divide-y divide-slate-200">
+			${issues.map(i => `
+			  <li class="py-3">
+				<a href="${i.web_url}" target="_blank" class="text-brand-700 font-semibold underline">#${i.iid} ${i.title}</a>
+				<div class="text-xs text-slate-500 mt-1">
+				  專案：${i.references.full}<br>
+				  更新時間：${new Date(i.updated_at).toLocaleString()}
+				</div>
+			  </li>
+			`).join('')}
+		  </ul>`;
+	  } catch (err) {
+		console.error(err);
+		gitlabIssuesBody.innerHTML = `<p class="text-red-600 text-sm">載入失敗：${err.message}</p>`;
+	  }
+	});
+
+	btnCloseGitlabModal.addEventListener('click', () => {
+	  gitlabModal.classList.add('hidden');
+	});
+
+	gitlabModal.addEventListener('click', (e) => {
+	  if (e.target === gitlabModal) gitlabModal.classList.add('hidden');
+	});
+
 
     function setDefaultsIfEmpty() {
       if (!['0','1','2'].includes(String(fields.status.value))) {
