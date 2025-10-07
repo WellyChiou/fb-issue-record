@@ -505,6 +505,15 @@
       }
     }
     fields.issue_number.addEventListener('input', updateIssuePreview);
+	
+	// 狀態=完成(2) 時，自動帶入今天的日期（若尚未填）
+	fields.status.addEventListener('change', () => {
+	  if (String(fields.status.value) === '2' && !fields.completed_at.value) {
+		fields.completed_at.value = formatDateInput(new Date());
+	  }else{
+		fields.completed_at.value = '';
+	  }
+	});
 
     // Save / Update logic
     let editingId = null;
@@ -924,15 +933,12 @@
 
     // Excel export (current table)
 	btnExportExcel.addEventListener('click', () => {
-	  // ---- Sheet 1：標題 & 全部資料 ----
-	  // 先抓 thead 的文字，並移除最後一個「操作」
-	  let headers = Array.from(document.querySelectorAll('#tableWrap thead th'))
-		.map(th => th.innerText.trim());
-	  if (headers[headers.length - 1] === '操作') {
-		headers = headers.slice(0, -1);
-	  }
+	  // 1) 產生表頭（去掉最後的「操作」）
+	  let headers = ['ISSUE#','狀態','類型','功能','Test Plan','BUG','驗證失敗','開始測試日期','預計交付日期','完成日期','測試案例','MEMO'];
 
-	  // 對應欄位的純文字轉換（不要用 chip/HTML）
+	  if (headers[headers.length - 1] === '操作') headers = headers.slice(0, -1);
+
+	  // 2) 轉換工具（與原本一致）
 	  const statusText = (v) => {
 		const n = Number(v);
 		if (n === 1) return '執行中';
@@ -956,103 +962,124 @@
 		} catch { return ''; }
 	  };
 
-	  // 依照目前 thead 的欄位順序，組出每列資料
-	  // 你表格 <thead> 的順序是（最後一欄「操作」在匯出時給空字串）：
-	  // Issue# | 連結 | 狀態 | 類型 | 功能 | Test Plan | BUG | 驗證失敗 | 開始測試日期 | 預計交付日期 | 完成日期 | 測試案例 | Memo | 操作
-	  const rowsAll = _cacheRows.map(r => ([
-		r.issue_number ?? '',
-		r.issue_link ?? '',
-		statusText(r.status),
-		categoryText(r.category),
-		r.feature ?? '',
-		toYN(r.test_plan),
-		toYN(r.bug_found),
-		toYN(r.verify_failed),
-		fmt(r.test_start_date),
-		fmt(r.eta_date),
-		fmt(r.completed_at),
-		r.test_cases ?? '',
-		(r.memo ?? '').toString().replaceAll('\n',' '),
-		'' // 操作欄（匯出不需要）
-	  ]));
+	  // 3) 取得用來判斷季度的日期（與摘要邏輯一致）
+	  const pickDate = (r) => {
+		let d = r?.test_start_date || r?.completed_at || r?.created_at;
+		if (!d) return null;
+		return (typeof d.toDate === 'function') ? d.toDate() : d;
+	  };
+	  const getQuarter = (d) => {
+		if (!(d instanceof Date) || isNaN(d)) return null;
+		const m = d.getMonth() + 1; // 1~12
+		if (m >= 1 && m <= 3)  return 'Q1';
+		if (m >= 4 && m <= 6)  return 'Q2';
+		if (m >= 7 && m <= 9)  return 'Q3';
+		if (m >= 10 && m <= 12) return 'Q4';
+		return null;
+	  };
 
-	  const ws1 = XLSX.utils.aoa_to_sheet([headers, ...rowsAll]);
+	  // 4) 把 rows 依季度分桶
+	  const buckets = { Q1: [], Q2: [], Q3: [], Q4: [] };
+	  for (const r of _cacheRows) {
+		const d = pickDate(r);
+		const q = getQuarter(d) || 'Q1'; // 沒日期就先歸 Q1，避免遺漏
+		const row = [
+		  r.issue_number ?? '',
+		  statusText(r.status),
+		  categoryText(r.category),
+		  r.feature ?? '',
+		  toYN(r.test_plan),
+		  toYN(r.bug_found),
+		  toYN(r.verify_failed),
+		  fmt(r.test_start_date),
+		  fmt(r.eta_date),
+		  fmt(r.completed_at),
+		  r.test_cases ?? '',
+		  (r.memo ?? '').toString().replaceAll('\n',' '),
+		  '' // 操作欄（匯出不需要）
+		];
+		buckets[q].push(row);
+	  }
 
-	// ------------- Sheet 2：摘要（依「開始測試日期」分月統計 + 季度彙總，限定狀態=完成） -------------
-	const monthly = new Map(); // key: 'YYYY-MM' -> {A,B,C,D,E,F,G}
-
-	for (const r of _cacheRows) {
-	  // 只統計「完成」
-	  if (Number(r.status) !== 2) continue;
-
-	  // 以開始測試日期分月；若沒填，改用 completed_at -> created_at
-	  let d = r?.test_start_date || r?.completed_at || r?.created_at;
-	  if (!d) continue;
-	  d = (typeof d.toDate === 'function') ? d.toDate() : d;
-	  if (!(d instanceof Date) || isNaN(d)) continue;
-
-	  const y = d.getFullYear();
-	  const m = d.getMonth() + 1; // 1~12
-	  const key = `${y}-${String(m).padStart(2, '0')}`;
-
-	  if (!monthly.has(key)) monthly.set(key, { A:0, B:0, C:0, D:0, E:0, F:0, G:0 });
-	  const acc = monthly.get(key);
-
-	  const bug   = Number(r.bug_found ?? 0);
-	  const tp    = (r.test_plan === 1 || r.test_plan === '1') ? 1 : 0;
-	  const opt   = Number(r.optimization_points ?? 0);
-	  const cases = Number(r.test_cases ?? 0);
-	  const vf    = Number(r.verify_failed ?? 0);
-	  const files = Number(r.file_count ?? 0);
-
-	  if (bug === 1) acc.A += 1;         // A: 發現BUG=1 的筆數
-	  acc.B += Number.isFinite(opt) ? opt : 0; // B: 可優化項目數
-	  if (tp === 1) acc.C += 1;          // C: Test Plan=1 的筆數
-	  if (bug === 0 && tp === 0) acc.D += 1;   // D: BUG=0 且 TP=0 的筆數
-	  acc.E += Number.isFinite(cases) ? cases : 0; // E: 測試案例總數
-	  if (vf === 1) acc.F += 1;          // F: 驗證失敗=1 的筆數
-	  acc.G += Number.isFinite(files) ? files : 0; // G: 檔案數總數
-	}
-
-	// 每月敘述
-	const lines = [['Monthly Summary']]; // 標題列
-	const sortedMonths = Array.from(monthly.entries()).sort((a,b) => a[0].localeCompare(b[0]));
-	for (const [key, v] of sortedMonths) {
-	  const monthNum = Number(key.slice(5)); // 'YYYY-MM' -> 取 MM
-	  const text = `${monthNum}月 發現 ${v.B} 個可優化項目，開立 ${v.A} 張優化 issues｜ 產生 ${v.C} 份測試報告｜ ${v.D} 張驗證單，複驗 ${v.F} 張單｜ 建立 ${v.G} 個測試範本、${v.E} 項測試案例`;
-	  lines.push([text]);
-	}
-
-	// 轉成「季度」彙總：以月 → 季度
-	function quarterOf(month) { return Math.floor((month - 1) / 3) + 1; } // 1~12 → 1~4
-	const quarterly = new Map(); // key: 'YYYY-Qn' -> {A..G}
-	for (const [ym, v] of sortedMonths) {
-	  const y = ym.slice(0, 4);
-	  const m = Number(ym.slice(5));
-	  const qKey = `${y}-Q${quarterOf(m)}`;
-	  if (!quarterly.has(qKey)) quarterly.set(qKey, { A:0, B:0, C:0, D:0, E:0, F:0, G:0 });
-	  const acc = quarterly.get(qKey);
-	  acc.A += v.A; acc.B += v.B; acc.C += v.C; acc.D += v.D; acc.E += v.E; acc.F += v.F; acc.G += v.G;
-	}
-
-	// 季度敘述（接在月度後面）
-	lines.push([''], ['Quarterly Summary']); // 空列 + 標題
-	const sortedQuarters = Array.from(quarterly.entries()).sort((a,b) => a[0].localeCompare(b[0]));
-	for (const [qKey, v] of sortedQuarters) {
-	  const [year, qLabel] = qKey.split('-'); // e.g. 2025-Q1
-	  const textQ = `${qLabel}: 發現 ${v.B} 個可優化項目，開立 ${v.A} 張優化 issues｜ 產生 ${v.C} 份測試報告｜ ${v.D} 張驗證單，複驗 ${v.F} 張單｜ 建立 ${v.G} 個測試範本、${v.E} 項測試案例`;
-	  lines.push([`${year} ${textQ}`]);
-	}
-
-	const ws2 = XLSX.utils.aoa_to_sheet(lines);
-
-
-	  // ------------- 輸出 -------------
+	  // 5) 產生四個季度的 sheet
 	  const wb = XLSX.utils.book_new();
-	  XLSX.utils.book_append_sheet(wb, ws1, '列表');
-	  XLSX.utils.book_append_sheet(wb, ws2, '摘要');
+	  const wsQ1 = XLSX.utils.aoa_to_sheet([headers, ...buckets.Q1]);
+	  const wsQ2 = XLSX.utils.aoa_to_sheet([headers, ...buckets.Q2]);
+	  const wsQ3 = XLSX.utils.aoa_to_sheet([headers, ...buckets.Q3]);
+	  const wsQ4 = XLSX.utils.aoa_to_sheet([headers, ...buckets.Q4]);
+	  XLSX.utils.book_append_sheet(wb, wsQ1, 'Q1列表');
+	  XLSX.utils.book_append_sheet(wb, wsQ2, 'Q2列表');
+	  XLSX.utils.book_append_sheet(wb, wsQ3, 'Q3列表');
+	  XLSX.utils.book_append_sheet(wb, wsQ4, 'Q4列表');
+
+	  // === (原本的「摘要」sheet 邏輯保留) ===
+	  // 依開始測試日期分月 + 季度彙總，限定狀態=完成
+	  const monthly = new Map(); // key: 'YYYY-MM' -> {A..G}
+	  for (const r of _cacheRows) {
+		if (Number(r.status) !== 2) continue; // 僅統計完成
+
+		let d = r?.test_start_date || r?.completed_at || r?.created_at;
+		if (!d) continue;
+		d = (typeof d.toDate === 'function') ? d.toDate() : d;
+		if (!(d instanceof Date) || isNaN(d)) continue;
+
+		const y = d.getFullYear();
+		const m = d.getMonth() + 1;
+		const key = `${y}-${String(m).padStart(2,'0')}`;
+
+		if (!monthly.has(key)) monthly.set(key, { A:0, B:0, C:0, D:0, E:0, F:0, G:0 });
+		const acc = monthly.get(key);
+
+		const bug   = Number(r.bug_found ?? 0);
+		const tp    = (r.test_plan === 1 || r.test_plan === '1') ? 1 : 0;
+		const opt   = Number(r.optimization_points ?? 0);
+		const cases = Number(r.test_cases ?? 0);
+		const vf    = Number(r.verify_failed ?? 0);
+		const files = Number(r.file_count ?? 0);
+
+		if (bug === 1) acc.A += 1;                // A: 發現BUG=1 的筆數
+		acc.B += Number.isFinite(opt) ? opt : 0;  // B: 可優化項目數
+		if (tp === 1) acc.C += 1;                 // C: Test Plan=1 的筆數
+		if (bug === 0 && tp === 0) acc.D += 1;    // D: BUG=0 且 TP=0 的筆數
+		acc.E += Number.isFinite(cases) ? cases : 0; // E: 測試案例總數
+		if (vf === 1) acc.F += 1;                 // F: 驗證失敗=1 的筆數
+		acc.G += Number.isFinite(files) ? files : 0; // G: 檔案數總數
+	  }
+
+	  const lines = [['Monthly Summary']];
+	  const sortedMonths = Array.from(monthly.entries()).sort((a,b) => a[0].localeCompare(b[0]));
+	  for (const [key, v] of sortedMonths) {
+		const monthNum = Number(key.slice(5));
+		const text = `${monthNum}月 發現 ${v.B} 個可優化項目，開立 ${v.A} 張優化 issues｜ 產生 ${v.C} 份測試報告｜ ${v.D} 張驗證單，複驗 ${v.F} 張單｜ 建立 ${v.G} 個測試範本、${v.E} 項測試案例`;
+		lines.push([text]);
+	  }
+
+	  function quarterOf(month) { return Math.floor((month - 1) / 3) + 1; }
+	  const quarterly = new Map(); // key: 'YYYY-Qn' -> {A..G}
+	  for (const [ym, v] of sortedMonths) {
+		const y = ym.slice(0, 4);
+		const m = Number(ym.slice(5));
+		const qKey = `${y}-Q${quarterOf(m)}`;
+		if (!quarterly.has(qKey)) quarterly.set(qKey, { A:0, B:0, C:0, D:0, E:0, F:0, G:0 });
+		const acc = quarterly.get(qKey);
+		acc.A += v.A; acc.B += v.B; acc.C += v.C; acc.D += v.D; acc.E += v.E; acc.F += v.F; acc.G += v.G;
+	  }
+
+	  lines.push([''], ['Quarterly Summary']);
+	  const sortedQuarters = Array.from(quarterly.entries()).sort((a,b) => a[0].localeCompare(b[0]));
+	  for (const [qKey, v] of sortedQuarters) {
+		const [year, qLabel] = qKey.split('-');
+		const textQ = `${qLabel}: 發現 ${v.B} 個可優化項目，開立 ${v.A} 張優化 issues｜ 產生 ${v.C} 份測試報告｜ ${v.D} 張驗證單，複驗 ${v.F} 張單｜ 建立 ${v.G} 個測試範本、${v.E} 項測試案例`;
+		lines.push([`${year} ${textQ}`]);
+	  }
+
+	  const wsSummary = XLSX.utils.aoa_to_sheet(lines);
+	  XLSX.utils.book_append_sheet(wb, wsSummary, '摘要');
+
+	  // 6) 輸出
 	  XLSX.writeFile(wb, 'records.xlsx');
 	});
+
 
     // ---------- Defaults on load ----------
     function formatDateInput(d) {
