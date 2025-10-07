@@ -351,6 +351,7 @@
 			<table class="table-fixed min-w-[1600px] text-sm">
 			    <!-- ✅ 把 colgroup 放在這裡（thead 前面） -->
 				<colgroup>
+				  <col style="width:60px" />  <!-- 序號 -->
 				  <col style="width:50px" />  <!-- Issue# -->
 				  <col style="width:70px" />  <!-- 狀態 -->
 				  <col style="width:60px" />  <!-- 類型 -->
@@ -365,6 +366,7 @@
 
 				<thead class="table-head text-slate-600 text-xs uppercase tracking-wide">
 					<tr>
+					  <th class="px-3 py-2 text-left">#</th>
 					  <th class="px-3 py-2 text-left">Issue#</th>
 					  <th class="px-3 py-2 text-left">狀態</th>
 					  <th class="px-3 py-2 text-left">類型</th>
@@ -393,6 +395,15 @@
 
 		  <button id="btnPrev" class="btn-secondary">上一頁</button>
 		  <span id="pageInfo" class="text-sm text-slate-600 self-center"></span>
+		  
+		  <!-- 新增：手動輸入頁碼與跳轉 -->
+		  <div class="flex items-center gap-2">
+			<span class="text-sm text-slate-600">到第</span>
+			<input id="pageInput" type="number" min="1" step="1" class="inp w-20" placeholder="頁碼"/>
+			<span class="text-sm text-slate-600">頁</span>
+		  </div>
+		  
+		  
 		  <button id="btnNext" class="btn-secondary">下一頁</button>
 		</div>
 
@@ -626,6 +637,7 @@
     const btnNext = document.getElementById('btnNext');
     const pageInfo = document.getElementById('pageInfo');
     const pageSizeSel = document.getElementById('pageSize'); 
+	const pageInput = document.getElementById('pageInput');
 
     const qKeyword = document.getElementById('q_keyword');
     const qStatus = document.getElementById('q_status');
@@ -760,30 +772,25 @@
 	  const start = (size === Number.MAX_SAFE_INTEGER) ? 0 : _pageIndex * size;
 	  const end   = (size === Number.MAX_SAFE_INTEGER) ? total : start + size;
 
-	  renderRows(_cacheRows.slice(start, end));
+	  // ★ 重要：把 start 傳下去，序號才會接續
+	  renderRows(_cacheRows.slice(start, end), start);
+  
 	  pageInfo.textContent = `共 ${total} 筆（第 ${Math.min(_pageIndex + 1, totalPages)} / ${totalPages} 頁）`;
 	}
 	
 	const toYN = (v) => (v === 1 || v === '1' || String(v).toUpperCase() === 'Y') ? 'Y' : 'N';
 	
-    function renderRows(rows){
+	function renderRows(rows, startIndex = 0){
 	  tbody.innerHTML = '';
-	  for(const r of rows){
+	  rows.forEach((r, i) => {
 		const tr = document.createElement('tr');
+		const seq = startIndex + i + 1; // ★ 連續序號（跨頁）
 
 		const isTP  = String(r.test_plan) === '1';
 		const isBug = String(r.bug_found) === '1';
 		const isVF  = String(r.verify_failed) === '1';
 
 		let rowColor = '';
-
-		// 條件	顏色	說明
-		// 驗證失敗 (verify_failed=1)	紅色	最優先警示
-		// 發現 BUG (bug_found=1)	黃色	次高優先
-		// Test Plan (test_plan=1)	紫色	一般標記
-		// 其他無標記資料	條紋灰白	預設背景
-		
-		// ★ 若目前篩選為 Test Plan=是，則強制紫色（即使有 BUG 或 驗證失敗）
 		if (qTestPlan.value === '1' && isTP) {
 		  rowColor = 'bg-purple-100';
 		} else if (isVF) {
@@ -793,17 +800,14 @@
 		} else if (isTP) {
 		  rowColor = 'bg-purple-100';
 		}
-		
-		// 只有沒有高亮才加條紋
-		const striped = rowColor ? '' : 'striped';
 		tr.className = `row ${rowColor}`;
 
-		// ✅ Issue# 改成超連結
 		const issueDisplay = r.issue_link
 		  ? `<a class="text-brand-700 underline font-medium" href="${r.issue_link}" target="_blank" rel="noopener">${r.issue_number ?? ''}</a>`
 		  : (r.issue_number ?? '');
-		
+
 		tr.innerHTML = `
+		  <td class="px-3 py-2 text-slate-500">${seq}</td>
 		  <td class="px-3 py-2">${issueDisplay}</td>
 		  <td class="px-3 py-2">${statusChip(r.status)}</td>
 		  <td class="px-3 py-2">${categoryChip(r.category)}</td>
@@ -821,7 +825,7 @@
 		  </td>
 		`;
 		tbody.appendChild(tr);
-	  }
+	  });
 
 	  tbody.querySelectorAll('button[data-edit]').forEach(btn=>{
 		btn.addEventListener('click', async ()=>{
@@ -888,6 +892,17 @@
 	  renderPage();
 	});
 	
+	pageInput.addEventListener('keydown', (e) => {
+	  if (e.key === 'Enter'){
+		if (_cacheRows.length === 0) return;
+		  if (pageSize === Number.MAX_SAFE_INTEGER) return; // 全部模式不需跳頁
+		  const totalPages = Math.max(1, Math.ceil(_cacheRows.length / pageSize));
+		  const v = Number(pageInput.value);
+		  if (!Number.isInteger(v) || v < 1) return;
+		  _pageIndex = Math.min(v - 1, totalPages - 1);
+		  renderPage();
+	  }
+	});
 	
 	btnNext.addEventListener('click', () => {
 	  if (_cacheRows.length === 0) return;
