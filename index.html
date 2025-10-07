@@ -347,21 +347,17 @@
 
       <div id="tableWrap" class="overflow-x-auto border rounded-2xl">
 		<div id="tableWrap" class="overflow-x-auto border rounded-2xl">
-			<table class="table-fixed min-w-[2050px] text-sm">
+			<table class="table-fixed min-w-[1600px] text-sm">
 			    <!-- ✅ 把 colgroup 放在這裡（thead 前面） -->
 				<colgroup>
-				  <col style="width:70px" />  <!-- Issue# -->
-				  <col style="width:50px"  />  <!-- 連結 -->
-				  <col style="width:60px" />  <!-- 狀態 -->
-				  <col style="width:50px" />  <!-- 類型 -->
-				  <col style="width:115px" />  <!-- 功能 -->
-				  <col style="width:50px" />  <!-- Test Plan -->
-				  <col style="width:50px"  />  <!-- BUG -->
-				  <col style="width:50px" />  <!-- 驗證失敗 -->
-				  <col style="width:100px" />  <!-- 開始測試日期 -->
-				  <col style="width:100px" />  <!-- 預計交付日期 -->
-				  <col style="width:100px" />  <!-- 完成日期 -->
-				  <col style="width:100px" />  <!-- 測試案例 -->
+				  <col style="width:50px" />  <!-- Issue# -->
+				  <col style="width:70px" />  <!-- 狀態 -->
+				  <col style="width:60px" />  <!-- 類型 -->
+				  <col style="width:120px" />  <!-- 功能 -->
+				  <col style="width:120px" />  <!-- 開始測試日期 -->
+				  <col style="width:120px" />  <!-- 預計交付日期 -->
+				  <col style="width:120px" />  <!-- 完成日期 -->
+				  <col style="width:50px" />  <!-- 測試案例 -->
 				  <col style="width:400px" />  <!-- Memo -->
 				  <col style="width:140px" />  <!-- 操作 -->
 				</colgroup>
@@ -369,13 +365,9 @@
 				<thead class="table-head text-slate-600 text-xs uppercase tracking-wide">
 					<tr>
 					  <th class="px-3 py-2 text-left">Issue#</th>
-					  <th class="px-3 py-2 text-left">連結</th>
 					  <th class="px-3 py-2 text-left">狀態</th>
 					  <th class="px-3 py-2 text-left">類型</th>
 					  <th class="px-3 py-2 text-left">功能</th>
-					  <th class="px-3 py-2 text-left">Test Plan</th>
-					  <th class="px-3 py-2 text-left">BUG</th>
-					  <th class="px-3 py-2 text-left">驗證失敗</th>
 					  <th class="px-3 py-2 text-left">開始測試日期</th>
 					  <th class="px-3 py-2 text-left">預計交付日期</th>
 					  <th class="px-3 py-2 text-left">完成日期</th>
@@ -756,56 +748,69 @@
 	const toYN = (v) => (v === 1 || v === '1' || String(v).toUpperCase() === 'Y') ? 'Y' : 'N';
 	
     function renderRows(rows){
-      tbody.innerHTML = '';
-      for(const r of rows){
-        const tr = document.createElement('tr');
-        tr.className = 'row';
-        const link = r.issue_link ? `<a class="text-brand-700 underline font-medium" href="${r.issue_link}" target="_blank" rel="noopener">連結</a>` : '';
-        tr.innerHTML = `
-          <td class="px-3 py-2">${r.issue_number ?? ''}</td>
-          <td class="px-3 py-2">${link}</td>
-          <td class="px-3 py-2">${statusChip(r.status)}</td>
-          <td class="px-3 py-2">${categoryChip(r.category)}</td>
-          <td class="px-3 py-2">${r.feature ?? ''}</td>
-          <td class="px-3 py-2">${toYN(r.test_plan)}</td>
-          <td class="px-3 py-2">${toYN(r.bug_found)}</td>
-          <td class="px-3 py-2">${toYN(r.verify_failed)}</td>
-          <td class="px-3 py-2">${fmtDate(r.test_start_date)}</td>
-          <td class="px-3 py-2">${fmtDate(r.eta_date)}</td>
-          <td class="px-3 py-2">${fmtDate(r.completed_at)}</td>
-          <td class="px-3 py-2">${r.test_cases ?? ''}</td>
-          <td class="px-3 py-2 whitespace-pre-wrap break-words">${r.memo ?? ''}</td>
-          <td class="px-3 py-2">
-            <div class="flex gap-2">
-              <button class="btn  text-xs" data-edit="${r.id}">編輯</button>
-              <button class="btn btn-danger text-xs" data-del="${r.id}">刪除</button>
-            </div>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      }
+	  tbody.innerHTML = '';
+	  for(const r of rows){
+		const tr = document.createElement('tr');
 
-      tbody.querySelectorAll('button[data-edit]').forEach(btn=>{
-        btn.addEventListener('click', async ()=>{
-          const id = btn.getAttribute('data-edit');
-          const ref = doc(db, 'records', id);
-          const snap = await getDoc(ref);
-          if(snap.exists()){
-            loadToForm(id, snap.data());
+		// 根據條件設定底色
+		let rowColor = '';
+		if (String(r.verify_failed) === '1') {
+		  rowColor = 'bg-red-100';
+		} else if (String(r.bug_found) === '1') {
+		  rowColor = 'bg-yellow-100';
+		} else if (String(r.test_plan) === '1') {
+		  rowColor = 'bg-purple-100';
+		}
+
+		tr.className = `row ${rowColor}`;
+
+		// ✅ Issue# 改成超連結
+		const issueDisplay = r.issue_link
+		  ? `<a class="text-brand-700 underline font-medium" href="${r.issue_link}" target="_blank" rel="noopener">${r.issue_number ?? ''}</a>`
+		  : (r.issue_number ?? '');
+		
+		tr.innerHTML = `
+		  <td class="px-3 py-2">${issueDisplay}</td>
+		  <td class="px-3 py-2">${statusChip(r.status)}</td>
+		  <td class="px-3 py-2">${categoryChip(r.category)}</td>
+		  <td class="px-3 py-2">${r.feature ?? ''}</td>
+		  <td class="px-3 py-2">${fmtDate(r.test_start_date)}</td>
+		  <td class="px-3 py-2">${fmtDate(r.eta_date)}</td>
+		  <td class="px-3 py-2">${fmtDate(r.completed_at)}</td>
+		  <td class="px-3 py-2">${r.test_cases ?? ''}</td>
+		  <td class="px-3 py-2 whitespace-pre-wrap break-words">${r.memo ?? ''}</td>
+		  <td class="px-3 py-2">
+			<div class="flex gap-2">
+			  <button class="btn text-xs" data-edit="${r.id}">編輯</button>
+			  <button class="btn btn-danger text-xs" data-del="${r.id}">刪除</button>
+			</div>
+		  </td>
+		`;
+		tbody.appendChild(tr);
+	  }
+
+	  tbody.querySelectorAll('button[data-edit]').forEach(btn=>{
+		btn.addEventListener('click', async ()=>{
+		  const id = btn.getAttribute('data-edit');
+		  const ref = doc(db, 'records', id);
+		  const snap = await getDoc(ref);
+		  if(snap.exists()){
+			loadToForm(id, snap.data());
 			openModal('edit'); 
-          }
-        });
-      });
-      tbody.querySelectorAll('button[data-del]').forEach(btn=>{
-        btn.addEventListener('click', async ()=>{
-          const id = btn.getAttribute('data-del');
-          if(confirm('確定刪除這筆資料？')){
-            await deleteDoc(doc(db, 'records', id));
-            await reload();
-          }
-        });
-      });
-    }
+		  }
+		});
+	  });
+
+	  tbody.querySelectorAll('button[data-del]').forEach(btn=>{
+		btn.addEventListener('click', async ()=>{
+		  const id = btn.getAttribute('data-del');
+		  if(confirm('確定刪除這筆資料？')){
+			await deleteDoc(doc(db, 'records', id));
+			await reload();
+		  }
+		});
+	  });
+	}
 
     function fmtDate(v){
       if(!v) return '';
