@@ -412,16 +412,25 @@
     const userEmail = document.getElementById('userEmail');
 
 	onAuthStateChanged(auth, (user) => {
-	  console.log("user", user);
-	 if (user) {
+	console.log("user", user);
+	if (user) {
 		document.body.style.display = 'block'; // 顯示 body 內容
 		userInfo.classList.remove('hidden');
 		userEmail.textContent = user.email || user.uid;
+		// ★ 登入後：記錄/更新使用者基本資料（最小幅度）
+		setDoc(doc(db, 'users', user.uid), {
+		  uid: user.uid,
+		  email: user.email ?? null,
+		  displayName: user.displayName ?? null,
+		  photoURL: user.photoURL ?? null,
+		  providerId: user.providerData?.[0]?.providerId ?? null,
+		  lastLoginAt: serverTimestamp()
+		}, { merge: true }).catch(console.error);
 		reload();
-	 } else {
+	} else {
 		// 已經登出 → 直接導向 login.html
 		location.href = "login.html";
-	 }
+	}
 	});
 
     btnSignOut.addEventListener('click', async ()=>{
