@@ -59,12 +59,22 @@
 <body>
     <div class="login-container">
         <h2 class="text-3xl font-bold text-gray-800 mb-6">FB <span class="text-indigo-600">Issue Record</span> 登入</h2>
+		<!--
         <form id="login-form">
             <input type="email" id="email" placeholder="電子郵件" required value="chiou713@gmail.com" />
             <input type="password" id="password" placeholder="密碼" required />
             <button type="submit">登入</button>
             <div id="error-message" class="error-message hidden"></div>
         </form>
+		-->
+		<!-- 放在 form 後 -->
+		<div class="mt-4">
+		  <button id="btnGoogleLogin" type="button"
+			class="flex items-center justify-center gap-2 w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded">
+			<i class="fab fa-google"></i> 使用 Google 登入
+		  </button>
+		</div>
+
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
@@ -92,52 +102,25 @@
         }
 
         const auth = firebase.auth();
-        const loginForm = document.getElementById('login-form');
-        const emailInput = document.getElementById('email');
-        const passwordInput = document.getElementById('password');
-        const errorMessageDiv = document.getElementById('error-message');
+		const googleBtn = document.getElementById('btnGoogleLogin');
 
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault(); // 阻止表單預設提交行為
-            const email = emailInput.value;
-            const password = passwordInput.value;
-            errorMessageDiv.classList.add('hidden'); // 每次嘗試登入前隱藏錯誤訊息
-            errorMessageDiv.textContent = ''; // 清空錯誤訊息內容
+		googleBtn.addEventListener('click', async () => {
+		const provider = new firebase.auth.GoogleAuthProvider();
+		try {
+		  const result = await auth.signInWithPopup(provider);
+		  console.log("Google 登入成功：", result.user.email);
+		  window.location.href = 'index.html';
+		} catch (error) {
+		  console.error("Google 登入失敗：", error);
+		  alert("Google 登入失敗：" + error.message);
+		}
+		});
 
-            try {
-                await auth.signInWithEmailAndPassword(email, password);
-                console.log("登入成功！");
-                window.location.href = 'index.html'; // 登入成功後跳轉到 index.html
-            } catch (error) {
-                console.error("登入失敗：", error.code, error.message);
-                errorMessageDiv.classList.remove('hidden');
-                switch (error.code) {
-                    case 'auth/user-not-found':
-                    case 'auth/wrong-password':
-                        errorMessageDiv.textContent = '電子郵件或密碼錯誤。';
-                        break;
-                    case 'auth/invalid-email':
-                        errorMessageDiv.textContent = '無效的電子郵件格式。';
-                        break;
-                    case 'auth/too-many-requests':
-                        errorMessageDiv.textContent = '登入失敗次數過多，請稍後再試。';
-                        break;
-                    case 'auth/network-request-failed':
-                        errorMessageDiv.textContent = '網路請求失敗，請檢查您的網路連線。';
-                        break;
-                    default:
-                        errorMessageDiv.textContent = `登入失敗：${error.message} (錯誤碼: ${error.code})`;
-                }
-            }
-        });
+		// 已登入者自動導向 index.html
+		auth.onAuthStateChanged(user => {
+			if (user) window.location.href = 'index.html';
+		});
 
-        // 檢查是否已經登入，如果已登入則直接跳轉到 index.html
-        auth.onAuthStateChanged(user => {
-            if (user) {
-                console.log("已偵測到使用者登入，直接跳轉到 index.html。");
-                window.location.href = 'index.html';
-            }
-        });
     </script>
 </body>
 </html>
