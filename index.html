@@ -75,7 +75,8 @@
 	  word-break: break-word;  /* 長字/URL 也能斷行 */
 	}
     .row{ border-bottom:1px solid #e2e8f0; }
-    .row:nth-child(even){ background:#fcfcfd; }
+    /* 原本：.row:nth-child(even){ background:#fcfcfd; } */
+    .row.striped:nth-child(even){ background:#fcfcfd; }
     .overlay {
       position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
       background:rgba(255,255,255,.8); backdrop-filter:saturate(180%) blur(2px);
@@ -752,16 +753,25 @@
 	  for(const r of rows){
 		const tr = document.createElement('tr');
 
-		// 根據條件設定底色
+		const isTP  = String(r.test_plan) === '1';
+		const isBug = String(r.bug_found) === '1';
+		const isVF  = String(r.verify_failed) === '1';
+
 		let rowColor = '';
-		if (String(r.verify_failed) === '1') {
+
+		// ★ 若目前篩選為 Test Plan=是，則強制紫色（即使有 BUG 或 驗證失敗）
+		if (qTestPlan.value === '1' && isTP) {
+		  rowColor = 'bg-purple-100';
+		} else if (isVF) {
 		  rowColor = 'bg-red-100';
-		} else if (String(r.bug_found) === '1') {
+		} else if (isBug) {
 		  rowColor = 'bg-yellow-100';
-		} else if (String(r.test_plan) === '1') {
+		} else if (isTP) {
 		  rowColor = 'bg-purple-100';
 		}
-
+		
+		// 只有沒有高亮才加條紋
+		const striped = rowColor ? '' : 'striped';
 		tr.className = `row ${rowColor}`;
 
 		// ✅ Issue# 改成超連結
