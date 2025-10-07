@@ -759,6 +759,12 @@
 
 		let rowColor = '';
 
+		// 條件	顏色	說明
+		// 驗證失敗 (verify_failed=1)	紅色	最優先警示
+		// 發現 BUG (bug_found=1)	黃色	次高優先
+		// Test Plan (test_plan=1)	紫色	一般標記
+		// 其他無標記資料	條紋灰白	預設背景
+		
 		// ★ 若目前篩選為 Test Plan=是，則強制紫色（即使有 BUG 或 驗證失敗）
 		if (qTestPlan.value === '1' && isTP) {
 		  rowColor = 'bg-purple-100';
