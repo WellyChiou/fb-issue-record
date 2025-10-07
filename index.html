@@ -412,6 +412,7 @@
     const userEmail = document.getElementById('userEmail');
 
 	onAuthStateChanged(auth, (user) => {
+	  console.log("user", user);
 	 if (user) {
 		document.body.style.display = 'block'; // 顯示 body 內容
 		userInfo.classList.remove('hidden');
