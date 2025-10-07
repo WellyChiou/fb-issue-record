@@ -525,6 +525,7 @@
 		return; // 中斷，不進行儲存
 	  }
       const payload = buildPayload();
+      const u = auth.currentUser;
       try{
         showLoading(true);
         if(editingId){
