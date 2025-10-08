@@ -418,16 +418,32 @@
 	  <!-- 面板 -->
 	  <div class="relative w-full h-full grid place-items-center p-4">
 		<div class="bg-white rounded-2xl shadow-soft border border-slate-100 w-full max-w-3xl">
-		 <!-- GitLab Issues Modal（標題列替換成這段） -->
-			<div class="flex items-center justify-between px-5 py-4 border-b">
-			  <h2 class="text-lg md:text-xl font-semibold">指派給我的 GitLab Issues</h2>
-			  <div class="flex items-center gap-2">
-				<span id="gitlabSelectedCount" class="text-sm text-slate-600">已選 0 筆</span>
-				<button id="btnToggleSelectAll" class="btn-outline">全選</button>
-				<button id="btnImportSelected" class="btn btn-primary">匯入選取</button>
-				<button id="btnCloseGitlabModal" class="btn-secondary">關閉</button>
+			<!-- GitLab Issues Modal（標題列：加入查詢欄位） -->
+			<div class="px-5 py-4 border-b space-y-3">
+			  <div class="flex items-center justify-between">
+				<h2 class="text-lg md:text-xl font-semibold">GitLab Issues 查詢</h2>
+				<div class="flex items-center gap-2">
+				  <span id="gitlabSelectedCount" class="text-sm text-slate-600">已選 0 筆</span>
+				  <button id="btnToggleSelectAll" class="btn-outline">全選</button>
+				  <button id="btnImportSelected" class="btn btn-primary">匯入選取</button>
+				  <button id="btnCloseGitlabModal" class="btn-secondary">關閉</button>
+				</div>
+			  </div>
+			  <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+				<div>
+				  <label class="block text-xs text-slate-600 mb-1">Assignee（使用者名稱）</label>
+				  <input id="glAssignee" class="inp" placeholder="例如：Welly.Chiu" />
+				</div>
+				<div class="md:col-span-2">
+				  <label class="block text-xs text-slate-600 mb-1">Project（路徑）</label>
+				  <input id="glProject" class="inp" placeholder="例如：kh/imp；也可填 gitlab.com 的 other/group/project" />
+				</div>
+				<div class="md:col-span-3 flex justify-end">
+				  <button id="btnSearchGitlab" class="btn btn-info">查詢</button>
+				</div>
 			  </div>
 			</div>
+
 
 			<div id="gitlabIssuesBody" class="p-5 max-h-[70vh] overflow-y-auto">
 			<p class="text-slate-500 text-sm">尚未載入</p>
@@ -449,33 +465,49 @@
     const btnSignOut = document.getElementById('btnSignOut');
     const userDisplayName = document.getElementById('userDisplayName');
     const userEmail = document.getElementById('userEmail');
-
+	
+	// Git Token
+	let GITLAB_TOKEN = null;
+	
 	onAuthStateChanged(auth, (user) => {
-	if (user) {
-		document.body.style.display = 'block'; // 顯示 body 內容
-		userDisplayName.classList.remove('hidden');
-		userEmail.textContent = user.displayName || user.email;
-		// ★ 登入後：記錄/更新使用者基本資料（最小幅度）
-		setDoc(doc(db, 'users', user.uid), {
-		  uid: user.uid,
-		  email: user.email ?? null,
-		  displayName: user.displayName ?? null,
-		  photoURL: user.photoURL ?? null,
-		  providerId: user.providerData?.[0]?.providerId ?? null,
-		  lastLoginAt: serverTimestamp()
-		}, { merge: true }).catch(console.error);
-		reload();
-	} else {
-		// 已經登出 → 直接導向 login.html
-		//location.href = "login.html";
-		document.body.style.display = 'block'; // 顯示 body 內容
-		userDisplayName.classList.remove('hidden');
-	}
+		if (user) {
+			document.body.style.display = 'block'; // 顯示 body 內容
+			userDisplayName.classList.remove('hidden');
+			userEmail.textContent = user.displayName || user.email;
+			// ★ 登入後：記錄/更新使用者基本資料（最小幅度）
+			setDoc(doc(db, 'users', user.uid), {
+			  uid: user.uid,
+			  email: user.email ?? null,
+			  displayName: user.displayName ?? null,
+			  photoURL: user.photoURL ?? null,
+			  providerId: user.providerData?.[0]?.providerId ?? null,
+			  lastLoginAt: serverTimestamp()
+			}, { merge: true }).catch(console.error);
+			reload();
+			loadGitlabToken().catch(console.error); // 預抓 token（快取在記憶體）
+		} else {
+			// 已經登出 → 直接導向 login.html
+			location.href = "login.html";
+		}
 	});
 
     btnSignOut.addEventListener('click', async ()=>{
       await signOut(auth);
     });
+	
+	async function loadGitlabToken() {
+	  if (GITLAB_TOKEN) return GITLAB_TOKEN; // 已載入就用快取
+	  // 讀 Firestore：config/gitlab 文件
+	  const ref = doc(db, 'config', 'gitlab');
+	  const snap = await getDoc(ref);
+	  if (!snap.exists()) throw new Error('Firestore 未找到 config/gitlab');
+	  const token = snap.data()?.token;
+	  if (!token) throw new Error('config/gitlab 無 token 欄位');
+	  GITLAB_TOKEN = token;
+	  return token;
+	}
+
+
 	// === Modal 控制 ===
 	const recordModal   = document.getElementById('recordModal');
 	const modalPanel    = recordModal.querySelector('[data-modal-panel]');
@@ -1196,42 +1228,76 @@
 	const gitlabModal = document.getElementById('gitlabModal');
 	const btnCloseGitlabModal = document.getElementById('btnCloseGitlabModal');
 	const gitlabIssuesBody = document.getElementById('gitlabIssuesBody');
-
-	const GITLAB_API = "https://gitlab.fb-tek.com/api/v4/projects/kh%2Fimp/issues";
-	const TOKEN = "w1K2dummuEz62ErrWi_N"; // ⚠️ 僅內部使用，請勿公開
-	const ASSIGNEE = "Welly.Chiu"; // 或直接改成登入者名稱
-
+	const glAssigneeInput = document.getElementById('glAssignee');
+	const glProjectInput  = document.getElementById('glProject');
+	const btnSearchGitlab = document.getElementById('btnSearchGitlab');
+	const GITLAB_BASE = "https://gitlab.fb-tek.com/api/v4";
+	
+	// 開窗：帶入常用預設（可自行調整）
 	btnGitlabIssues.addEventListener('click', async () => {
 	  gitlabModal.classList.remove('hidden');
+	  // 預設值（若空白時才填）
+	  if (!glAssigneeInput.value) glAssigneeInput.value = "Welly.Chiu";
+	  if (!glProjectInput.value)  glProjectInput.value  = "kh/imp";
+	  gitlabIssuesBody.innerHTML = `<p class="text-slate-500 text-sm">請按「查詢」載入資料</p>`;
+	});
+	// 關閉
+	btnCloseGitlabModal.addEventListener('click', () => {
+	  gitlabModal.classList.add('hidden');
+	});
+	gitlabModal.addEventListener('click', (e) => {
+	  if (e.target === gitlabModal) gitlabModal.classList.add('hidden');
+	});
+	
+	async function searchGitlabIssues() {
 	  gitlabIssuesBody.innerHTML = `<p class="text-slate-500 text-sm">讀取中...</p>`;
-
 	  try {
-		const url = `${GITLAB_API}?assignee_username=${ASSIGNEE}&state=opened&per_page=50`;
+		const TOKEN = await loadGitlabToken();                 // 從 Firestore 讀取、快取
+		const project = encodeURIComponent(glProjectInput.value.trim());
+		const assignee = glAssigneeInput.value.trim();
+
+		// 只有 project 是必填；assignee 可空（查全專案開啟中的 issue）
+		const params = new URLSearchParams({ state: "opened", per_page: "50" });
+		if (assignee) params.set("assignee_username", assignee);
+
+		const url = `${GITLAB_BASE}/projects/${project}/issues?${params.toString()}`;
 		const res = await fetch(url, {
 		  headers: { "PRIVATE-TOKEN": TOKEN, "Accept": "application/json" }
 		});
 		if (!res.ok) throw new Error("GitLab API 錯誤：" + res.status);
 
 		const issues = await res.json();
-		if (issues.length === 0) {
-		  gitlabIssuesBody.innerHTML = `<p class="text-slate-600 text-sm">目前沒有指派給你的 Issue。</p>`;
+		if (!Array.isArray(issues) || issues.length === 0) {
+		  gitlabIssuesBody.innerHTML = `<p class="text-slate-600 text-sm">沒有符合條件的 Issue。</p>`;
 		  return;
 		}
 
+		// 渲染（用第 2 步提供的樣板）
 		gitlabIssuesBody.innerHTML = `
 		  <ul class="divide-y divide-slate-200">
 			${issues.map(i => `
-			  <li class="py-3 flex items-start gap-3">
-				<input type="checkbox"
-					   class="gl-select mt-1"
-					   data-iid="${i.iid}"
-					   data-title="${i.title?.replace(/"/g, '&quot;') || ''}"
-					   data-url="${i.web_url}">
-				<div>
-				  <a href="${i.web_url}" target="_blank" class="text-brand-700 font-semibold underline">#${i.iid} ${i.title}</a>
-				  <div class="text-xs text-slate-500 mt-1">
-					專案：${i.references?.full || ''}<br>
-					更新時間：${new Date(i.updated_at).toLocaleString()}
+			  <li class="py-3">
+				<div class="flex items-start gap-3">
+				  <input type="checkbox"
+						 class="gl-select mt-1"
+						 data-iid="${i.iid}"
+						 data-title="${i.title?.replace(/"/g, '&quot;') || ''}"
+						 data-url="${i.web_url}">
+				  <div class="flex-1">
+					<div class="flex items-start justify-between gap-3">
+					  <div>
+						<a href="${i.web_url}" target="_blank" class="text-brand-700 font-semibold underline">#${i.iid} ${i.title}</a>
+						<div class="text-xs text-slate-500 mt-1">
+						  專案：${i.references?.full || ''}<br>
+						  更新時間：${new Date(i.updated_at).toLocaleString()}
+						</div>
+					  </div>
+					  <button class="btn-secondary text-sm px-3 py-1.5 gl-detail-btn"
+							  data-iid="${i.iid}">詳細資訊</button>
+					</div>
+					<div class="gl-detail-panel mt-3 hidden" id="gl-detail-${i.iid}">
+					  <div class="text-slate-500 text-sm">讀取留言中…</div>
+					</div>
 				  </div>
 				</div>
 			  </li>
@@ -1243,7 +1309,69 @@
 		console.error(err);
 		gitlabIssuesBody.innerHTML = `<p class="text-red-600 text-sm">載入失敗：${err.message}</p>`;
 	  }
+	}
+
+	// 綁定查詢按鈕與 Enter
+	btnSearchGitlab.addEventListener('click', searchGitlabIssues);
+	glAssigneeInput.addEventListener('keydown', e => { if (e.key==='Enter') searchGitlabIssues(); });
+	glProjectInput.addEventListener('keydown',  e => { if (e.key==='Enter') searchGitlabIssues(); });
+
+	// 代理事件：點「詳細資訊」抓留言（notes）
+	gitlabIssuesBody.addEventListener('click', async (e) => {
+	  const btn = e.target.closest('.gl-detail-btn');
+	  if (!btn) return;
+
+	  const iid = btn.dataset.iid;
+	  const panel = document.getElementById(`gl-detail-${iid}`);
+
+	  // 折疊/展開
+	  if (!panel.classList.contains('hidden')) {
+		panel.classList.add('hidden');
+		return;
+	  }
+	  panel.classList.remove('hidden');
+	  panel.innerHTML = `<div class="text-slate-500 text-sm">讀取留言中…</div>`;
+
+	  try {
+		const TOKEN = await loadGitlabToken();
+		const project = encodeURIComponent(glProjectInput.value.trim());
+		const url = `${GITLAB_BASE}/projects/${project}/issues/${iid}/notes?per_page=100`;
+		const res = await fetch(url, {
+		  headers: { "PRIVATE-TOKEN": TOKEN, "Accept": "application/json" }
+		});
+		if (!res.ok) throw new Error(`讀取留言失敗：${res.status}`);
+
+		const notes = await res.json();
+		if (!Array.isArray(notes) || notes.length === 0) {
+		  panel.innerHTML = `<div class="text-slate-600 text-sm">沒有留言。</div>`;
+		  return;
+		}
+
+		// 簡單排除系統訊息（可選）
+		const humanNotes = notes.filter(n => !n.system);
+
+		panel.innerHTML = `
+		  <div class="border rounded-xl p-3 bg-slate-50">
+			${humanNotes.map(n => `
+			  <div class="mb-3">
+				<div class="text-sm font-medium text-slate-700">${n.author?.name || n.author?.username || '未知'}</div>
+				<div class="text-xs text-slate-500">${new Date(n.created_at).toLocaleString()}</div>
+				<div class="mt-1 whitespace-pre-wrap text-slate-800">${escapeHtml(n.body || '')}</div>
+			  </div>
+			`).join('')}
+		  </div>
+		`;
+	  } catch (err) {
+		console.error(err);
+		panel.innerHTML = `<div class="text-red-600 text-sm">讀取留言失敗：${err.message}</div>`;
+	  }
 	});
+
+	// 簡易 XSS 避免
+	function escapeHtml(s){
+	  return String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;', "'":'&#39;'}[c]));
+	}
+
 
 	btnCloseGitlabModal.addEventListener('click', () => {
 	  gitlabModal.classList.add('hidden');
