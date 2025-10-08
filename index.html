@@ -418,13 +418,20 @@
 	  <!-- 面板 -->
 	  <div class="relative w-full h-full grid place-items-center p-4">
 		<div class="bg-white rounded-2xl shadow-soft border border-slate-100 w-full max-w-3xl">
-		  <div class="flex items-center justify-between px-5 py-4 border-b">
-			<h2 class="text-lg md:text-xl font-semibold">指派給我的 GitLab Issues</h2>
-			<button id="btnCloseGitlabModal" class="btn-secondary">關閉</button>
-		  </div>
-		  <div id="gitlabIssuesBody" class="p-5 max-h-[70vh] overflow-y-auto">
+		 <!-- GitLab Issues Modal（標題列替換成這段） -->
+			<div class="flex items-center justify-between px-5 py-4 border-b">
+			  <h2 class="text-lg md:text-xl font-semibold">指派給我的 GitLab Issues</h2>
+			  <div class="flex items-center gap-2">
+				<span id="gitlabSelectedCount" class="text-sm text-slate-600">已選 0 筆</span>
+				<button id="btnToggleSelectAll" class="btn-outline">全選</button>
+				<button id="btnImportSelected" class="btn btn-primary">匯入選取</button>
+				<button id="btnCloseGitlabModal" class="btn-secondary">關閉</button>
+			  </div>
+			</div>
+
+			<div id="gitlabIssuesBody" class="p-5 max-h-[70vh] overflow-y-auto">
 			<p class="text-slate-500 text-sm">尚未載入</p>
-		  </div>
+			</div>
 		</div>
 	  </div>
 	</div>
@@ -460,7 +467,9 @@
 		reload();
 	} else {
 		// 已經登出 → 直接導向 login.html
-		location.href = "login.html";
+		//location.href = "login.html";
+		document.body.style.display = 'block'; // 顯示 body 內容
+		userDisplayName.classList.remove('hidden');
 	}
 	});
 
@@ -1212,15 +1221,24 @@
 		gitlabIssuesBody.innerHTML = `
 		  <ul class="divide-y divide-slate-200">
 			${issues.map(i => `
-			  <li class="py-3">
-				<a href="${i.web_url}" target="_blank" class="text-brand-700 font-semibold underline">#${i.iid} ${i.title}</a>
-				<div class="text-xs text-slate-500 mt-1">
-				  專案：${i.references.full}<br>
-				  更新時間：${new Date(i.updated_at).toLocaleString()}
+			  <li class="py-3 flex items-start gap-3">
+				<input type="checkbox"
+					   class="gl-select mt-1"
+					   data-iid="${i.iid}"
+					   data-title="${i.title?.replace(/"/g, '&quot;') || ''}"
+					   data-url="${i.web_url}">
+				<div>
+				  <a href="${i.web_url}" target="_blank" class="text-brand-700 font-semibold underline">#${i.iid} ${i.title}</a>
+				  <div class="text-xs text-slate-500 mt-1">
+					專案：${i.references?.full || ''}<br>
+					更新時間：${new Date(i.updated_at).toLocaleString()}
+				  </div>
 				</div>
 			  </li>
 			`).join('')}
 		  </ul>`;
+		updateSelectedCount();
+
 	  } catch (err) {
 		console.error(err);
 		gitlabIssuesBody.innerHTML = `<p class="text-red-600 text-sm">載入失敗：${err.message}</p>`;
@@ -1234,6 +1252,132 @@
 	gitlabModal.addEventListener('click', (e) => {
 	  if (e.target === gitlabModal) gitlabModal.classList.add('hidden');
 	});
+
+	// === 選取/計數 ===
+	const selectedCountEl = document.getElementById('gitlabSelectedCount');
+	const btnToggleSelectAll = document.getElementById('btnToggleSelectAll');
+	const btnImportSelected = document.getElementById('btnImportSelected');
+
+	function getAllCheckboxes() {
+	  return Array.from(gitlabIssuesBody.querySelectorAll('.gl-select'));
+	}
+	function getSelected() {
+	  return getAllCheckboxes().filter(cb => cb.checked);
+	}
+	function updateSelectedCount() {
+	  selectedCountEl.textContent = `已選 ${getSelected().length} 筆`;
+	}
+	gitlabIssuesBody.addEventListener('change', (e) => {
+	  if (e.target.classList.contains('gl-select')) updateSelectedCount();
+	});
+
+	let _allSelected = false;
+	btnToggleSelectAll.addEventListener('click', () => {
+	  _allSelected = !_allSelected;
+	  getAllCheckboxes().forEach(cb => cb.checked = _allSelected);
+	  btnToggleSelectAll.textContent = _allSelected ? '全不選' : '全選';
+	  updateSelectedCount();
+	});
+
+	// === 匯入至 records ===
+	// 規格（你提出的預設值）：
+	// 狀態 = 執行中(1)
+	// issue_number = GitLab 的 iid
+	// test_plan = '0'（字串，符合你現有欄位慣例）
+	// memo = GitLab 標題
+	// test_start_date = 今天、eta_date = 本週五
+	// verify_failed/test_cases/file_count/bug_found/optimization_points = 0
+	// feature = '透過系統匯入請手動調整'
+	// completed_at = null（空）
+	// issue_link = GitLab 的 web_url
+	btnImportSelected.addEventListener('click', async () => {
+	  const picks = getSelected();
+	  if (picks.length === 0) {
+		alert('請先勾選要匯入的資料');
+		return;
+	  }
+
+	  const u = auth.currentUser;
+	  if (!u) {
+		alert('請先登入再匯入');
+		return;
+	  }
+
+	  btnImportSelected.disabled = true;
+	  btnImportSelected.textContent = '匯入中...';
+
+	  try {
+		const today = new Date();
+		let successCount = 0;
+		let skippedCount = 0;
+		let failCount = 0;
+
+		// 逐筆檢查是否已存在（依 issue_number）
+		for (const cb of picks) {
+		  const iid = Number(cb.dataset.iid);
+		  const title = cb.dataset.title || '';
+		  const url = cb.dataset.url || '';
+
+		  // 查是否已有相同 issue_number 的紀錄
+		  const qExist = query(
+			collection(db, 'records'),
+			where('issue_number', '==', iid)
+		  );
+		  const snap = await getDocs(qExist);
+		  if (!snap.empty) {
+			console.log(`Issue ${iid} 已存在，略過匯入`);
+			skippedCount++;
+			continue; // 已存在就跳過
+		  }
+
+		  const payload = {
+			status: 1,
+			completed_at: null,
+			issue_number: iid,
+			test_plan: '0',
+			category: null,
+			feature: '透過系統匯入請手動調整',
+			memo: title,
+			test_start_date: today,
+			eta_date: thisFriday(today),
+			bug_found: 0,
+			optimization_points: 0,
+			verify_failed: 0,
+			test_cases: 0,
+			file_count: 0,
+			issue_link: url,
+			created_by_uid: u.uid,
+			created_at: serverTimestamp()
+		  };
+
+		  try {
+			await addDoc(collection(db, 'records'), payload);
+			successCount++;
+		  } catch (err) {
+			console.error(`匯入 Issue ${iid} 失敗：`, err);
+			failCount++;
+		  }
+		}
+
+		alert(`匯入完成：
+	成功 ${successCount} 筆
+	略過（已存在） ${skippedCount} 筆
+	失敗 ${failCount} 筆`);
+
+		gitlabModal.classList.add('hidden');
+		_allSelected = false;
+		btnToggleSelectAll.textContent = '全選';
+		await reload(); // 重新載入表格
+	  } catch (err) {
+		console.error(err);
+		alert('匯入發生錯誤：' + (err.message || err));
+	  } finally {
+		btnImportSelected.disabled = false;
+		btnImportSelected.textContent = '匯入選取';
+	  }
+	});
+
+
 
 
     function setDefaultsIfEmpty() {
