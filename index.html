@@ -1240,6 +1240,7 @@
 	  if (!glAssigneeInput.value) glAssigneeInput.value = "Welly.Chiu";
 	  if (!glProjectInput.value)  glProjectInput.value  = "kh/imp";
 	  gitlabIssuesBody.innerHTML = `<p class="text-slate-500 text-sm">請按「查詢」載入資料</p>`;
+	  searchGitlabIssues();
 	});
 	// 關閉
 	btnCloseGitlabModal.addEventListener('click', () => {
