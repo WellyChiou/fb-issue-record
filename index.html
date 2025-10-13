@@ -81,8 +81,21 @@
       position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
       background:rgba(255,255,255,.8); backdrop-filter:saturate(180%) blur(2px);
     }
-	/* 固定欄寬：由 table-fixed + colgroup 決定 */
-	#tableWrap table { table-layout: fixed; }
+	#tableWrap table {
+	  table-layout: auto !important; /* 取消固定欄寬 */
+	  width: 100%;
+	}
+	#recordsTbody tr:hover {
+	  background-color: #f1f5f9; /* hover 淡灰底 */
+	  transition: background-color 0.15s ease;
+	}
+
+	#recordsTbody td {
+	  vertical-align: middle;
+	  white-space: nowrap; /* 單行顯示 */
+	  overflow: hidden;
+	  text-overflow: ellipsis; /* 超出以 ... 表示 */
+	}
 
 	/* 表頭單行顯示（完整看到標題） */
 	.table-head th { white-space: nowrap; }
@@ -842,6 +855,12 @@
 	
 	const toYN = (v) => (v === 1 || v === '1' || String(v).toUpperCase() === 'Y') ? 'Y' : 'N';
 	
+	function shortenText(text, maxLen = 30) {
+	  if (!text) return '';
+	  text = String(text);
+	  return text.length > maxLen ? text.slice(0, maxLen) + '...' : text;
+	}
+	
 	function renderRows(rows, startIndex = 0){
 	  tbody.innerHTML = '';
 	  rows.forEach((r, i) => {
@@ -878,11 +897,13 @@
 		  <td class="px-3 py-2">${fmtDate(r.eta_date)}</td>
 		  <td class="px-3 py-2">${fmtDate(r.completed_at)}</td>
 		  <td class="px-3 py-2">${r.test_cases ?? ''}</td>
-		  <td class="px-3 py-2 whitespace-pre-wrap break-words">${r.memo ?? ''}</td>
+		  <td class="px-3 py-2 whitespace-pre-wrap break-words" title="${r.memo ?? ''}">
+			${shortenText(r.memo, 30)}
+		  </td>
 		  <td class="px-3 py-2">
 			<div class="flex gap-2">
-			  <button class="btn text-xs" data-edit="${r.id}">編輯</button>
-			  <button class="btn btn-danger text-xs" data-del="${r.id}">刪除</button>
+				<button class="text-blue-600 hover:underline" data-edit="${r.id}">✏️</button>
+				<button class="text-red-500 hover:underline" data-del="${r.id}">🗑️</button>
 			</div>
 		  </td>
 		`;
