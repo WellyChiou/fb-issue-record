@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FB Issue Record 登入</title>
+    <title>QA Tracker - 登入</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,69 +12,83 @@
     <style>
         body {
             font-family: 'Inter', 'Noto Sans TC', sans-serif;
-            background-color: #f8f9fa;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
+            padding: 1rem;
         }
         .login-container {
             background-color: white;
-            padding: 2.5rem;
-            border-radius: 0.75rem;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            padding: 3rem 2.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
             width: 100%;
-            max-width: 400px;
+            max-width: 420px;
             text-align: center;
+            animation: fadeIn 0.5s ease-in;
         }
-        input[type="email"],
-        input[type="password"] {
-            width: 100%;
-            padding: 0.75rem;
-            margin-bottom: 1rem;
-            border: 1px solid #d1d5db;
-            border-radius: 0.5rem;
-            font-size: 1rem;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .logo-circle {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
         }
         button {
             width: 100%;
-            padding: 0.75rem;
-            background-color: #4f46e5;
+            padding: 0.875rem;
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
             color: white;
-            font-weight: bold;
-            border-radius: 0.5rem;
-            transition: background-color 0.3s ease;
-            cursor: pointer; /* 讓按鈕看起來可點擊 */
+            font-weight: 600;
+            border-radius: 0.75rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 4px 6px -1px rgba(220, 38, 38, 0.3);
         }
         button:hover {
-            background-color: #4338ca;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px -1px rgba(220, 38, 38, 0.4);
         }
-        .error-message {
-            color: #ef4444; /* red-500 */
-            margin-top: 1rem;
-            font-size: 0.875rem;
+        button:active {
+            transform: translateY(0);
+        }
+        .subtitle {
+            color: #64748b;
+            font-size: 0.95rem;
+            margin-bottom: 2rem;
         }
     </style>
 </head>
 <body>
     <div class="login-container">
-        <h2 class="text-3xl font-bold text-gray-800 mb-6">FB <span class="text-indigo-600">Issue Record</span> 登入</h2>
-		<!--
-        <form id="login-form">
-            <input type="email" id="email" placeholder="電子郵件" required value="chiou713@gmail.com" />
-            <input type="password" id="password" placeholder="密碼" required />
-            <button type="submit">登入</button>
-            <div id="error-message" class="error-message hidden"></div>
-        </form>
-		-->
-		<!-- 放在 form 後 -->
-		<div class="mt-4">
-		  <button id="btnGoogleLogin" type="button"
-			class="flex items-center justify-center gap-2 w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded">
-			<i class="fab fa-google"></i> 使用 Google 登入
-		  </button>
-		</div>
+        <div class="logo-circle">QA</div>
+        <h2 class="text-3xl font-bold text-gray-800 mb-2">QA Tracker</h2>
+        <p class="subtitle">使用 Google 帳號登入開始記錄您的工作</p>
+        
+        <div class="mt-6">
+          <button id="btnGoogleLogin" type="button"
+            class="flex items-center justify-center gap-3">
+            <i class="fab fa-google text-lg"></i>
+            <span>使用 Google 登入</span>
+          </button>
+        </div>
 
+        <div class="mt-6 text-xs text-gray-500">
+            登入即表示您同意使用本系統記錄工作資料
+        </div>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
