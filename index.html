@@ -65,7 +65,7 @@
   <style>
     /* === 基礎按鈕樣式 === */
     .btn {
-      padding: .625rem 1rem;
+      padding: .75rem 1.25rem;
       border-radius: .75rem;
       font-weight: 600;
       font-size: .875rem;
@@ -77,6 +77,7 @@
       justify-content: center;
       gap: .5rem;
       white-space: nowrap;
+      min-height: 2.5rem;
     }
     .btn:hover { transform: translateY(-1px); }
     .btn:active { transform: translateY(0); }
@@ -118,7 +119,7 @@
     .btn-danger:hover { box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); }
     
     .btn-secondary { 
-      padding: .625rem 1rem;
+      padding: .75rem 1.25rem;
       border-radius: .75rem;
       border: 1.5px solid #cbd5e1;
       background: #fff;
@@ -127,10 +128,12 @@
       font-size: .875rem;
       transition: all 0.2s ease;
       cursor: pointer;
+      min-height: 2.5rem;
     }
     .btn-secondary:hover { 
       background: #f8fafc;
       border-color: #94a3b8;
+      transform: translateY(-1px);
     }
     
     .btn-outline { 
@@ -251,14 +254,25 @@
         </div>
       </div>
       <div id="authArea" class="flex items-center gap-2 md:gap-3">
-        <div id="userDisplayName" class="hidden items-center gap-2 md:gap-3">
+        <div id="userDisplayName" class="hidden flex-col md:flex-row items-end md:items-center gap-2 md:gap-3">
+          <!-- 桌面版：使用者資訊卡片 -->
           <div class="hidden md:flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-2 rounded-lg">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
             </svg>
             <span id="userEmail" class="text-sm font-medium"></span>
           </div>
-          <button id="btnSignOut" class="btn-secondary text-xs md:text-sm">登出</button>
+          
+          <!-- 手機版：簡化使用者資訊 -->
+          <div class="md:hidden flex items-center gap-1.5 bg-white/10 backdrop-blur-sm px-2 py-1.5 rounded-lg">
+            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+            </svg>
+            <span id="userEmailMobile" class="text-xs font-medium"></span>
+          </div>
+          
+          <!-- 登出按鈕 -->
+          <button id="btnSignOut" class="btn-secondary text-xs md:text-sm px-3 py-1.5 md:px-4 md:py-2">登出</button>
         </div>
       </div>
     </div>
@@ -579,24 +593,24 @@
           </div>
           
           <!-- 右側：分頁控制 -->
-          <div class="flex flex-wrap items-center gap-2">
-            <button id="btnPrev" class="btn-secondary">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="flex flex-wrap items-center gap-3">
+            <button id="btnPrev" class="btn-secondary px-4 py-2.5 text-sm font-medium">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
               </svg>
               上一頁
             </button>
             
             <!-- 跳頁 -->
-            <div class="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span class="text-sm text-slate-600">到第</span>
-              <input id="pageInput" type="number" min="1" step="1" class="inp w-16 !py-1" placeholder="頁"/>
-              <span class="text-sm text-slate-600">頁</span>
+            <div class="flex items-center gap-2 px-4 py-2.5 bg-slate-50 rounded-lg border border-slate-200">
+              <span class="text-sm font-medium text-slate-600">到第</span>
+              <input id="pageInput" type="number" min="1" step="1" class="inp w-20 !py-2 !px-2 text-center font-medium" placeholder="頁"/>
+              <span class="text-sm font-medium text-slate-600">頁</span>
             </div>
             
-            <button id="btnNext" class="btn-secondary">
+            <button id="btnNext" class="btn-secondary px-4 py-2.5 text-sm font-medium">
               下一頁
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
               </svg>
             </button>
@@ -683,10 +697,11 @@
       updateDoc, doc, deleteDoc, getDoc, where, writeBatch, setDoc
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    // Auth UI
+	// Auth UI
     const btnSignOut = document.getElementById('btnSignOut');
     const userDisplayName = document.getElementById('userDisplayName');
     const userEmail = document.getElementById('userEmail');
+    const userEmailMobile = document.getElementById('userEmailMobile');
 	
 	// Git Token
 	let GITLAB_TOKEN = null;
@@ -695,7 +710,9 @@
 		if (user) {
 			document.body.style.display = 'block'; // 顯示 body 內容
 			userDisplayName.classList.remove('hidden');
-			userEmail.textContent = user.displayName || user.email;
+			const displayName = user.displayName || user.email;
+			userEmail.textContent = displayName;
+			userEmailMobile.textContent = displayName;
 			// ★ 登入後：記錄/更新使用者基本資料（最小幅度）
 			setDoc(doc(db, 'users', user.uid), {
 			  uid: user.uid,
