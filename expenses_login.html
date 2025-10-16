@@ -49,6 +49,7 @@
                 statusDiv.style.color = '#3498db';
                 
                 const result = await signInWithPopup(auth, provider);
+                alert('Google 登入成功');
                 console.log('Google 登入成功:', result.user);
                 
                 // 更新使用者資料到 Firestore
