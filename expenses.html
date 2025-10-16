@@ -347,7 +347,7 @@
                         this.loadRecordsFromFirebase();
                     } else {
                         console.log('未檢測到登入狀態，導向登入頁面');
-                        //window.location.href = 'expenses_login.html';
+                        window.location.href = 'expenses_login.html';
                     }
                     
                     // 監聽認證狀態變化
@@ -374,7 +374,7 @@
                             });
                         } else {
                             console.log('認證狀態變化 - 已登出，導向登入頁面');
-                            //window.location.href = 'expenses_login.html';
+                            window.location.href = 'expenses_login.html';
                         }
                     });
                 } catch (error) {
@@ -556,6 +556,44 @@ service cloud.firestore {
                 }
             }
 
+            // 顯示索引錯誤訊息
+            showIndexError() {
+                const mainContent = document.querySelector('main');
+                if (mainContent) {
+                    mainContent.innerHTML = `
+                        <div class="inactive-user-container">
+                            <div class="inactive-user-card">
+                                <div class="inactive-user-icon">🔍</div>
+                                <h2>Firebase 索引設定</h2>
+                                <p>系統需要建立 Firebase 索引才能正常運作。</p>
+                                <div class="user-info">
+                                    <p><strong>解決步驟:</strong></p>
+                                    <ol style="text-align: left; margin: 10px 0;">
+                                        <li>前往 <a href="https://console.firebase.google.com/project/expenses-91280/firestore/indexes" target="_blank">Firebase Console</a></li>
+                                        <li>點擊「建立索引」</li>
+                                        <li>設定集合: <code>records</code></li>
+                                        <li>設定欄位: <code>userId</code> (升序), <code>date</code> (降序)</li>
+                                        <li>等待索引建立完成（通常需要幾分鐘）</li>
+                                        <li>重新整理此頁面</li>
+                                    </ol>
+                                </div>
+                                <div class="action-buttons">
+                                    <button onclick="location.reload();" class="logout-btn" style="background: #3498db;">
+                                        重新載入
+                                    </button>
+                                    <button onclick="window.location.href='expenses_login.html';" class="logout-btn">
+                                        返回登入
+                                    </button>
+                                </div>
+                                <div style="margin-top: 20px; font-size: 0.9em; color: #999;">
+                                    <p>如果問題持續發生，請聯繫技術支援</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
             // 顯示未啟用使用者訊息
             showInactiveUserMessage(user) {
                 // 隱藏所有輸入表單
@@ -636,7 +674,10 @@ service cloud.firestore {
             // 從 Firebase 載入記錄
             async loadRecordsFromFirebase() {
                 try {
+                    console.log('開始從 Firebase 載入記錄...');
                     const recordsRef = window.firebaseCollection(window.firebaseDb, 'records');
+                    
+                    // 使用 Firebase 原生查詢和排序（需要複合索引）
                     const q = window.firebaseQuery(
                         recordsRef,
                         window.firebaseWhere('userId', '==', this.currentUser.uid),
@@ -660,12 +701,29 @@ service cloud.firestore {
                         });
                     });
                     
-                    console.log(`從 Firebase 載入了 ${this.records.length} 筆記錄`);
+                    console.log(`從 Firebase 載入了 ${this.records.length} 筆記錄（已按日期降序排列）`);
                     this.updateDisplay();
                 } catch (error) {
                     console.error('從 Firebase 載入記錄失敗:', error);
-                    // 如果載入失敗，導向登入頁面
-                    //window.location.href = 'expenses_login.html';
+                    console.error('錯誤詳情:', {
+                        message: error.message,
+                        code: error.code,
+                        userId: this.currentUser?.uid
+                    });
+                    
+                    // 如果是索引錯誤，顯示提示而不是導向登入頁面
+                    if (error.code === 'failed-precondition' && error.message.includes('index')) {
+                        console.error('🔍 Firebase 索引問題，請檢查索引設定');
+                        console.error('建議的索引設定:');
+                        console.error('- 集合: records');
+                        console.error('- 欄位: userId (升序), date (降序)');
+                        
+                        // 顯示錯誤訊息給使用者
+                        this.showIndexError();
+                    } else {
+                        // 其他錯誤才導向登入頁面
+                        window.location.href = 'expenses_login.html';
+                    }
                 }
             }
 
