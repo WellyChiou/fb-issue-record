@@ -49,16 +49,18 @@
                 statusDiv.style.color = '#3498db';
                 
                 const result = await signInWithPopup(auth, provider);
-                alert('Google 登入成功');
                 console.log('Google 登入成功:', result.user);
+                console.log('result.user 詳細資訊:', {
+                    uid: result.user.uid,
+                    email: result.user.email,
+                    displayName: result.user.displayName
+                });
                 
                 // 更新使用者資料到 Firestore
                 const updateSuccess = await updateUserProfile(result.user);
-                alert('updateSuccess:' + updateSuccess);
                 if (!updateSuccess) {
                     console.error('使用者資料更新失敗，但繼續登入流程');
                 }
-                alert('登入成功！正在跳轉:');
                 
                 statusDiv.textContent = '登入成功！正在跳轉...';
                 statusDiv.style.color = '#27ae60';
@@ -142,13 +144,22 @@
                 console.log('準備寫入的使用者資料:', userData);
                 console.log('開始執行 setDoc 操作...');
                 
-                alert('開始執行 setDoc 操作...');
-                await window.firebaseSetDoc(userRef, userData, { merge: true });
-                
-                alert('setDoc 操作完成');
-                console.log('setDoc 操作完成');
-                console.log('使用者資料已成功更新到 Firestore:', user.uid);
-                return true;
+                try {
+                    await window.firebaseSetDoc(userRef, userData, { merge: true });
+                    console.log('setDoc 操作完成');
+                    console.log('使用者資料已成功更新到 Firestore:', user.uid);
+                    alert('使用者資料已成功更新到 Firestore:' + user.uid);
+                    return true;
+                } catch (setDocError) {
+                    console.error('setDoc 操作失敗:', setDocError);
+                    console.error('setDoc 錯誤詳情:', {
+                        message: setDocError.message,
+                        code: setDocError.code,
+                        stack: setDocError.stack
+                    });
+                    alert('setDoc 操作失敗:' + setDocError.message);
+                    throw setDocError;
+                }
             } catch (error) {
                 console.error('更新使用者資料失敗:', error);
                 console.error('錯誤詳情:', {
