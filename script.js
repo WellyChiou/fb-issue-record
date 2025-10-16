@@ -59,10 +59,16 @@ class ExpenseTracker {
             
             // 使用 Promise 等待認證狀態
             const authState = await this.waitForAuthStateWithPromise();
-            console.log('認證狀態檢查完成:', authState ? '已登入' : '未登入');
+            console.log('認證狀態檢查完成:', authState ? `已登入 ${authState.email}` : '未登入');
             
             if (authState) {
                 console.log('檢測到現有登入狀態:', authState.uid);
+                console.log('使用者詳細資訊:', {
+                    uid: authState.uid,
+                    email: authState.email,
+                    displayName: authState.displayName,
+                    providerId: authState.providerData?.[0]?.providerId
+                });
                 
                 // 檢查使用者啟用狀態
                 const userStatus = await this.checkUserStatus(authState);
@@ -131,10 +137,30 @@ class ExpenseTracker {
     // 使用 Promise 等待認證狀態
     waitForAuthStateWithPromise() {
         return new Promise((resolve) => {
+            console.log('開始等待認證狀態...');
+            
+            // 先檢查當前是否有已登入的使用者
+            const currentUser = window.firebaseAuth.currentUser;
+            if (currentUser) {
+                console.log('檢測到當前已登入使用者:', currentUser.uid, currentUser.email);
+                resolve(currentUser);
+                return;
+            }
+            
+            console.log('當前無登入使用者，等待認證狀態變化...');
+            
             const unsubscribe = window.firebaseOnAuthStateChanged(window.firebaseAuth, (user) => {
+                console.log('認證狀態變化:', user ? `已登入 ${user.email}` : '已登出');
                 unsubscribe(); // 取消監聽
                 resolve(user);
             });
+            
+            // 設置超時，避免無限等待
+            setTimeout(() => {
+                console.log('認證狀態檢查超時');
+                unsubscribe();
+                resolve(null);
+            }, 10000); // 10秒超時
         });
     }
 
