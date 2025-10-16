@@ -54,9 +54,11 @@
                 
                 // 更新使用者資料到 Firestore
                 const updateSuccess = await updateUserProfile(result.user);
+                alert('updateSuccess:' + updateSuccess);
                 if (!updateSuccess) {
                     console.error('使用者資料更新失敗，但繼續登入流程');
                 }
+                alert('登入成功！正在跳轉:');
                 
                 statusDiv.textContent = '登入成功！正在跳轉...';
                 statusDiv.style.color = '#27ae60';
