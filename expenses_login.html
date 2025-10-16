@@ -50,6 +50,7 @@
                 
                 const result = await signInWithPopup(auth, provider);
                 alert('Google 登入成功');
+                alert('result.user:' + result.user);
                 console.log('Google 登入成功:', result.user);
                 
                 // 更新使用者資料到 Firestore
@@ -106,24 +107,12 @@
         async function updateUserProfile(user) {
             try {
                 console.log('開始更新使用者資料:', user.uid, user.email);
-                console.log('使用者詳細資訊:', {
-                    uid: user.uid,
-                    email: user.email,
-                    displayName: user.displayName,
-                    photoURL: user.photoURL
-                });
                 
                 // 檢查 Firebase 函數是否可用
-                console.log('檢查 Firebase 函數狀態:', {
-                    firebaseDoc: !!window.firebaseDoc,
-                    firebaseSetDoc: !!window.firebaseSetDoc,
-                    firebaseServerTimestamp: !!window.firebaseServerTimestamp,
-                    firebaseDb: !!window.firebaseDb
-                });
-                
                 if (!window.firebaseDoc || !window.firebaseSetDoc || !window.firebaseServerTimestamp) {
                     throw new Error('Firebase 函數未載入');
                 }
+                
                 const userRef = window.firebaseDoc(window.firebaseDb, 'users', user.uid);
                 const userData = {
                     uid: user.uid,
@@ -138,13 +127,9 @@
                 };
                 
                 console.log('準備寫入的使用者資料:', userData);
-                console.log('開始執行 setDoc 操作...');
                 
-                alert('開始執行 setDoc 操作.111111..');
                 await window.firebaseSetDoc(userRef, userData, { merge: true });
                 
-                alert('setDoc 操作完成22222222222');
-                console.log('setDoc 操作完成');
                 console.log('使用者資料已成功更新到 Firestore:', user.uid);
                 return true;
             } catch (error) {
