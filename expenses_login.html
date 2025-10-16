@@ -126,9 +126,54 @@
                 });
                 
                 if (!window.firebaseDoc || !window.firebaseSetDoc || !window.firebaseServerTimestamp) {
+                    console.error('Firebase 函數未載入');
                     throw new Error('Firebase 函數未載入');
                 }
+                
+                console.log('創建 userRef...');
                 const userRef = window.firebaseDoc(window.firebaseDb, 'users', user.uid);
+                console.log('userRef 創建成功:', userRef);
+                
+                // 先嘗試最簡單的寫入測試
+                console.log('嘗試最簡單的寫入測試...');
+                const simpleData = {
+                    test: 'hello',
+                    uid: user.uid
+                };
+                
+                try {
+                    console.log('執行簡單寫入...');
+                    await window.firebaseSetDoc(userRef, simpleData, { merge: true });
+                    console.log('✅ 簡單寫入成功！');
+                } catch (simpleError) {
+                    console.error('❌ 簡單寫入失敗:', simpleError);
+                    console.error('簡單寫入錯誤詳情:', {
+                        message: simpleError.message,
+                        code: simpleError.code,
+                        stack: simpleError.stack
+                    });
+                    
+                    // 如果是權限錯誤，提供解決方案
+                    if (simpleError.code === 'permission-denied') {
+                        console.error('🔒 權限被拒絕！請檢查 Firebase 安全規則');
+                        console.error('建議的安全規則:');
+                        console.error(`
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+                        `);
+                    }
+                    
+                    throw simpleError;
+                }
+                
+                // 如果簡單寫入成功，再嘗試完整資料
+                console.log('準備完整使用者資料...');
                 const userData = {
                     uid: user.uid,
                     email: user.email ?? null,
@@ -142,15 +187,15 @@
                 };
                 
                 console.log('準備寫入的使用者資料:', userData);
-                console.log('開始執行 setDoc 操作...');
+                console.log('開始執行完整 setDoc 操作...');
                 
                 try {
                     await window.firebaseSetDoc(userRef, userData, { merge: true });
-                    console.log('setDoc 操作完成');
-                    console.log('使用者資料已成功更新到 Firestore:', user.uid);
+                    console.log('✅ setDoc 操作完成');
+                    console.log('✅ 使用者資料已成功更新到 Firestore:', user.uid);
                     return true;
                 } catch (setDocError) {
-                    console.error('setDoc 操作失敗:', setDocError);
+                    console.error('❌ setDoc 操作失敗:', setDocError);
                     console.error('setDoc 錯誤詳情:', {
                         message: setDocError.message,
                         code: setDocError.code,
