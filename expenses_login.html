@@ -143,17 +143,36 @@
                 const userRef = window.firebaseDoc(window.firebaseDb, 'users', user.uid);
                 console.log('userRef 創建成功:', userRef);
                 
+                // 先檢查使用者是否已存在
+                console.log('檢查使用者是否已存在...');
+                const existingUserDoc = await window.firebaseGetDoc(userRef);
+                const isNewUser = !existingUserDoc.exists();
+                console.log('使用者是否為新使用者:', isNewUser);
+                
+                // 準備使用者資料
                 const userData = {
                     uid: user.uid,
                     email: user.email ?? null,
                     displayName: user.displayName ?? null,
                     photoURL: user.photoURL ?? null,
                     providerId: user.providerData?.[0]?.providerId ?? null,
-                    lastLoginAt: window.firebaseServerTimestamp(),
-                    isActive: false,  // 預設不啟用
-                    createdAt: window.firebaseServerTimestamp(),
-                    status: 'pending'  // pending, active, suspended
+                    lastLoginAt: window.firebaseServerTimestamp()
                 };
+                
+                // 只有新使用者才設定 isActive 和 status
+                if (isNewUser) {
+                    console.log('新使用者，設定預設狀態');
+                    userData.isActive = false;  // 預設不啟用
+                    userData.createdAt = window.firebaseServerTimestamp();
+                    userData.status = 'pending';  // pending, active, suspended
+                } else {
+                    console.log('現有使用者，保持原有 isActive 和 status 狀態');
+                    const existingData = existingUserDoc.data();
+                    console.log('現有使用者狀態:', {
+                        isActive: existingData.isActive,
+                        status: existingData.status
+                    });
+                }
                 
                 console.log('準備寫入的使用者資料:', userData);
                 console.log('開始執行 setDoc 操作...');

@@ -10,7 +10,7 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
         import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-        import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, setDoc, query, orderBy, where, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, setDoc, query, orderBy, where, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
         
         // Firebase 配置
         const firebaseConfig = {
@@ -34,6 +34,7 @@
         window.firebaseCollection = collection;
         window.firebaseAddDoc = addDoc;
         window.firebaseGetDocs = getDocs;
+        window.firebaseGetDoc = getDoc;
         window.firebaseUpdateDoc = updateDoc;
         window.firebaseDeleteDoc = deleteDoc;
         window.firebaseDoc = doc;
@@ -486,17 +487,17 @@
                     console.log('檢查使用者狀態:', user.uid);
                     
                     // 確保Firebase函數已載入
-                    if (!window.firebaseDoc || !window.firebaseGetDocs || !window.firebaseCollection) {
+                    if (!window.firebaseDoc || !window.firebaseGetDoc) {
                         console.error('Firebase函數未載入');
                         return { isActive: false, status: 'pending' };
                     }
                     
-                    const userDoc = await window.firebaseGetDocs(window.firebaseCollection(window.firebaseDb, 'users'));
+                    // 直接讀取特定使用者的文件
+                    const userRef = window.firebaseDoc(window.firebaseDb, 'users', user.uid);
+                    const userDoc = await window.firebaseGetDoc(userRef);
                     
-                    // 找到當前使用者的資料
-                    const currentUserDoc = userDoc.docs.find(doc => doc.id === user.uid);
-                    if (currentUserDoc) {
-                        const userData = currentUserDoc.data();
+                    if (userDoc.exists()) {
+                        const userData = userDoc.data();
                         console.log('找到使用者資料:', userData);
                         return {
                             isActive: userData.isActive || false,
@@ -513,6 +514,23 @@
                         code: error.code,
                         userId: user.uid
                     });
+                    
+                    // 如果是權限錯誤，提供解決方案
+                    if (error.code === 'permission-denied') {
+                        console.error('🔒 權限被拒絕！請檢查 Firebase 安全規則');
+                        console.error('建議的安全規則:');
+                        console.error(`
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+                        `);
+                    }
+                    
                     return { isActive: false, status: 'pending' };
                 }
             }
