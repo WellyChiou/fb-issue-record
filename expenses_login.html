@@ -126,35 +126,9 @@
                 });
                 
                 if (!window.firebaseDoc || !window.firebaseSetDoc || !window.firebaseServerTimestamp) {
-                    console.error('Firebase 函數未載入');
                     throw new Error('Firebase 函數未載入');
                 }
-                
-                console.log('創建 userRef...');
                 const userRef = window.firebaseDoc(window.firebaseDb, 'users', user.uid);
-                console.log('userRef 創建成功:', userRef);
-                
-                // 先嘗試簡單的測試寫入
-                console.log('嘗試簡單測試寫入...');
-                const testData = {
-                    test: 'test',
-                    timestamp: window.firebaseServerTimestamp()
-                };
-                
-                try {
-                    await window.firebaseSetDoc(userRef, testData, { merge: true });
-                    console.log('測試寫入成功！');
-                } catch (testError) {
-                    console.error('測試寫入失敗:', testError);
-                    console.error('測試錯誤詳情:', {
-                        message: testError.message,
-                        code: testError.code,
-                        stack: testError.stack
-                    });
-                    throw testError;
-                }
-                
-                console.log('準備完整使用者資料...');
                 const userData = {
                     uid: user.uid,
                     email: user.email ?? null,
@@ -168,7 +142,7 @@
                 };
                 
                 console.log('準備寫入的使用者資料:', userData);
-                console.log('開始執行完整 setDoc 操作...');
+                console.log('開始執行 setDoc 操作...');
                 
                 try {
                     await window.firebaseSetDoc(userRef, userData, { merge: true });
