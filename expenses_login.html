@@ -121,14 +121,9 @@
                     firebaseDb: !!window.firebaseDb
                 });
                 
-                alert('!111111111111111111111');
                 if (!window.firebaseDoc || !window.firebaseSetDoc || !window.firebaseServerTimestamp) {
-                    
-                    alert('Firebase 函數未載入');
                     throw new Error('Firebase 函數未載入');
                 }
-                
-                alert('22222222222222222222222');
                 const userRef = window.firebaseDoc(window.firebaseDb, 'users', user.uid);
                 const userData = {
                     uid: user.uid,
@@ -145,8 +140,10 @@
                 console.log('準備寫入的使用者資料:', userData);
                 console.log('開始執行 setDoc 操作...');
                 
+                alert('開始執行 setDoc 操作...');
                 await window.firebaseSetDoc(userRef, userData, { merge: true });
                 
+                alert('setDoc 操作完成');
                 console.log('setDoc 操作完成');
                 console.log('使用者資料已成功更新到 Firestore:', user.uid);
                 return true;
