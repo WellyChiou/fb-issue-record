@@ -441,14 +441,13 @@
                         lastLoginAt: window.firebaseServerTimestamp()
                     };
                     
-                    // 只有新使用者才設定 isActive 和 status
+                    // 只有新使用者才設定 isActive
                     if (isNewUser) {
                         console.log('新使用者，設定預設狀態');
                         userData.isActive = false;  // 預設不啟用
                         userData.createdAt = window.firebaseServerTimestamp();
-                        userData.status = 'pending';  // pending, active, suspended
                     } else {
-                        console.log('現有使用者，保持原有 isActive 和 status 狀態');
+                        console.log('現有使用者，保持原有 isActive 狀態');
                     }
                     
                     await window.firebaseSetDoc(userRef, userData, { merge: true });
@@ -503,7 +502,7 @@
                     // 確保Firebase函數已載入
                     if (!window.firebaseDoc || !window.firebaseGetDoc) {
                         console.error('Firebase函數未載入');
-                        return { isActive: false, status: 'pending' };
+                        return { isActive: false };
                     }
                     
                     // 直接讀取特定使用者的文件
@@ -514,13 +513,12 @@
                         const userData = userDoc.data();
                         console.log('找到使用者資料:', userData);
                         return {
-                            isActive: userData.isActive || false,
-                            status: userData.status || 'pending'
+                            isActive: userData.isActive || false
                         };
                     }
                     
                     console.log('未找到使用者資料，返回預設狀態');
-                    return { isActive: false, status: 'pending' };
+                    return { isActive: false };
                 } catch (error) {
                     console.error('檢查使用者狀態失敗:', error);
                     console.error('錯誤詳情:', {
@@ -545,7 +543,7 @@ service cloud.firestore {
                         `);
                     }
                     
-                    return { isActive: false, status: 'pending' };
+                    return { isActive: false };
                 }
             }
 

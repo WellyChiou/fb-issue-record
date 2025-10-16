@@ -159,18 +159,16 @@
                     lastLoginAt: window.firebaseServerTimestamp()
                 };
                 
-                // 只有新使用者才設定 isActive 和 status
+                // 只有新使用者才設定 isActive
                 if (isNewUser) {
                     console.log('新使用者，設定預設狀態');
                     userData.isActive = false;  // 預設不啟用
                     userData.createdAt = window.firebaseServerTimestamp();
-                    userData.status = 'pending';  // pending, active, suspended
                 } else {
-                    console.log('現有使用者，保持原有 isActive 和 status 狀態');
+                    console.log('現有使用者，保持原有 isActive 狀態');
                     const existingData = existingUserDoc.data();
                     console.log('現有使用者狀態:', {
-                        isActive: existingData.isActive,
-                        status: existingData.status
+                        isActive: existingData.isActive
                     });
                 }
                 
