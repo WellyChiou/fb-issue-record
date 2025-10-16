@@ -81,12 +81,15 @@ body {
     background-color: #f5f5f5;
     color: #333;
     line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
 }
 
 .container {
     max-width: 1200px;
     margin: 0 auto;
     padding: 20px;
+    min-height: auto;
 }
 
 header {
@@ -150,6 +153,7 @@ main {
     max-width: 100%;
     margin: 0 auto;
     padding: 20px;
+    min-height: auto;
 }
 
 section {
@@ -159,6 +163,7 @@ section {
     box-shadow: 0 5px 15px rgba(0,0,0,0.08);
     width: 100%;
     max-width: 100%;
+    min-height: auto;
 }
 
 section h2 {
@@ -180,6 +185,7 @@ section h2 {
 
 .records {
     grid-column: 1;
+    min-height: auto;
 }
 
 /* 表單網格布局 */
@@ -399,19 +405,19 @@ button:hover {
 }
 
 .records-list {
-    max-height: 500px;
-    overflow-y: auto;
-    overflow-x: hidden;
     padding: 0;
     border: 1px solid #e0e0e0;
     border-radius: 8px;
     background: #fafafa;
+    min-height: auto;
+    overflow: visible;
 }
 
 .records-table {
     width: 100%;
     border-collapse: collapse;
     background: white;
+    min-height: auto;
 }
 
 .records-table th {
@@ -425,6 +431,7 @@ button:hover {
     top: 0;
     z-index: 10;
     border-bottom: 2px solid #666;
+    min-height: auto;
 }
 
 /* 篩選下拉選單樣式 */
@@ -473,6 +480,11 @@ button:hover {
     border-bottom: 1px solid #e0e0e0;
     font-size: 0.9em;
     vertical-align: middle;
+    min-height: auto;
+}
+
+.records-table tr {
+    min-height: auto;
 }
 
 .records-table tr:hover {
@@ -481,37 +493,44 @@ button:hover {
 
 .records-table tr:last-child td {
     border-bottom: none;
+    min-height: auto;
 }
 
 /* 欄位寬度設定 */
 .records-table th:nth-child(1),
 .records-table td:nth-child(1) {
     width: 12%; /* 日期 */
+    min-height: auto;
 }
 
 .records-table th:nth-child(2),
 .records-table td:nth-child(2) {
     width: 12%; /* 家庭成員 */
+    min-height: auto;
 }
 
 .records-table th:nth-child(3),
 .records-table td:nth-child(3) {
     width: 10%; /* 類型 */
+    min-height: auto;
 }
 
 .records-table th:nth-child(4),
 .records-table td:nth-child(4) {
     width: 15%; /* 類別 */
+    min-height: auto;
 }
 
 .records-table th:nth-child(5),
 .records-table td:nth-child(5) {
     width: 15%; /* 細項 */
+    min-height: auto;
 }
 
 .records-table th:nth-child(6),
 .records-table td:nth-child(6) {
     width: 12%; /* 金額 */
+    min-height: auto;
 }
 
 .records-table th:nth-child(7),

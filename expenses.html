@@ -938,9 +938,21 @@ service cloud.firestore {
                 const modal = document.getElementById('chartsModal');
                 if (modal) {
                     modal.style.display = 'block';
+                    this.updateChartFilters();
                     this.updateCharts();
                 } else {
                     console.error('找不到圖表彈窗元素');
+                }
+            }
+
+            // 更新圖表篩選器
+            updateChartFilters() {
+                // 更新年份篩選器
+                const chartFilterYear = document.getElementById('chartFilterYear');
+                if (chartFilterYear) {
+                    const allYears = [...new Set(this.records.map(r => r.date.split('-')[0]))].sort((a, b) => b - a);
+                    chartFilterYear.innerHTML = '<option value="">所有年份</option>' + 
+                        allYears.map(year => `<option value="${year}">${year}</option>`).join('');
                 }
             }
 
@@ -1442,6 +1454,62 @@ service cloud.firestore {
                         this.updateMainCategoryOptions();
                     });
                 }
+
+                // 分頁事件監聽器
+                const pageSizeSelect = document.getElementById('pageSize');
+                if (pageSizeSelect) {
+                    pageSizeSelect.addEventListener('change', (e) => {
+                        this.recordsPerPage = parseInt(e.target.value);
+                        this.currentPage = 1;
+                        this.applyTableFilter(true);
+                    });
+                }
+
+                // 上一頁按鈕
+                const prevPageBtn = document.getElementById('prevPage');
+                if (prevPageBtn) {
+                    prevPageBtn.addEventListener('click', () => {
+                        if (this.currentPage > 1) {
+                            this.currentPage--;
+                            this.applyTableFilter(false);
+                        }
+                    });
+                }
+
+                // 下一頁按鈕
+                const nextPageBtn = document.getElementById('nextPage');
+                if (nextPageBtn) {
+                    nextPageBtn.addEventListener('click', () => {
+                        const filteredRecords = this.getCurrentFilteredRecords();
+                        const totalPages = Math.ceil(filteredRecords.length / this.recordsPerPage);
+                        if (this.currentPage < totalPages) {
+                            this.currentPage++;
+                            this.applyTableFilter(false);
+                        }
+                    });
+                }
+
+                // 圖表篩選事件監聽器
+                const chartFilterType = document.getElementById('chartFilterType');
+                if (chartFilterType) {
+                    chartFilterType.addEventListener('change', () => {
+                        this.updateCharts();
+                    });
+                }
+
+                const chartFilterYear = document.getElementById('chartFilterYear');
+                if (chartFilterYear) {
+                    chartFilterYear.addEventListener('change', () => {
+                        this.updateCharts();
+                    });
+                }
+
+                const chartFilterMonth = document.getElementById('chartFilterMonth');
+                if (chartFilterMonth) {
+                    chartFilterMonth.addEventListener('change', () => {
+                        this.updateCharts();
+                    });
+                }
             }
 
             // 更新細項選項
@@ -1558,6 +1626,75 @@ service cloud.firestore {
                 }
                 
                 console.log('記錄已更新到 Firebase:', recordId);
+            }
+
+            // 編輯記錄
+            async editRecord(recordId) {
+                console.log('編輯記錄:', recordId);
+                
+                const record = this.records.find(r => r.id === recordId);
+                if (!record) {
+                    console.error('找不到要編輯的記錄');
+                    return;
+                }
+                
+                // 填入表單資料
+                document.getElementById('type').value = record.type;
+                document.getElementById('member').value = record.member;
+                document.getElementById('mainCategory').value = record.mainCategory;
+                document.getElementById('amount').value = record.amount;
+                document.getElementById('description').value = record.description;
+                document.getElementById('date').value = record.date;
+                
+                // 更新細項選項
+                this.updateSubCategoryOptions();
+                document.getElementById('subCategory').value = record.subCategory;
+                
+                // 設定編輯狀態
+                this.editingId = recordId;
+                
+                // 更新按鈕文字
+                const submitBtn = document.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.textContent = '更新記錄';
+                }
+                
+                // 滾動到表單
+                document.querySelector('.add-record').scrollIntoView({ behavior: 'smooth' });
+                
+                console.log('記錄已載入表單，準備編輯');
+            }
+
+            // 刪除記錄
+            async deleteRecord(recordId) {
+                console.log('刪除記錄:', recordId);
+                
+                if (!confirm('確定要刪除這筆記錄嗎？')) {
+                    return;
+                }
+                
+                try {
+                    // 確保Firebase函數已載入
+                    if (!window.firebaseDoc || !window.firebaseDeleteDoc) {
+                        console.error('Firebase函數未載入，無法刪除記錄');
+                        throw new Error('Firebase函數未載入');
+                    }
+                    
+                    const recordRef = window.firebaseDoc(window.firebaseDb, 'records', recordId);
+                    await window.firebaseDeleteDoc(recordRef);
+                    
+                    // 從本地陣列移除
+                    this.records = this.records.filter(record => record.id !== recordId);
+                    
+                    console.log('記錄已刪除:', recordId);
+                    
+                    // 更新顯示
+                    this.updateDisplay();
+                    
+                } catch (error) {
+                    console.error('刪除記錄失敗:', error);
+                    alert('刪除失敗，請重試');
+                }
             }
 
             // 清空表單
