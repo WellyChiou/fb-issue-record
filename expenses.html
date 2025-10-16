@@ -1,436 +1,273 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>每日消費紀錄 · 每月查詢</title>
-  
-  <!-- Tailwind CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: { brand: { 600: '#4f46e5', 700: '#4338ca' } },
-          boxShadow: { soft: '0 2px 10px rgba(0,0,0,.06)' }
-        }
-      }
-    }
-  </script>
-
-  <style>
-    body { display: none; }
-    .btn{ padding:.55rem 1rem; border-radius:1rem; font-weight:600; box-shadow:0 1px 3px rgba(0,0,0,.1); }
-    .btn:hover{ opacity:.95 }
-    .btn-primary{ background:#4f46e5; color:#fff; }
-    .btn-primary:hover{ background:#4338ca; }
-    .btn-success{ background:#10b981; color:#fff; }
-    .btn-success:hover{ background:#059669; }
-    .btn-danger{ background:#ef4444; color:#fff; }
-    .btn-danger:hover{ background:#dc2626; }
-    .btn-outline{ border:1px solid #cbd5e1; background:#fff; color:#334155; }
-
-    /* 表格：固定欄寬 + X 軸捲動 */
-    #tableWrap{ overflow-x:auto; }
-    table{ table-layout: fixed; }
-    .table-head th{ position:sticky; top:0; background:#f8fafc; white-space:nowrap; }
-    #tableWrap tbody td{ white-space: normal; word-break: break-word; }
-  </style>
-</head>
-<body class="min-h-screen bg-slate-50 text-slate-800">
-  <!-- Header / Auth -->
-  <header class="bg-gradient-to-r from-brand-600 to-brand-700 text-white shadow">
-    <div class="max-w-5xl mx-auto px-5 py-4 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-xl bg-white/15 grid place-items-center font-bold">$</div>
-        <h1 class="text-xl md:text-2xl font-semibold">每日消費紀錄</h1>
-      </div>
-      <div class="flex items-center gap-3" id="authArea">
-        <div id="userInfo" class="hidden items-center gap-3">
-          <span id="userEmail" class="text-sm opacity-90"></span>
-          <button id="btnSignOut" class="btn btn-outline">登出</button>
-        </div>
-      </div>
-  </header>
-
-  <main class="max-w-5xl mx-auto px-5 py-6 space-y-6">
-    <!-- Controls Row -->
-    <section class="bg-white rounded-2xl shadow-soft p-5 border border-slate-100 space-y-4">
-      <div class="flex flex-wrap items-center gap-3 justify-between">
-        <div class="flex items-center gap-3">
-          <label class="text-sm text-slate-600">月份</label>
-          <input id="monthInput" type="month" class="inp border rounded-lg px-3 py-2" />
-          <select id="filterCategory" class="inp border rounded-lg px-3 py-2">
-            <option value="">全部類別</option>
-          </select>
-        </div>
-        <div class="flex items-center gap-2">
-          <input id="quickFilter" class="inp border rounded-lg px-3 py-2 w-56" placeholder="快速篩選（不分大小寫）" />
-          <button id="btnClearQuick" class="btn btn-outline">清除</button>
-        </div>
-      </div>
-
-      <!-- Add Form -->
-      <form id="addForm" class="grid md:grid-cols-5 gap-3 items-end">
-        <div>
-          <label class="block text-sm text-slate-600 mb-1">日期</label>
-          <input id="date" type="date" class="inp border rounded-lg px-3 py-2 w-full" />
-        </div>
-        <div>
-          <label class="block text-sm text-slate-600 mb-1">金額</label>
-          <input id="amount" type="number" step="1" min="0" class="inp border rounded-lg px-3 py-2 w-full" placeholder="例如 120" required />
-        </div>
-        <div>
-          <label class="block text-sm text-slate-600 mb-1">類別</label>
-          <select id="category" class="inp border rounded-lg px-3 py-2 w-full"></select>
-        </div>
-        <div class="md:col-span-2">
-          <label class="block text-sm text-slate-600 mb-1">備註</label>
-          <input id="note" type="text" class="inp border rounded-lg px-3 py-2 w-full" placeholder="例如 早餐、超商…" />
-        </div>
-        <div class="md:col-span-5 flex justify-end gap-2">
-          <button id="btnAdd" class="btn btn-primary" type="submit">新增</button>
-          <button id="btnReset" class="btn btn-outline" type="button">重設</button>
-        </div>
-      </form>
-    </section>
-
-    <!-- Summary Row -->
-    <section class="grid md:grid-cols-3 gap-4">
-      <div class="bg-white rounded-2xl shadow-soft p-5 border border-slate-100">
-        <div class="text-slate-500 text-sm">本月總支出</div>
-        <div id="sumTotal" class="text-2xl font-bold mt-1">$0</div>
-      </div>
-      <div class="bg-white rounded-2xl shadow-soft p-5 border border-slate-100 md:col-span-2">
-        <div class="text-slate-500 text-sm mb-2">類別統計</div>
-        <div id="sumByCategory" class="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm"></div>
-      </div>
-    </section>
-
-    <!-- Table Row -->
-    <section class="bg-white rounded-2xl shadow-soft p-5 border border-slate-100">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-lg font-semibold">本月明細</h2>
-        <button id="btnExport" class="btn btn-success">匯出 CSV</button>
-      </div>
-      <div id="tableWrap" class="border rounded-2xl overflow-x-auto">
-        <table class="table-fixed min-w-[960px] text-sm">
-          <colgroup>
-            <col style="width:140px" />
-            <col style="width:140px" />
-            <col style="width:520px" />
-            <col style="width:120px" />
-            <col style="width:120px" />
-          </colgroup>
-          <thead class="table-head text-slate-600 text-xs uppercase tracking-wide">
-            <tr>
-              <th class="px-3 py-2 text-left">日期</th>
-              <th class="px-3 py-2 text-left">類別</th>
-              <th class="px-3 py-2 text-left">備註</th>
-              <th class="px-3 py-2 text-left">金額</th>
-              <th class="px-3 py-2 text-left">操作</th>
-            </tr>
-          </thead>
-          <tbody id="tbody"></tbody>
-        </table>
-      </div>
-      <div id="emptyMsg" class="text-center text-slate-500 text-sm py-6 hidden">本月尚無資料</div>
-    </section>
-  </main>
-
-  <!-- Firebase (modular) -->
-  <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-    import { getAuth, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-    import { getFirestore, collection, addDoc, serverTimestamp, query, where, orderBy, getDocs, deleteDoc, doc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-
-
-    // Replace with your own if needed
-    const firebaseConfig = {
-      apiKey: "AIzaSyCuTlQfSUTlgig_NF7bKV448v35UEuB0aA",
-      authDomain: "fb-issue-record.firebaseapp.com",
-      projectId: "fb-issue-record",
-      storageBucket: "fb-issue-record.firebasestorage.app",
-      messagingSenderId: "892738349977",
-      appId: "1:892738349977:web:004b30f804e2937692c108"
-    };
-
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-
-    // ====== DOM ======
-    const btnSignOut = document.getElementById('btnSignOut');
-    const userInfo = document.getElementById('userInfo');
-    const userEmail = document.getElementById('userEmail');
-
-    const addForm = document.getElementById('addForm');
-    const dateEl = document.getElementById('date');
-    const amountEl = document.getElementById('amount');
-    const categoryEl = document.getElementById('category');
-    const noteEl = document.getElementById('note');
-
-    const monthInput = document.getElementById('monthInput');
-    const filterCategory = document.getElementById('filterCategory');
-    const quickFilter = document.getElementById('quickFilter');
-    const btnClearQuick = document.getElementById('btnClearQuick');
-    const tbody = document.getElementById('tbody');
-    const emptyMsg = document.getElementById('emptyMsg');
-    const sumTotal = document.getElementById('sumTotal');
-    const sumByCategory = document.getElementById('sumByCategory');
-    const btnExport = document.getElementById('btnExport');
-
-    // ====== 設定 ======
-    const CURRENCY = 'TWD';
-    const NF = new Intl.NumberFormat('zh-TW', { style: 'currency', currency: CURRENCY, maximumFractionDigits: 0 });
-    const DEFAULT_CATEGORIES = ['食物', '交通', '日用品', '娛樂', '醫療', '其他'];
-
-    // ====== 狀態 ======
-    let currentRows = []; // 目前月份 + 篩選後的資料
-    let rawRows = [];     // 從 DB 撈到的原始資料（未套快篩）
-
-    // ====== 工具 ======
-    const pad = (n)=> String(n).padStart(2, '0');
-    const fmtDate = (d)=> {
-      if (typeof d?.toDate === 'function') d = d.toDate();
-      const dt = (d instanceof Date) ? d : new Date(d);
-      return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`;
-    };
-    function startOfMonthFromInput(val){
-      // val = '2025-10'
-      const [y,m] = val.split('-').map(Number);
-      return new Date(y, m - 1, 1, 0,0,0,0);
-    }
-    function startOfNextMonthFromInput(val){
-      const [y,m] = val.split('-').map(Number);
-      return new Date(y, m, 1, 0,0,0,0);
-    }
-    const toDateFromInput = (val)=> new Date(`${val}T00:00:00`);
-    const toAmount = (v)=> Number(v || 0);
-
-    function rowMatchesQuick(r, kw){
-      if (!kw) return true;
-      const t = `${fmtDate(r.date)}|${r.category||''}|${r.note||''}|${r.amount}`.toLowerCase();
-      return t.includes(kw);
-    }
-
-    function populateCategories(selectEl){
-      selectEl.innerHTML = '';
-      const cats = Array.from(new Set([...DEFAULT_CATEGORIES]));
-      for (const c of cats){
-        const opt = document.createElement('option');
-        opt.value = c; opt.textContent = c;
-        selectEl.appendChild(opt);
-      }
-    }
-
-    function ensureFilterCategories(){
-      // 依 rawRows 動態補上可選類別（含「全部」）
-      const set = new Set(['']);
-      DEFAULT_CATEGORIES.forEach(c => set.add(c));
-      rawRows.forEach(r => set.add(r.category||''));
-      filterCategory.innerHTML = '';
-      for (const c of set){
-        const opt = document.createElement('option');
-        opt.value = c; opt.textContent = c ? c : '全部類別';
-        filterCategory.appendChild(opt);
-      }
-    }
-
-    function render(){
-      // 類別/快篩
-      const cat = filterCategory.value;
-      const kw = (quickFilter.value||'').trim().toLowerCase();
-      currentRows = rawRows.filter(r => (!cat || r.category === cat) && rowMatchesQuick(r, kw));
-
-      // Summary
-      const total = currentRows.reduce((s, r) => s + toAmount(r.amount), 0);
-      sumTotal.textContent = NF.format(total);
-      const bucket = {};
-      currentRows.forEach(r => { const k = r.category || '未分類'; bucket[k] = (bucket[k]||0) + toAmount(r.amount); });
-      sumByCategory.innerHTML = '';
-      Object.entries(bucket).sort((a,b)=> b[1]-a[1]).forEach(([k,v])=>{
-        const div = document.createElement('div');
-        div.className = 'flex items-center justify-between border rounded-xl px-3 py-2';
-        div.innerHTML = `<span class="text-slate-600">${k}</span><span class="font-semibold">${NF.format(v)}</span>`;
-        sumByCategory.appendChild(div);
-      });
-
-      // Table
-      tbody.innerHTML = '';
-      if (currentRows.length === 0) {
-        emptyMsg.classList.remove('hidden');
-        return;
-      } else {
-        emptyMsg.classList.add('hidden');
-      }
-      for (const r of currentRows){
-        const tr = document.createElement('tr');
-        tr.className = 'border-b';
-        tr.innerHTML = `
-          <td class="px-3 py-2">${fmtDate(r.date)}</td>
-          <td class="px-3 py-2">${r.category || ''}</td>
-          <td class="px-3 py-2">${r.note || ''}</td>
-          <td class="px-3 py-2">${NF.format(toAmount(r.amount))}</td>
-          <td class="px-3 py-2">
-            <button class="btn btn-danger text-xs" data-del="${r.id}">刪除</button>
-          </td>`;
-        tbody.appendChild(tr);
-      }
-      // 綁刪除
-      tbody.querySelectorAll('button[data-del]').forEach(btn => {
-        btn.addEventListener('click', async ()=>{
-          const id = btn.getAttribute('data-del');
-          if (!confirm('確定刪除這筆消費？')) return;
-          const u = auth.currentUser; if(!u) return alert('請先登入');
-          await deleteDoc(doc(db, 'expenses', id));
-          await loadMonth();
-        });
-      });
-    }
-
-    async function loadMonth(){
-      const u = auth.currentUser; if (!u) return;
-      const ym = monthInput.value; if (!ym) return;
-      const start = startOfMonthFromInput(ym);
-      const end = startOfNextMonthFromInput(ym);
-
-      const key = `${u.uid}#${ym}`;
-      const q = query(
-        collection(db, 'expenses'),
-        where('ym_uid', '==', key)
-      );
-      try {
-        const snap = await getDocs(q);
-        rawRows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        // 依日期（本地端）做降冪排序，避免索引需求
-        const toMillis = (v)=> (typeof v?.toDate === 'function') ? v.toDate().getTime() : new Date(v).getTime();
-        rawRows.sort((a,b)=> toMillis(b.date) - toMillis(a.date));
-        ensureFilterCategories();
-        render();
-      } catch (err){
-        console.error(err);
-        alert('查詢失敗：' + (err?.message || err));
-      }
-    }
-
-    function initDefaults(){
-      // 預設今天 & 本月
-      const now = new Date();
-      const yyyy = now.getFullYear();
-      const mm = pad(now.getMonth()+1);
-      const dd = pad(now.getDate());
-      dateEl.value = `${yyyy}-${mm}-${dd}`;
-      monthInput.value = `${yyyy}-${mm}`;
-
-      // 類別下拉
-      populateCategories(categoryEl);
-    }
-
-    // ====== 事件 ======
-    btnSignOut.addEventListener('click', async ()=>{ await signOut(auth); });
-
-    
-
-    addForm.addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const u = auth.currentUser; if (!u) return alert('請先登入');
-
-      const dateVal = dateEl.value; if (!dateVal) return alert('請選擇日期');
-      const amount = toAmount(amountEl.value); if (!(amount > 0)) return alert('金額需大於 0');
-
-      try{
-        const [y,m] = dateVal.split('-');
-        const ym = `${y}-${m}`;
-        const payload = {
-          uid: u.uid,
-          user_email: u.email || null,
-          ym,
-          ym_uid: `${u.uid}#${ym}`,
-          date: toDateFromInput(dateVal),
-          amount,
-          category: categoryEl.value || '未分類',
-          note: noteEl.value?.trim() || null,
-          created_at: serverTimestamp()
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>家庭記帳系統</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, orderBy, where, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        
+        // Firebase 配置
+        const firebaseConfig = {
+            apiKey: "AIzaSyDfHs1XXsCXGMSVF3NFJUtFMcslTzTd-EU",
+            authDomain: "expenses-91280.firebaseapp.com",
+            projectId: "expenses-91280",
+            storageBucket: "expenses-91280.firebasestorage.app",
+            messagingSenderId: "777956465315",
+            appId: "1:777956465315:web:04f85f2b22f2468eb2fd16",
+            measurementId: "G-1LE7YTKHGT"
         };
-        await addDoc(collection(db, 'expenses'), payload);
-        // reset
-        amountEl.value = '';
-        noteEl.value = '';
-        await loadMonth();
-      }catch(err){
-        console.error(err);
-        alert('新增失敗：' + (err?.message || err));
-      }
-    });
 
-    document.getElementById('btnReset').addEventListener('click', ()=>{
-      amountEl.value = '';
-      noteEl.value = '';
-      categoryEl.selectedIndex = 0;
-      dateEl.focus();
-    });
+        // 初始化 Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
 
-    monthInput.addEventListener('change', loadMonth);
-    filterCategory.addEventListener('change', render);
-    quickFilter.addEventListener('input', ()=>{ render(); });
-    btnClearQuick.addEventListener('click', ()=>{ quickFilter.value=''; render(); });
+        // 將 Firebase 實例設為全域變數
+        window.firebaseAuth = auth;
+        window.firebaseDb = db;
+        window.firebaseCollection = collection;
+        window.firebaseAddDoc = addDoc;
+        window.firebaseGetDocs = getDocs;
+        window.firebaseUpdateDoc = updateDoc;
+        window.firebaseDeleteDoc = deleteDoc;
+        window.firebaseDoc = doc;
+        window.firebaseQuery = query;
+        window.firebaseOrderBy = orderBy;
+        window.firebaseWhere = where;
+        window.firebaseServerTimestamp = serverTimestamp;
+        window.firebaseSignInAnonymously = signInAnonymously;
+        window.firebaseOnAuthStateChanged = onAuthStateChanged;
+    </script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>家庭記帳系統</h1>
+            <div class="summary">
+                <div class="summary-item">
+                    <span class="label">總收入</span>
+                    <span class="amount income" id="totalIncome">$0</span>
+                </div>
+                <div class="summary-item">
+                    <span class="label">總支出</span>
+                    <span class="amount expense" id="totalExpense">$0</span>
+                </div>
+                <div class="summary-item">
+                    <span class="label">現有資產</span>
+                    <span class="amount asset" id="totalAssets">$0</span>
+                </div>
+                <div class="summary-item">
+                    <span class="label">總資產</span>
+                    <span class="amount balance" id="totalNetWorth">$0</span>
+                </div>
+            </div>
+            <button class="charts-btn" onclick="expenseTracker.showChartsModal()">📊 圖表分析</button>
+        </header>
 
-    // 匯出 CSV（當前渲染結果）
-    btnExport.addEventListener('click', ()=>{
-      const rows = currentRows.length ? currentRows : rawRows;
-      const header = ['日期','類別','備註','金額'];
-      const lines = [header.join(',')];
-      rows.forEach(r => {
-        const line = [fmtDate(r.date), r.category||'', (r.note||'').replaceAll('\n',' '), toAmount(r.amount)];
-        lines.push(line.map(v => typeof v === 'string' && v.includes(',') ? `"${v}"` : v).join(','));
-      });
-      const blob = new Blob(["\ufeff" + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = `${monthInput.value || 'export'}.csv`; a.click();
-      URL.revokeObjectURL(url);
-    });
+        <main>
+            <!-- 新增記錄區域 -->
+            <section class="add-record">
+                <h2>新增記帳記錄</h2>
+                <form id="recordForm">
+                    <div class="form-grid">
+                    <div class="form-group">
+                        <label for="member">家庭成員</label>
+                        <select id="member" required>
+                            <option value="">請選擇成員</option>
+                            <option value="爸爸">爸爸</option>
+                            <option value="媽媽">媽媽</option>
+                            <option value="孩子">孩子</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="type">類型</label>
+                        <select id="type" required>
+                            <option value="">請選擇類型</option>
+                            <option value="支出">支出</option>
+                            <option value="收入">收入</option>
+                            <option value="資產">資產</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="mainCategory">類別</label>
+                        <select id="mainCategory" required>
+                            <option value="">請選擇類別</option>
+                            <!-- 支出大項目 -->
+                            <option value="食" data-type="支出">食</option>
+                            <option value="衣" data-type="支出">衣</option>
+                            <option value="住" data-type="支出">住</option>
+                            <option value="行" data-type="支出">行</option>
+                            <option value="育" data-type="支出">育</option>
+                            <option value="樂" data-type="支出">樂</option>
+                            <option value="醫療" data-type="支出">醫療</option>
+                            <option value="其他支出" data-type="支出">其他支出</option>
+                            <!-- 收入大項目 -->
+                            <option value="薪資" data-type="收入">薪資</option>
+                            <option value="投資" data-type="收入">投資</option>
+                            <!-- 資產大項目 -->
+                            <option value="動產" data-type="資產">動產</option>
+                            <option value="不動產" data-type="資產">不動產</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="subCategory">細項</label>
+                        <select id="subCategory" required>
+                            <option value="">請先選擇類別</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="amount">金額</label>
+                        <input type="number" id="amount" min="0" step="0.01" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="description">描述</label>
+                        <input type="text" id="description" placeholder="輸入描述...">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="date">日期</label>
+                        <input type="date" id="date" required>
+                    </div>
+                    
+                    </div>
+                    
+                    <div class="form-buttons">
+                        <button type="submit">新增記錄</button>
+                        <button type="button" onclick="expenseTracker.resetForm()" class="reset-btn">清空表單</button>
+                    </div>
+                </form>
+            </section>
 
-    // ====== Auth Gate ======
-    onAuthStateChanged(auth, async (user) => {
-      // Debug：檢查是否同一個 Firebase 專案 + 是否拿到使用者
-      console.log('[auth]', 'projectId =', auth.app?.options?.projectId, 'uid =', user?.uid);
 
-      // 不論登入與否先顯示 body，避免白屏
-      document.body.style.display = 'block';
+            <!-- 記錄列表區域 -->
+            <section class="records">
+                <h2>記帳記錄</h2>
+                <div class="records-list" id="recordsList">
+                    <!-- 記錄將動態生成 -->
+                </div>
+                
+                <!-- 分頁控件 -->
+                <div class="pagination" id="pagination">
+                    <div class="page-size-selector">
+                        <label for="pageSize">每頁顯示：</label>
+                        <select id="pageSize">
+                            <option value="5">5 筆</option>
+                            <option value="10">10 筆</option>
+                            <option value="20" selected>20 筆</option>
+                            <option value="50">50 筆</option>
+                        </select>
+                    </div>
+                    
+                    <div class="page-controls">
+                        <button id="prevPage" class="page-btn" disabled>上一頁</button>
+                        <div class="page-info">
+                            <span id="pageInfo">第 1 頁，共 1 頁</span>
+                        </div>
+                        <button id="nextPage" class="page-btn" disabled>下一頁</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
 
-      if (user){
-        userInfo.classList.remove('hidden');
-        userEmail.textContent = user.email || user.uid;
-        initDefaults();
-        await loadMonth();
-      } else {
-        // 尚未登入：只有非登入頁才導向登入，避免來回跳
-        const onLoginPage = /\/login\.html($|\?)/.test(location.pathname + location.search);
-        if (!onLoginPage) {
-          window.location.href = 'login.html';
-        }
-      }
-    });
-  </script>
+    <!-- 圖表彈窗 -->
+    <div id="chartsModal" class="modal">
+        <div class="modal-content charts-modal">
+            <div class="modal-header">
+                <h2>📊 圖表分析</h2>
+                <span class="close" onclick="expenseTracker.hideChartsModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <!-- 圖表篩選器 -->
+                <div class="chart-filters">
+                    <h3>圖表篩選</h3>
+                    <div class="filter-group">
+                        <label for="chartFilterType">類型：</label>
+                        <select id="chartFilterType">
+                            <option value="">所有類型</option>
+                            <option value="收入">收入</option>
+                            <option value="支出">支出</option>
+                            <option value="資產">資產</option>
+                        </select>
+                        
+                        <label for="chartFilterYear">年份：</label>
+                        <select id="chartFilterYear">
+                            <option value="">所有年份</option>
+                        </select>
+                        
+                        <label for="chartFilterMonth">月份：</label>
+                        <select id="chartFilterMonth">
+                            <option value="">所有月份</option>
+                            <option value="01">1月</option>
+                            <option value="02">2月</option>
+                            <option value="03">3月</option>
+                            <option value="04">4月</option>
+                            <option value="05">5月</option>
+                            <option value="06">6月</option>
+                            <option value="07">7月</option>
+                            <option value="08">8月</option>
+                            <option value="09">9月</option>
+                            <option value="10">10月</option>
+                            <option value="11">11月</option>
+                            <option value="12">12月</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <h2 class="expense-section-title">支出統計</h2>
+                <div class="chart-row expense-section">
+                    <div class="chart-container">
+                        <h3>支出類別分布</h3>
+                        <canvas id="expenseCategoryChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>家庭成員支出分布</h3>
+                        <canvas id="expenseMemberChart"></canvas>
+                    </div>
+                </div>
+                
+                <h2 class="income-section-title">收入統計</h2>
+                <div class="chart-row income-section">
+                    <div class="chart-container">
+                        <h3>收入類別分布</h3>
+                        <canvas id="incomeCategoryChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>家庭成員收入分布</h3>
+                        <canvas id="incomeMemberChart"></canvas>
+                    </div>
+                </div>
+                
+                <h2 class="asset-section-title">資產統計</h2>
+                <div class="chart-row asset-section">
+                    <div class="chart-container">
+                        <h3>資產類別分布</h3>
+                        <canvas id="assetCategoryChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>家庭成員資產分布</h3>
+                        <canvas id="assetMemberChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="expenseTracker.hideChartsModal()">關閉</button>
+            </div>
+        </div>
+    </div>
 
-  <!-- 建議的 Firestore 規則（到 Console 設定）
-  rules_version = '2';
-  service cloud.firestore {
-    match /databases/{database}/documents {
-      function signedIn(){ return request.auth != null; }
-      // 根集合：expenses
-      match /expenses/{id} {
-        // 建立者只能建立屬於自己的紀錄，且 ym_uid 需以 uid#yyyy-mm 開頭
-        allow create: if signedIn()
-                      && request.resource.data.uid == request.auth.uid
-                      && request.resource.data.ym_uid.matches('^' + request.auth.uid + '#.*$');
-        // 只有擁有者可讀/改/刪
-        allow read, update, delete: if signedIn() && resource.data.uid == request.auth.uid;
-      }
-    }
-  }
-  -->
+    <script src="script.js"></script>
 </body>
 </html>
