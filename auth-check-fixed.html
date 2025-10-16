@@ -230,7 +230,6 @@
         async function checkUserData(user) {
             try {
                 log('檢查使用者資料...');
-                const userRef = doc(db, 'users', user.uid);
                 const userDoc = await getDocs(collection(db, 'users'));
                 
                 const currentUserDoc = userDoc.docs.find(doc => doc.id === user.uid);
