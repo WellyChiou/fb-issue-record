@@ -892,6 +892,12 @@ service cloud.firestore {
             initFormEventListeners() {
                 console.log('初始化表單事件監聽器');
                 
+                // 表單提交事件
+                document.getElementById('recordForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.addRecord();
+                });
+                
                 // 類別選擇變化時更新細項選項
                 const mainCategorySelect = document.getElementById('mainCategory');
                 if (mainCategorySelect) {
@@ -948,8 +954,113 @@ service cloud.firestore {
                 });
             }
 
+            // 新增記錄
+            async addRecord() {
+                const formData = {
+                    type: document.getElementById('type').value,
+                    member: document.getElementById('member').value,
+                    mainCategory: document.getElementById('mainCategory').value,
+                    subCategory: document.getElementById('subCategory').value,
+                    amount: parseFloat(document.getElementById('amount').value),
+                    description: document.getElementById('description').value,
+                    date: document.getElementById('date').value
+                };
+
+                console.log('準備新增記錄:', formData);
+
+                try {
+                    if (this.editingId) {
+                        // 編輯模式
+                        await this.updateRecordInFirebase(this.editingId, formData);
+                        this.editingId = null;
+                        document.querySelector('#recordForm button[type="submit"]').textContent = '新增記錄';
+                    } else {
+                        // 新增模式
+                        await this.addRecordToFirebase(formData);
+                    }
+
+                    this.resetForm();
+                    this.updateDisplay();
+                } catch (error) {
+                    console.error('儲存記錄失敗:', error);
+                    alert('儲存失敗，請重試');
+                }
+            }
+
+            // 新增記錄到 Firebase
+            async addRecordToFirebase(formData) {
+                console.log('開始寫入 Firebase...');
+                
+                // 確保Firebase函數已載入
+                if (!window.firebaseCollection || !window.firebaseAddDoc || !window.firebaseServerTimestamp) {
+                    console.error('Firebase函數未載入，無法新增記錄');
+                    throw new Error('Firebase函數未載入');
+                }
+
+                const recordsRef = window.firebaseCollection(window.firebaseDb, 'records');
+                const docRef = await window.firebaseAddDoc(recordsRef, {
+                    userId: this.currentUser.uid,
+                    ...formData,
+                    createdAt: window.firebaseServerTimestamp(),
+                    updatedAt: window.firebaseServerTimestamp()
+                });
+                
+                // 添加到本地陣列
+                this.records.push({
+                    id: docRef.id,
+                    ...formData
+                });
+                
+                console.log('記錄已新增到 Firebase:', docRef.id);
+            }
+
+            // 更新 Firebase 記錄
+            async updateRecordInFirebase(recordId, formData) {
+                const recordRef = window.firebaseDoc(window.firebaseDb, 'records', recordId);
+                await window.firebaseUpdateDoc(recordRef, {
+                    ...formData,
+                    updatedAt: window.firebaseServerTimestamp()
+                });
+                
+                // 更新本地陣列
+                const index = this.records.findIndex(record => record.id === recordId);
+                if (index !== -1) {
+                    this.records[index] = { ...formData, id: recordId };
+                }
+                
+                console.log('記錄已更新到 Firebase:', recordId);
+            }
+
+            // 清空表單
+            resetForm() {
+                // 清空所有表單欄位
+                document.getElementById('member').value = '';
+                document.getElementById('type').value = '';
+                document.getElementById('mainCategory').value = '';
+                document.getElementById('subCategory').innerHTML = '<option value="">請先選擇類別</option>';
+                document.getElementById('amount').value = '';
+                document.getElementById('description').value = '';
+                
+                // 設定今天的日期為預設值
+                document.getElementById('date').value = new Date().toISOString().split('T')[0];
+                
+                // 重置編輯狀態
+                this.editingId = null;
+                
+                // 更新按鈕文字
+                const submitBtn = document.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.textContent = '新增記錄';
+                }
+                
+                console.log('表單已清空，日期已設定為今日');
+            }
+
             // 初始化
             init() {
+                // 設定今天的日期為預設值
+                document.getElementById('date').value = new Date().toISOString().split('T')[0];
+                
                 this.initFirebase();
                 // 等待 DOM 載入完成後初始化事件監聽器
                 if (document.readyState === 'loading') {
