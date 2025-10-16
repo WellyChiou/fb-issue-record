@@ -106,22 +106,7 @@
                     <div class="form-group">
                         <label for="mainCategory">類別</label>
                         <select id="mainCategory" required>
-                            <option value="">請選擇類別</option>
-                            <!-- 支出大項目 -->
-                            <option value="食" data-type="支出">食</option>
-                            <option value="衣" data-type="支出">衣</option>
-                            <option value="住" data-type="支出">住</option>
-                            <option value="行" data-type="支出">行</option>
-                            <option value="育" data-type="支出">育</option>
-                            <option value="樂" data-type="支出">樂</option>
-                            <option value="醫療" data-type="支出">醫療</option>
-                            <option value="其他支出" data-type="支出">其他支出</option>
-                            <!-- 收入大項目 -->
-                            <option value="薪資" data-type="收入">薪資</option>
-                            <option value="投資" data-type="收入">投資</option>
-                            <!-- 資產大項目 -->
-                            <option value="動產" data-type="資產">動產</option>
-                            <option value="不動產" data-type="資產">不動產</option>
+                            <option value="">請先選擇類型</option>
                         </select>
                     </div>
                     
@@ -832,9 +817,169 @@ service cloud.firestore {
                 document.getElementById('totalNetWorth').textContent = '$' + this.formatNumber(totalNetWorth);
             }
 
+            // 顯示圖表彈窗
+            showChartsModal() {
+                console.log('顯示圖表彈窗');
+                const modal = document.getElementById('chartsModal');
+                if (modal) {
+                    modal.style.display = 'block';
+                    // 初始化圖表
+                    this.initCharts();
+                } else {
+                    console.error('找不到圖表彈窗元素');
+                }
+            }
+
+            // 隱藏圖表彈窗
+            hideChartsModal() {
+                console.log('隱藏圖表彈窗');
+                const modal = document.getElementById('chartsModal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+            }
+
+            // 初始化圖表
+            initCharts() {
+                console.log('初始化圖表');
+                // 這裡可以添加圖表初始化邏輯
+                // 暫時顯示提示訊息
+                const chartContainers = document.querySelectorAll('.chart-container');
+                chartContainers.forEach(container => {
+                    const canvas = container.querySelector('canvas');
+                    if (canvas) {
+                        const ctx = canvas.getContext('2d');
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        ctx.fillStyle = '#999';
+                        ctx.font = '16px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('圖表功能開發中...', canvas.width / 2, canvas.height / 2);
+                    }
+                });
+            }
+
+            // 初始化表單事件監聽器
+            initFormEventListeners() {
+                console.log('初始化表單事件監聽器');
+                
+                // 類別選擇變化時更新細項選項
+                const mainCategorySelect = document.getElementById('mainCategory');
+                if (mainCategorySelect) {
+                    mainCategorySelect.addEventListener('change', (e) => {
+                        this.updateSubCategoryOptions(e.target.value);
+                    });
+                }
+
+                // 類型選擇變化時更新類別選項
+                const typeSelect = document.getElementById('type');
+                if (typeSelect) {
+                    typeSelect.addEventListener('change', (e) => {
+                        this.updateMainCategoryOptions(e.target.value);
+                    });
+                }
+            }
+
+            // 更新細項選項
+            updateSubCategoryOptions(mainCategory) {
+                console.log('更新細項選項:', mainCategory);
+                const subCategorySelect = document.getElementById('subCategory');
+                if (!subCategorySelect) return;
+
+                // 清空現有選項
+                subCategorySelect.innerHTML = '<option value="">請先選擇類別</option>';
+
+                if (!mainCategory) return;
+
+                // 根據主類別設定細項選項
+                const subCategories = {
+                    '食': ['早餐', '午餐', '晚餐', '點心', '飲料', '食材', '外食'],
+                    '衣': ['服裝', '鞋子', '配件', '保養品', '化妝品'],
+                    '住': ['房租', '水電費', '瓦斯費', '網路費', '管理費', '家具', '家電'],
+                    '行': ['油費', '停車費', '大眾運輸', '計程車', '機車保養', '汽車保養', '保險'],
+                    '育': ['學費', '書籍', '文具', '補習費', '教育用品'],
+                    '樂': ['電影', 'KTV', '旅遊', '運動', '遊戲', '娛樂用品'],
+                    '醫療': ['掛號費', '藥費', '健檢', '醫療用品'],
+                    '其他支出': ['雜費', '禮金', '捐款', '其他'],
+                    '薪資': ['月薪', '獎金', '加班費', '津貼'],
+                    '投資': ['股票', '基金', '債券', '外匯', '其他投資'],
+                    '動產': ['現金', '存款', '股票', '基金', '債券', '外匯', '其他'],
+                    '不動產': ['房屋', '土地', '其他不動產']
+                };
+
+                const options = subCategories[mainCategory] || [];
+                options.forEach(option => {
+                    const optionElement = document.createElement('option');
+                    optionElement.value = option;
+                    optionElement.textContent = option;
+                    subCategorySelect.appendChild(optionElement);
+                });
+
+                console.log(`已添加 ${options.length} 個細項選項`);
+            }
+
+            // 更新主類別選項
+            updateMainCategoryOptions(type) {
+                console.log('更新主類別選項:', type);
+                const mainCategorySelect = document.getElementById('mainCategory');
+                const subCategorySelect = document.getElementById('subCategory');
+                
+                if (!mainCategorySelect) return;
+
+                // 清空現有選項
+                mainCategorySelect.innerHTML = '<option value="">請先選擇類型</option>';
+                
+                // 同時清空細項選項
+                if (subCategorySelect) {
+                    subCategorySelect.innerHTML = '<option value="">請先選擇類別</option>';
+                }
+
+                if (!type) return;
+
+                // 根據類型設定主類別選項
+                const categories = {
+                    '支出': [
+                        { value: '食', text: '食' },
+                        { value: '衣', text: '衣' },
+                        { value: '住', text: '住' },
+                        { value: '行', text: '行' },
+                        { value: '育', text: '育' },
+                        { value: '樂', text: '樂' },
+                        { value: '醫療', text: '醫療' },
+                        { value: '其他支出', text: '其他支出' }
+                    ],
+                    '收入': [
+                        { value: '薪資', text: '薪資' },
+                        { value: '投資', text: '投資' }
+                    ],
+                    '資產': [
+                        { value: '動產', text: '動產' },
+                        { value: '不動產', text: '不動產' }
+                    ]
+                };
+
+                const options = categories[type] || [];
+                options.forEach(option => {
+                    const optionElement = document.createElement('option');
+                    optionElement.value = option.value;
+                    optionElement.textContent = option.text;
+                    optionElement.setAttribute('data-type', type);
+                    mainCategorySelect.appendChild(optionElement);
+                });
+
+                console.log(`已添加 ${options.length} 個主類別選項`);
+            }
+
             // 初始化
             init() {
                 this.initFirebase();
+                // 等待 DOM 載入完成後初始化事件監聽器
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', () => {
+                        this.initFormEventListeners();
+                    });
+                } else {
+                    this.initFormEventListeners();
+                }
             }
         }
 
