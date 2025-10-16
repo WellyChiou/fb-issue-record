@@ -1,3 +1,75 @@
+/* 未啟用使用者樣式 */
+.inactive-user-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 80vh;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    padding: 20px;
+}
+
+.inactive-user-card {
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    max-width: 500px;
+    width: 100%;
+}
+
+.inactive-user-icon {
+    font-size: 4em;
+    margin-bottom: 20px;
+    color: #f39c12;
+}
+
+.inactive-user-card h2 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+    font-size: 1.8em;
+}
+
+.inactive-user-card p {
+    color: #666;
+    margin-bottom: 15px;
+    line-height: 1.6;
+}
+
+.user-info {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+    text-align: left;
+}
+
+.user-info p {
+    margin: 8px 0;
+    color: #495057;
+}
+
+.action-buttons {
+    margin-top: 30px;
+}
+
+.logout-btn {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 6px;
+    font-size: 1.1em;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.logout-btn:hover {
+    background: #c0392b;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(231, 76, 60, 0.3);
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -758,6 +830,19 @@ button:hover {
 }
 
 @media (max-width: 768px) {
+    .inactive-user-card {
+        padding: 20px;
+        margin: 10px;
+    }
+    
+    .inactive-user-icon {
+        font-size: 3em;
+    }
+    
+    .inactive-user-card h2 {
+        font-size: 1.5em;
+    }
+    
     .modal-content {
         margin: 5% auto;
         width: 95%;

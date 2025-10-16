@@ -5,6 +5,14 @@ class ExpenseTracker {
         return Math.round(number).toLocaleString('zh-TW');
     }
 
+    // 授權使用者清單
+    authorizedUsers = [
+        'your-email@gmail.com',  // 替換為您的Email
+        'family-member1@gmail.com',  // 家庭成員1
+        'family-member2@gmail.com',  // 家庭成員2
+        // 可以添加更多授權使用者
+    ];
+
     constructor() {
         this.records = [];
         this.editingId = null;
@@ -44,6 +52,15 @@ class ExpenseTracker {
             
             if (authState) {
                 console.log('檢測到現有登入狀態:', authState.uid);
+                
+                // 檢查使用者啟用狀態
+                const userStatus = await this.checkUserStatus(authState);
+                if (!userStatus.isActive) {
+                    console.log('使用者尚未啟用:', authState.email);
+                    this.showInactiveUserMessage(authState);
+                    return;
+                }
+                
                 this.currentUser = authState;
                 this.isFirebaseReady = true;
                 
@@ -61,14 +78,24 @@ class ExpenseTracker {
             window.firebaseOnAuthStateChanged(window.firebaseAuth, (user) => {
                 if (user) {
                     console.log('認證狀態變化 - 已登入:', user.uid);
-                    this.currentUser = user;
-                    this.isFirebaseReady = true;
                     
-                    // 記錄/更新使用者基本資料
-                    this.updateUserProfile(user);
-                    
-                    // 載入記錄
-                    this.loadRecordsFromFirebase();
+                    // 檢查使用者啟用狀態
+                    this.checkUserStatus(user).then(userStatus => {
+                        if (!userStatus.isActive) {
+                            console.log('使用者尚未啟用:', user.email);
+                            this.showInactiveUserMessage(user);
+                            return;
+                        }
+                        
+                        this.currentUser = user;
+                        this.isFirebaseReady = true;
+                        
+                        // 記錄/更新使用者基本資料
+                        this.updateUserProfile(user);
+                        
+                        // 載入記錄
+                        this.loadRecordsFromFirebase();
+                    });
                 } else {
                     console.log('認證狀態變化 - 已登出，導向登入頁面');
                     window.location.href = 'expenses_login.html';
@@ -101,12 +128,42 @@ class ExpenseTracker {
                 displayName: user.displayName ?? null,
                 photoURL: user.photoURL ?? null,
                 providerId: user.providerData?.[0]?.providerId ?? null,
-                lastLoginAt: window.firebaseServerTimestamp()
+                lastLoginAt: window.firebaseServerTimestamp(),
+                isActive: false,  // 預設不啟用
+                createdAt: window.firebaseServerTimestamp(),
+                status: 'pending'  // pending, active, suspended
             }, { merge: true });
             
             console.log('使用者資料已更新:', user.uid);
         } catch (error) {
             console.error('更新使用者資料失敗:', error);
+        }
+    }
+
+    // 顯示未啟用使用者訊息
+    showInactiveUserMessage(user) {
+        // 隱藏所有輸入表單
+        const mainContent = document.querySelector('main');
+        if (mainContent) {
+            mainContent.innerHTML = `
+                <div class="inactive-user-container">
+                    <div class="inactive-user-card">
+                        <div class="inactive-user-icon">⏳</div>
+                        <h2>使用者尚未啟用</h2>
+                        <p>親愛的 <strong>${user.displayName || user.email}</strong>，</p>
+                        <p>您的帳號目前尚未啟用，請聯繫管理員進行啟用。</p>
+                        <div class="user-info">
+                            <p><strong>Email:</strong> ${user.email}</p>
+                            <p><strong>狀態:</strong> 等待啟用</p>
+                        </div>
+                        <div class="action-buttons">
+                            <button onclick="window.firebaseAuth.signOut(); window.location.href='expenses_login.html';" class="logout-btn">
+                                登出
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
     }
 
