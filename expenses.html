@@ -44,6 +44,10 @@
         window.firebaseServerTimestamp = serverTimestamp;
         window.firebaseSignInAnonymously = signInAnonymously;
         window.firebaseOnAuthStateChanged = onAuthStateChanged;
+        
+        // 標記 Firebase 已載入
+        window.firebaseLoaded = true;
+        console.log('Firebase SDK 已載入完成');
     </script>
 </head>
 <body>
@@ -549,6 +553,13 @@
                     const checkFirebase = () => {
                         attempts++;
                         
+                        // 首先檢查 firebaseLoaded 標記
+                        if (window.firebaseLoaded) {
+                            console.log(`Firebase SDK 載入完成，嘗試次數: ${attempts}`);
+                            resolve();
+                            return;
+                        }
+                        
                         // 檢查所有必要的Firebase函數
                         const requiredFunctions = [
                             'firebaseAuth', 'firebaseDb', 'firebaseCollection', 
@@ -558,19 +569,23 @@
                             'firebaseServerTimestamp', 'firebaseOnAuthStateChanged'
                         ];
                         
-                        const allFunctionsLoaded = requiredFunctions.every(func => {
+                        const loadedFunctions = requiredFunctions.filter(func => {
                             return window[func] && typeof window[func] === 'function';
                         });
                         
-                        if (window.firebaseAuth && window.firebaseDb && allFunctionsLoaded) {
+                        const missingFunctions = requiredFunctions.filter(func => !window[func]);
+                        
+                        console.log(`Firebase 載入檢查 (${attempts}/${maxAttempts}): 已載入 ${loadedFunctions.length}/${requiredFunctions.length} 個函數`);
+                        
+                        if (window.firebaseAuth && window.firebaseDb && loadedFunctions.length === requiredFunctions.length) {
                             console.log(`Firebase 載入成功，嘗試次數: ${attempts}`);
                             resolve();
                         } else if (attempts >= maxAttempts) {
                             console.error('Firebase 載入超時');
-                            const missingFunctions = requiredFunctions.filter(func => !window[func]);
+                            console.error('已載入的函數:', loadedFunctions);
+                            console.error('缺少的函數:', missingFunctions);
                             reject(new Error(`Firebase SDK 載入超時，缺少函數: ${missingFunctions.join(', ')}`));
                         } else {
-                            console.log(`等待 Firebase 載入... (${attempts}/${maxAttempts})`);
                             setTimeout(checkFirebase, 100);
                         }
                     };
