@@ -754,8 +754,17 @@ service cloud.firestore {
                 
                 if (records.length === 0) {
                     recordsList.innerHTML = '<div class="empty-state" style="padding: 40px; text-align: center; color: #999;">暫無記錄</div>';
+                    this.updatePagination(0);
                     return;
                 }
+
+                // 獲取所有可能的篩選選項（使用所有記錄，不是篩選後的記錄）
+                const allMembers = [...new Set(this.records.map(r => r.member))];
+                const allTypes = [...new Set(this.records.map(r => r.type))];
+                const allMainCategories = [...new Set(this.records.map(r => r.mainCategory))];
+                const allSubCategories = [...new Set(this.records.map(r => r.subCategory))];
+                const allYears = [...new Set(this.records.map(r => r.date.split('-')[0]))].sort((a, b) => b - a);
+                const allMonths = [...new Set(this.records.map(r => r.date.split('-')[1]))].sort((a, b) => a - b);
 
                 // 計算分頁
                 const totalPages = Math.ceil(records.length / this.recordsPerPage);
@@ -763,38 +772,50 @@ service cloud.firestore {
                 const endIndex = startIndex + this.recordsPerPage;
                 const pageRecords = records.slice(startIndex, endIndex);
 
-                let html = `
+                // 生成表格HTML
+                const tableHTML = `
                     <table class="records-table">
                         <thead>
                             <tr>
-                                <th>日期
+                                <th>
+                                    日期
                                     <div class="date-filter-container">
-                                        <select class="filter-dropdown" onchange="expenseTracker.applyTableFilter(true)">
-                                            <option value="">全部</option>
+                                        <select id="tableFilterYear" onchange="expenseTracker.applyTableFilter(true)">
+                                            <option value="">全部年份</option>
+                                            ${allYears.map(year => `<option value="${year}">${year}</option>`).join('')}
                                         </select>
-                                        <select class="filter-dropdown" onchange="expenseTracker.applyTableFilter(true)">
-                                            <option value="">全部</option>
+                                        <select id="tableFilterMonth" onchange="expenseTracker.applyTableFilter(true)">
+                                            <option value="">全部月份</option>
+                                            ${allMonths.map(month => `<option value="${month}">${month}月</option>`).join('')}
                                         </select>
                                     </div>
                                 </th>
-                                <th>家庭成員
-                                    <select class="filter-dropdown" onchange="expenseTracker.applyTableFilter(true)">
-                                        <option value="">全部</option>
+                                <th>
+                                    家庭成員
+                                    <select class="filter-dropdown" id="tableFilterMember" onchange="expenseTracker.applyTableFilter(true)">
+                                        <option value="">全部成員</option>
+                                        ${allMembers.map(member => `<option value="${member}">${member}</option>`).join('')}
                                     </select>
                                 </th>
-                                <th>類型
-                                    <select class="filter-dropdown" onchange="expenseTracker.applyTableFilter(true)">
-                                        <option value="">全部</option>
+                                <th>
+                                    類型
+                                    <select class="filter-dropdown" id="tableFilterType" onchange="expenseTracker.applyTableFilter(true)">
+                                        <option value="">全部類型</option>
+                                        ${allTypes.map(type => `<option value="${type}">${type}</option>`).join('')}
                                     </select>
                                 </th>
-                                <th>類別
-                                    <select class="filter-dropdown" onchange="expenseTracker.applyTableFilter(true)">
-                                        <option value="">全部</option>
+                                <th>
+                                    類別
+                                    <select class="filter-dropdown" id="tableFilterMainCategory" onchange="expenseTracker.applyTableFilter(true)">
+                                        <option value="">全部類別</option>
+                                        ${allMainCategories.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
                                     </select>
                                 </th>
-                                <th>細項
-                                    <select class="filter-dropdown" onchange="expenseTracker.applyTableFilter(true)">
-                                        <option value="">全部</option>
+                                <th>
+                                    細項
+                                    <select class="filter-dropdown" id="tableFilterSubCategory" onchange="expenseTracker.applyTableFilter(true)">
+                                        <option value="">全部細項</option>
+                                        ${allSubCategories.map(sub => `<option value="${sub}">${sub}</option>`).join('')}
                                     </select>
                                 </th>
                                 <th>金額</th>
@@ -802,36 +823,37 @@ service cloud.firestore {
                             </tr>
                         </thead>
                         <tbody>
-                `;
-
-                pageRecords.forEach(record => {
-                    const amountClass = record.type === '收入' ? 'amount-income' : 
-                                       record.type === '支出' ? 'amount-expense' : 'amount-asset';
-                    
-                    html += `
-                        <tr>
-                            <td>${record.date}</td>
-                            <td>${record.member}</td>
-                            <td>${record.type}</td>
-                            <td>${record.mainCategory}</td>
-                            <td>${record.subCategory}</td>
-                            <td class="${amountClass}">$${this.formatNumber(record.amount)}</td>
-                            <td>
-                                <div class="action-buttons">
-                                    <button class="action-btn edit-btn" onclick="expenseTracker.editRecord('${record.id}')" title="編輯"></button>
-                                    <button class="action-btn delete-btn" onclick="expenseTracker.deleteRecord('${record.id}')" title="刪除"></button>
-                                </div>
-                            </td>
-                        </tr>
-                    `;
-                });
-
-                html += `
+                            ${pageRecords
+                                .sort((a, b) => new Date(b.date) - new Date(a.date))
+                                .map(record => {
+                                    const amountClass = record.type === '收入' ? 'amount-income' : 
+                                                       record.type === '支出' ? 'amount-expense' : 'amount-asset';
+                                    const amountPrefix = record.type === '收入' ? '+' : 
+                                                        record.type === '資產' ? '+' : '-';
+                                    
+                                    return `
+                                        <tr>
+                                            <td>${record.date}</td>
+                                            <td>${record.member}</td>
+                                            <td>${record.type}</td>
+                                            <td>${record.mainCategory}</td>
+                                            <td>${record.subCategory}</td>
+                                            <td class="${amountClass}">${amountPrefix}$${this.formatNumber(record.amount)}</td>
+                                            <td>
+                                                <div class="action-buttons">
+                                                    <button class="action-btn edit-btn" onclick="expenseTracker.editRecord('${record.id}')" title="編輯"></button>
+                                                    <button class="action-btn delete-btn" onclick="expenseTracker.deleteRecord('${record.id}')" title="刪除"></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join('')}
                         </tbody>
                     </table>
                 `;
-
-                recordsList.innerHTML = html;
+                
+                recordsList.innerHTML = tableHTML;
+                this.updatePagination(records.length);
             }
 
             // 更新摘要
@@ -847,14 +869,76 @@ service cloud.firestore {
                 document.getElementById('totalNetWorth').textContent = '$' + this.formatNumber(totalNetWorth);
             }
 
+            // 獲取當前篩選後的記錄
+            getCurrentFilteredRecords() {
+                // 獲取表格篩選器的值
+                const yearFilter = document.getElementById('tableFilterYear')?.value || '';
+                const monthFilter = document.getElementById('tableFilterMonth')?.value || '';
+                const memberFilter = document.getElementById('tableFilterMember')?.value || '';
+                const typeFilter = document.getElementById('tableFilterType')?.value || '';
+                const mainCategoryFilter = document.getElementById('tableFilterMainCategory')?.value || '';
+                const subCategoryFilter = document.getElementById('tableFilterSubCategory')?.value || '';
+
+                // 篩選記錄
+                return this.records.filter(record => {
+                    const recordYear = record.date.split('-')[0];
+                    const recordMonth = record.date.split('-')[1];
+                    
+                    return (!yearFilter || recordYear === yearFilter) &&
+                           (!monthFilter || recordMonth === monthFilter) &&
+                           (!memberFilter || record.member === memberFilter) &&
+                           (!typeFilter || record.type === typeFilter) &&
+                           (!mainCategoryFilter || record.mainCategory === mainCategoryFilter) &&
+                           (!subCategoryFilter || record.subCategory === subCategoryFilter);
+                });
+            }
+
+            // 應用表格篩選
+            applyTableFilter(resetPage = true) {
+                const filteredRecords = this.getCurrentFilteredRecords();
+
+                // 只有在需要時才重置到第一頁
+                if (resetPage) {
+                    this.currentPage = 1;
+                }
+                this.displayRecords(filteredRecords);
+                this.updateSummary(filteredRecords);
+            }
+
+            // 更新分頁
+            updatePagination(totalRecords) {
+                const totalPages = Math.ceil(totalRecords / this.recordsPerPage);
+                const pageInfo = document.getElementById('pageInfo');
+                const prevBtn = document.getElementById('prevPage');
+                const nextBtn = document.getElementById('nextPage');
+                
+                // 更新頁面信息
+                if (totalRecords === 0) {
+                    pageInfo.textContent = '暫無記錄';
+                } else {
+                    const startRecord = (this.currentPage - 1) * this.recordsPerPage + 1;
+                    const endRecord = Math.min(this.currentPage * this.recordsPerPage, totalRecords);
+                    pageInfo.textContent = `第 ${this.currentPage} 頁，共 ${totalPages} 頁 (顯示 ${startRecord}-${endRecord} / ${totalRecords} 筆)`;
+                }
+                
+                // 更新按鈕狀態
+                prevBtn.disabled = this.currentPage <= 1;
+                nextBtn.disabled = this.currentPage >= totalPages;
+                
+                // 如果當前頁超過總頁數，重置到第一頁
+                if (this.currentPage > totalPages && totalPages > 0) {
+                    this.currentPage = 1;
+                    this.displayRecords(this.getCurrentFilteredRecords());
+                }
+            }
+
             // 顯示圖表彈窗
             showChartsModal() {
                 console.log('顯示圖表彈窗');
                 const modal = document.getElementById('chartsModal');
                 if (modal) {
                     modal.style.display = 'block';
-                    // 初始化圖表
-                    this.initCharts();
+                    this.updateCharts();
                 } else {
                     console.error('找不到圖表彈窗元素');
                 }
@@ -869,21 +953,466 @@ service cloud.firestore {
                 }
             }
 
+            // 更新圖表
+            updateCharts() {
+                const chartTypeFilter = document.getElementById('chartFilterType').value;
+                const chartYearFilter = document.getElementById('chartFilterYear').value;
+                const chartMonthFilter = document.getElementById('chartFilterMonth').value;
+                
+                // 根據圖表篩選器過濾記錄
+                const filteredRecords = this.records.filter(record => {
+                    const recordDate = new Date(record.date);
+                    const recordYear = recordDate.getFullYear().toString();
+                    const recordMonth = String(recordDate.getMonth() + 1).padStart(2, '0');
+                    
+                    return (!chartTypeFilter || record.type === chartTypeFilter) &&
+                           (!chartYearFilter || recordYear === chartYearFilter) &&
+                           (!chartMonthFilter || recordMonth === chartMonthFilter);
+                });
+                
+                // 控制圖表顯示/隱藏
+                this.toggleChartSections(chartTypeFilter);
+                
+                // 分別處理收入、支出和資產的數據
+                const incomeRecords = filteredRecords.filter(r => r.type === '收入');
+                const expenseRecords = filteredRecords.filter(r => r.type === '支出');
+                const assetRecords = filteredRecords.filter(r => r.type === '資產');
+                
+                // 更新支出類別圖表
+                const expenseCategoryData = this.getCategoryData(expenseRecords);
+                this.expenseCategoryChart.data.labels = expenseCategoryData.labels;
+                this.expenseCategoryChart.data.datasets[0].data = expenseCategoryData.data;
+                
+                // 如果沒有支出資料，顯示提示
+                if (expenseCategoryData.labels.length === 0) {
+                    const filterText = this.getFilterText(chartTypeFilter, chartYearFilter, chartMonthFilter);
+                    this.expenseCategoryChart.data.labels = [`${filterText}暫無支出資料`];
+                    this.expenseCategoryChart.data.datasets[0].data = [1];
+                    this.expenseCategoryChart.data.datasets[0].backgroundColor = ['#e0e0e0'];
+                } else {
+                    // 恢復原始顏色
+                    this.expenseCategoryChart.data.datasets[0].backgroundColor = [
+                        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF', '#4BC0C0', '#FF6384', '#36A2EB', '#FFCE56', '#9966FF', '#FF9F40', '#C9CBCF', '#4BC0C0', '#FF6384', '#36A2EB', '#FFCE56', '#9966FF'
+                    ];
+                }
+                
+                this.expenseCategoryChart.update();
+
+                // 更新支出成員圖表
+                const expenseMemberData = this.getMemberData(expenseRecords);
+                this.expenseMemberChart.data.labels = expenseMemberData.labels;
+                this.expenseMemberChart.data.datasets[0].data = expenseMemberData.data;
+                
+                // 如果沒有支出資料，顯示提示
+                if (expenseMemberData.labels.length === 0) {
+                    const filterText = this.getFilterText(chartTypeFilter, chartYearFilter, chartMonthFilter);
+                    this.expenseMemberChart.data.labels = [`${filterText}暫無支出資料`];
+                    this.expenseMemberChart.data.datasets[0].data = [1];
+                    this.expenseMemberChart.data.datasets[0].backgroundColor = ['#e0e0e0'];
+                } else {
+                    // 恢復原始顏色
+                    this.expenseMemberChart.data.datasets[0].backgroundColor = [
+                        '#667eea', '#764ba2', '#f093fb', '#f5576c'
+                    ];
+                }
+                
+                this.expenseMemberChart.update();
+
+                // 更新收入類別圖表
+                const incomeCategoryData = this.getCategoryData(incomeRecords);
+                this.incomeCategoryChart.data.labels = incomeCategoryData.labels;
+                this.incomeCategoryChart.data.datasets[0].data = incomeCategoryData.data;
+                
+                // 如果沒有收入資料，顯示提示
+                if (incomeCategoryData.labels.length === 0) {
+                    const filterText = this.getFilterText(chartTypeFilter, chartYearFilter, chartMonthFilter);
+                    this.incomeCategoryChart.data.labels = [`${filterText}暫無收入資料`];
+                    this.incomeCategoryChart.data.datasets[0].data = [1];
+                    this.incomeCategoryChart.data.datasets[0].backgroundColor = ['#e0e0e0'];
+                } else {
+                    // 恢復原始顏色
+                    this.incomeCategoryChart.data.datasets[0].backgroundColor = [
+                        '#27ae60', '#2ecc71', '#16a085', '#1abc9c', '#27ae60', '#2ecc71', '#16a085', '#1abc9c', '#27ae60', '#2ecc71'
+                    ];
+                }
+                
+                this.incomeCategoryChart.update();
+
+                // 更新收入成員圖表
+                const incomeMemberData = this.getMemberData(incomeRecords);
+                this.incomeMemberChart.data.labels = incomeMemberData.labels;
+                this.incomeMemberChart.data.datasets[0].data = incomeMemberData.data;
+                
+                // 如果沒有收入資料，顯示提示
+                if (incomeMemberData.labels.length === 0) {
+                    const filterText = this.getFilterText(chartTypeFilter, chartYearFilter, chartMonthFilter);
+                    this.incomeMemberChart.data.labels = [`${filterText}暫無收入資料`];
+                    this.incomeMemberChart.data.datasets[0].data = [1];
+                    this.incomeMemberChart.data.datasets[0].backgroundColor = ['#e0e0e0'];
+                } else {
+                    // 恢復原始顏色
+                    this.incomeMemberChart.data.datasets[0].backgroundColor = [
+                        '#27ae60', '#2ecc71', '#16a085', '#1abc9c'
+                    ];
+                }
+                
+                this.incomeMemberChart.update();
+
+                // 更新資產類別圖表
+                const assetCategoryData = this.getCategoryData(assetRecords);
+                this.assetCategoryChart.data.labels = assetCategoryData.labels;
+                this.assetCategoryChart.data.datasets[0].data = assetCategoryData.data;
+                
+                // 如果沒有資產資料，顯示提示
+                if (assetCategoryData.labels.length === 0) {
+                    const filterText = this.getFilterText(chartTypeFilter, chartYearFilter, chartMonthFilter);
+                    this.assetCategoryChart.data.labels = [`${filterText}暫無資產資料`];
+                    this.assetCategoryChart.data.datasets[0].data = [1];
+                    this.assetCategoryChart.data.datasets[0].backgroundColor = ['#e0e0e0'];
+                } else {
+                    // 恢復原始顏色
+                    this.assetCategoryChart.data.datasets[0].backgroundColor = [
+                        '#f39c12', '#e67e22', '#d35400', '#e74c3c', '#c0392b', '#f39c12', '#e67e22', '#d35400', '#e74c3c', '#c0392b'
+                    ];
+                }
+                
+                this.assetCategoryChart.update();
+
+                // 更新資產成員圖表
+                const assetMemberData = this.getMemberData(assetRecords);
+                this.assetMemberChart.data.labels = assetMemberData.labels;
+                this.assetMemberChart.data.datasets[0].data = assetMemberData.data;
+                
+                // 如果沒有資產資料，顯示提示
+                if (assetMemberData.labels.length === 0) {
+                    const filterText = this.getFilterText(chartTypeFilter, chartYearFilter, chartMonthFilter);
+                    this.assetMemberChart.data.labels = [`${filterText}暫無資產資料`];
+                    this.assetMemberChart.data.datasets[0].data = [1];
+                    this.assetMemberChart.data.datasets[0].backgroundColor = ['#e0e0e0'];
+                } else {
+                    // 恢復原始顏色
+                    this.assetMemberChart.data.datasets[0].backgroundColor = [
+                        '#f39c12', '#e67e22', '#d35400', '#c0392b'
+                    ];
+                }
+                
+                this.assetMemberChart.update();
+            }
+
+            // 控制圖表區域顯示/隱藏
+            toggleChartSections(typeFilter) {
+                // 控制支出統計區域
+                const expenseTitle = document.querySelector('.expense-section-title');
+                const expenseSection = document.querySelector('.expense-section');
+                if (expenseTitle && expenseSection) {
+                    const showExpense = !typeFilter || typeFilter === '支出';
+                    expenseTitle.style.display = showExpense ? 'block' : 'none';
+                    expenseSection.style.display = showExpense ? 'flex' : 'none';
+                }
+                
+                // 控制收入統計區域
+                const incomeTitle = document.querySelector('.income-section-title');
+                const incomeSection = document.querySelector('.income-section');
+                if (incomeTitle && incomeSection) {
+                    const showIncome = !typeFilter || typeFilter === '收入';
+                    incomeTitle.style.display = showIncome ? 'block' : 'none';
+                    incomeSection.style.display = showIncome ? 'flex' : 'none';
+                }
+                
+                // 控制資產統計區域
+                const assetTitle = document.querySelector('.asset-section-title');
+                const assetSection = document.querySelector('.asset-section');
+                if (assetTitle && assetSection) {
+                    const showAsset = !typeFilter || typeFilter === '資產';
+                    assetTitle.style.display = showAsset ? 'block' : 'none';
+                    assetSection.style.display = showAsset ? 'flex' : 'none';
+                }
+            }
+
+            // 獲取篩選文字
+            getFilterText(typeFilter, yearFilter, monthFilter) {
+                let text = '';
+                if (typeFilter) text += `${typeFilter} `;
+                if (yearFilter) text += `${yearFilter}年 `;
+                if (monthFilter) {
+                    const monthNames = ['', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+                    text += `${monthNames[parseInt(monthFilter)]} `;
+                }
+                return text;
+            }
+
+            // 獲取類別數據
+            getCategoryData(records) {
+                const categoryMap = {};
+                records.forEach(record => {
+                    const categoryKey = `${record.mainCategory} - ${record.subCategory}`;
+                    categoryMap[categoryKey] = (categoryMap[categoryKey] || 0) + record.amount;
+                });
+
+                return {
+                    labels: Object.keys(categoryMap),
+                    data: Object.values(categoryMap)
+                };
+            }
+
+            // 獲取成員數據
+            getMemberData(records) {
+                const memberMap = {};
+                records.forEach(record => {
+                    memberMap[record.member] = (memberMap[record.member] || 0) + record.amount;
+                });
+
+                return {
+                    labels: Object.keys(memberMap),
+                    data: Object.values(memberMap)
+                };
+            }
+
             // 初始化圖表
             initCharts() {
                 console.log('初始化圖表');
-                // 這裡可以添加圖表初始化邏輯
-                // 暫時顯示提示訊息
-                const chartContainers = document.querySelectorAll('.chart-container');
-                chartContainers.forEach(container => {
-                    const canvas = container.querySelector('canvas');
-                    if (canvas) {
-                        const ctx = canvas.getContext('2d');
-                        ctx.clearRect(0, 0, canvas.width, canvas.height);
-                        ctx.fillStyle = '#999';
-                        ctx.font = '16px Arial';
-                        ctx.textAlign = 'center';
-                        ctx.fillText('圖表功能開發中...', canvas.width / 2, canvas.height / 2);
+                
+                // 支出類別圓餅圖
+                this.expenseCategoryChart = new Chart(document.getElementById('expenseCategoryChart'), {
+                    type: 'pie',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            data: [],
+                            backgroundColor: [
+                                '#FF6384',
+                                '#36A2EB',
+                                '#FFCE56',
+                                '#4BC0C0',
+                                '#9966FF',
+                                '#FF9F40',
+                                '#FF6384',
+                                '#C9CBCF',
+                                '#4BC0C0',
+                                '#FF6384',
+                                '#36A2EB',
+                                '#FFCE56',
+                                '#9966FF',
+                                '#FF9F40',
+                                '#C9CBCF',
+                                '#4BC0C0',
+                                '#FF6384',
+                                '#36A2EB',
+                                '#FFCE56',
+                                '#9966FF'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.label || '';
+                                        const value = context.parsed;
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((value / total) * 100).toFixed(1);
+                                        return `${label}: $${expenseTracker.formatNumber(value)} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // 支出成員圓餅圖
+                this.expenseMemberChart = new Chart(document.getElementById('expenseMemberChart'), {
+                    type: 'pie',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            data: [],
+                            backgroundColor: [
+                                '#667eea',
+                                '#764ba2',
+                                '#f093fb',
+                                '#f5576c'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.label || '';
+                                        const value = context.parsed;
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((value / total) * 100).toFixed(1);
+                                        return `${label}: $${expenseTracker.formatNumber(value)} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // 收入類別圓餅圖
+                this.incomeCategoryChart = new Chart(document.getElementById('incomeCategoryChart'), {
+                    type: 'pie',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            data: [],
+                            backgroundColor: [
+                                '#27ae60',
+                                '#2ecc71',
+                                '#16a085',
+                                '#1abc9c',
+                                '#27ae60',
+                                '#2ecc71',
+                                '#16a085',
+                                '#1abc9c',
+                                '#27ae60',
+                                '#2ecc71'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.label || '';
+                                        const value = context.parsed;
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((value / total) * 100).toFixed(1);
+                                        return `${label}: $${expenseTracker.formatNumber(value)} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // 收入成員圓餅圖
+                this.incomeMemberChart = new Chart(document.getElementById('incomeMemberChart'), {
+                    type: 'pie',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            data: [],
+                            backgroundColor: [
+                                '#27ae60',
+                                '#2ecc71',
+                                '#16a085',
+                                '#1abc9c'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.label || '';
+                                        const value = context.parsed;
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((value / total) * 100).toFixed(1);
+                                        return `${label}: $${expenseTracker.formatNumber(value)} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // 資產類別圓餅圖
+                this.assetCategoryChart = new Chart(document.getElementById('assetCategoryChart'), {
+                    type: 'pie',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            data: [],
+                            backgroundColor: [
+                                '#f39c12',
+                                '#e67e22',
+                                '#d35400',
+                                '#e74c3c',
+                                '#c0392b',
+                                '#f39c12',
+                                '#e67e22',
+                                '#d35400',
+                                '#e74c3c',
+                                '#c0392b'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.label || '';
+                                        const value = context.parsed;
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((value / total) * 100).toFixed(1);
+                                        return `${label}: $${expenseTracker.formatNumber(value)} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // 資產成員圓餅圖
+                this.assetMemberChart = new Chart(document.getElementById('assetMemberChart'), {
+                    type: 'pie',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            data: [],
+                            backgroundColor: [
+                                '#f39c12',
+                                '#e67e22',
+                                '#d35400',
+                                '#c0392b'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.label || '';
+                                        const value = context.parsed;
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((value / total) * 100).toFixed(1);
+                                        return `${label}: $${expenseTracker.formatNumber(value)} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        }
                     }
                 });
             }
@@ -1062,13 +1591,16 @@ service cloud.firestore {
                 document.getElementById('date').value = new Date().toISOString().split('T')[0];
                 
                 this.initFirebase();
+                
                 // 等待 DOM 載入完成後初始化事件監聽器
                 if (document.readyState === 'loading') {
                     document.addEventListener('DOMContentLoaded', () => {
                         this.initFormEventListeners();
+                        this.initCharts();
                     });
                 } else {
                     this.initFormEventListeners();
+                    this.initCharts();
                 }
             }
         }
