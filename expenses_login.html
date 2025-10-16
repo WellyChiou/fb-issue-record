@@ -209,8 +209,8 @@ service cloud.firestore {
         // 監聽認證狀態
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                console.log('用戶已登入，等待手動導向');
-                // 不自動導向，讓登入流程控制導向時機
+                console.log('用戶已登入，導向主頁面');
+                window.location.href = 'expenses.html';
             }
         });
 
