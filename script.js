@@ -209,7 +209,7 @@ class ExpenseTracker {
         } catch (error) {
             console.error('載入 Firebase 記錄失敗:', error);
             // 如果載入失敗，導向登入頁面
-            window.location.href = 'login.html';
+            window.location.href = 'expenses_login.html';
         }
     }
 
