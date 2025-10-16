@@ -39,19 +39,38 @@ class ExpenseTracker {
             // 等待 Firebase 載入
             await this.waitForFirebase();
             
-            // 匿名登入
-            await window.firebaseSignInAnonymously(window.firebaseAuth);
+            // 使用 Promise 等待認證狀態
+            const authState = await this.waitForAuthStateWithPromise();
             
-            // 監聽認證狀態
+            if (authState) {
+                console.log('檢測到現有登入狀態:', authState.uid);
+                this.currentUser = authState;
+                this.isFirebaseReady = true;
+                
+                // 記錄/更新使用者基本資料
+                this.updateUserProfile(authState);
+                
+                // 載入記錄
+                this.loadRecordsFromFirebase();
+            } else {
+                console.log('未檢測到登入狀態，導向登入頁面');
+                window.location.href = 'login.html';
+            }
+            
+            // 監聽認證狀態變化
             window.firebaseOnAuthStateChanged(window.firebaseAuth, (user) => {
                 if (user) {
+                    console.log('認證狀態變化 - 已登入:', user.uid);
                     this.currentUser = user;
                     this.isFirebaseReady = true;
-                    console.log('Firebase 認證成功:', user.uid);
+                    
+                    // 記錄/更新使用者基本資料
+                    this.updateUserProfile(user);
+                    
+                    // 載入記錄
                     this.loadRecordsFromFirebase();
                 } else {
-                    console.log('Firebase 認證失敗，導向登入頁面');
-                    // 導向到登入頁面
+                    console.log('認證狀態變化 - 已登出，導向登入頁面');
                     window.location.href = 'login.html';
                 }
             });
@@ -59,6 +78,35 @@ class ExpenseTracker {
             console.error('Firebase 初始化失敗:', error);
             // 如果 Firebase 失敗，導向登入頁面
             window.location.href = 'login.html';
+        }
+    }
+
+    // 使用 Promise 等待認證狀態
+    waitForAuthStateWithPromise() {
+        return new Promise((resolve) => {
+            const unsubscribe = window.firebaseOnAuthStateChanged(window.firebaseAuth, (user) => {
+                unsubscribe(); // 取消監聽
+                resolve(user);
+            });
+        });
+    }
+
+    // 更新使用者基本資料
+    async updateUserProfile(user) {
+        try {
+            const userRef = window.firebaseDoc(window.firebaseDb, 'users', user.uid);
+            await window.firebaseSetDoc(userRef, {
+                uid: user.uid,
+                email: user.email ?? null,
+                displayName: user.displayName ?? null,
+                photoURL: user.photoURL ?? null,
+                providerId: user.providerData?.[0]?.providerId ?? null,
+                lastLoginAt: window.firebaseServerTimestamp()
+            }, { merge: true });
+            
+            console.log('使用者資料已更新:', user.uid);
+        } catch (error) {
+            console.error('更新使用者資料失敗:', error);
         }
     }
 
