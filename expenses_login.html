@@ -90,7 +90,10 @@
                 const currentUser = auth.currentUser;
                 if (currentUser) {
                     console.log('登入後認證狀態確認:', currentUser.email);
-                
+                    // 延遲跳轉，讓用戶看到成功訊息
+                    // setTimeout(() => {
+                    //     window.location.href = 'expenses.html';
+                    // }, 1000);
                     alert('用戶已登入，導向主頁面');
                 } else {
                     console.error('登入後認證狀態異常');
@@ -148,8 +151,8 @@
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 console.log('用戶已登入，導向主頁面');
+                // window.location.href = 'expenses.html';
                 alert('用戶已登入，導向主頁面');
-                //window.location.href = 'expenses.html';
             }
         });
 
