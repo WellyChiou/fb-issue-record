@@ -50,6 +50,7 @@
                 
                 const result = await signInWithPopup(auth, provider);
                 alert('Google 登入成功');
+                alert('result.user:' + result.user);
                 console.log('Google 登入成功:', result.user);
                 
                 // 更新使用者資料到 Firestore
@@ -106,7 +107,9 @@
         async function updateUserProfile(user) {
             try {
                 console.log('開始更新使用者資料:', user.uid, user.email);
-                
+
+                alert('updateUserProfile: user.uid:' + user.uid);
+                alert('updateUserProfile: user.email:' + user.email);
                 // 檢查 Firebase 函數是否可用
                 if (!window.firebaseDoc || !window.firebaseSetDoc || !window.firebaseServerTimestamp) {
                     throw new Error('Firebase 函數未載入');
