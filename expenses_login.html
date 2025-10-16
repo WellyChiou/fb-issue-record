@@ -27,6 +27,15 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
+        
+        // 將 Firebase 函數設為全域變數
+        window.firebaseAuth = auth;
+        window.firebaseDb = db;
+        window.firebaseDoc = doc;
+        window.firebaseSetDoc = setDoc;
+        window.firebaseServerTimestamp = serverTimestamp;
+        
+        console.log('Firebase 初始化完成');
 
         // Google 登入功能
         async function signInWithGoogle() {
@@ -97,22 +106,27 @@
             try {
                 console.log('開始更新使用者資料:', user.uid, user.email);
                 
-                const userRef = doc(db, 'users', user.uid);
+                // 檢查 Firebase 函數是否可用
+                if (!window.firebaseDoc || !window.firebaseSetDoc || !window.firebaseServerTimestamp) {
+                    throw new Error('Firebase 函數未載入');
+                }
+                
+                const userRef = window.firebaseDoc(window.firebaseDb, 'users', user.uid);
                 const userData = {
                     uid: user.uid,
                     email: user.email ?? null,
                     displayName: user.displayName ?? null,
                     photoURL: user.photoURL ?? null,
                     providerId: user.providerData?.[0]?.providerId ?? null,
-                    lastLoginAt: serverTimestamp(),
+                    lastLoginAt: window.firebaseServerTimestamp(),
                     isActive: false,  // 預設不啟用
-                    createdAt: serverTimestamp(),
+                    createdAt: window.firebaseServerTimestamp(),
                     status: 'pending'  // pending, active, suspended
                 };
                 
                 console.log('準備寫入的使用者資料:', userData);
                 
-                await setDoc(userRef, userData, { merge: true });
+                await window.firebaseSetDoc(userRef, userData, { merge: true });
                 
                 console.log('使用者資料已成功更新到 Firestore:', user.uid);
                 return true;
@@ -121,7 +135,13 @@
                 console.error('錯誤詳情:', {
                     message: error.message,
                     code: error.code,
-                    user: user ? user.uid : 'null'
+                    user: user ? user.uid : 'null',
+                    firebaseFunctions: {
+                        firebaseDoc: !!window.firebaseDoc,
+                        firebaseSetDoc: !!window.firebaseSetDoc,
+                        firebaseServerTimestamp: !!window.firebaseServerTimestamp,
+                        firebaseDb: !!window.firebaseDb
+                    }
                 });
                 return false;
             }
