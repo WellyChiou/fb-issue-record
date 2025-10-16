@@ -954,6 +954,17 @@ service cloud.firestore {
                     chartFilterYear.innerHTML = '<option value="">所有年份</option>' + 
                         allYears.map(year => `<option value="${year}">${year}</option>`).join('');
                 }
+                
+                // 更新月份篩選器
+                const chartFilterMonth = document.getElementById('chartFilterMonth');
+                if (chartFilterMonth) {
+                    const allMonths = [...new Set(this.records.map(r => r.date.split('-')[1]))].sort((a, b) => a - b);
+                    chartFilterMonth.innerHTML = '<option value="">所有月份</option>' + 
+                        allMonths.map(month => {
+                            const monthNames = ['', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+                            return `<option value="${month}">${monthNames[parseInt(month)]}</option>`;
+                        }).join('');
+                }
             }
 
             // 隱藏圖表彈窗
