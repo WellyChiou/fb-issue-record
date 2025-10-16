@@ -269,6 +269,465 @@
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script>
+        // ExpenseTracker 類別
+        class ExpenseTracker {
+            // 格式化數字，添加千分位分隔符（整數顯示）
+            formatNumber(number) {
+                return Math.round(number).toLocaleString('zh-TW');
+            }
+
+            constructor() {
+                this.records = [];
+                this.editingId = null;
+                this.currentPage = 1;
+                this.recordsPerPage = 20;
+                this.currentUser = null;
+                this.isFirebaseReady = false;
+                
+                this.init();
+            }
+
+            // Firebase 初始化
+            async initFirebase() {
+                try {
+                    console.log('開始初始化 Firebase...');
+                    
+                    // 等待 Firebase 載入
+                    await this.waitForFirebase();
+                    console.log('Firebase SDK 已載入');
+                    
+                    // 檢查 Firebase 實例是否正確初始化
+                    if (!window.firebaseAuth || !window.firebaseDb) {
+                        throw new Error('Firebase 實例未正確初始化');
+                    }
+                    
+                    console.log('Firebase 實例檢查通過');
+                    
+                    // 使用 Promise 等待認證狀態
+                    const authState = await this.waitForAuthStateWithPromise();
+                    console.log('認證狀態檢查完成:', authState ? `已登入 ${authState.email}` : '未登入');
+                    
+                    if (authState) {
+                        console.log('檢測到現有登入狀態:', authState.uid);
+                        console.log('使用者詳細資訊:', {
+                            uid: authState.uid,
+                            email: authState.email,
+                            displayName: authState.displayName,
+                            providerId: authState.providerData?.[0]?.providerId
+                        });
+                        
+                        // 檢查使用者啟用狀態
+                        const userStatus = await this.checkUserStatus(authState);
+                        console.log('使用者狀態:', userStatus);
+                        
+                        if (!userStatus.isActive) {
+                            console.log('使用者尚未啟用:', authState.email);
+                            this.showInactiveUserMessage(authState);
+                            return;
+                        }
+                        
+                        this.currentUser = authState;
+                        this.isFirebaseReady = true;
+                        
+                        // 記錄/更新使用者基本資料
+                        this.updateUserProfile(authState);
+                        
+                        // 載入記錄
+                        this.loadRecordsFromFirebase();
+                    } else {
+                        console.log('未檢測到登入狀態，導向登入頁面');
+                        window.location.href = 'expenses_login.html';
+                    }
+                    
+                    // 監聽認證狀態變化
+                    window.firebaseOnAuthStateChanged(window.firebaseAuth, (user) => {
+                        if (user) {
+                            console.log('認證狀態變化 - 已登入:', user.uid);
+                            
+                            // 檢查使用者啟用狀態
+                            this.checkUserStatus(user).then(userStatus => {
+                                if (!userStatus.isActive) {
+                                    console.log('使用者尚未啟用:', user.email);
+                                    this.showInactiveUserMessage(user);
+                                    return;
+                                }
+                                
+                                this.currentUser = user;
+                                this.isFirebaseReady = true;
+                                
+                                // 記錄/更新使用者基本資料
+                                this.updateUserProfile(user);
+                                
+                                // 載入記錄
+                                this.loadRecordsFromFirebase();
+                            });
+                        } else {
+                            console.log('認證狀態變化 - 已登出，導向登入頁面');
+                            window.location.href = 'expenses_login.html';
+                        }
+                    });
+                } catch (error) {
+                    console.error('Firebase 初始化失敗:', error);
+                    console.error('錯誤詳情:', {
+                        message: error.message,
+                        stack: error.stack,
+                        firebaseAuth: !!window.firebaseAuth,
+                        firebaseDb: !!window.firebaseDb
+                    });
+                    
+                    // 顯示錯誤訊息給使用者
+                    this.showFirebaseError(error);
+                }
+            }
+
+            // 使用 Promise 等待認證狀態
+            waitForAuthStateWithPromise() {
+                return new Promise((resolve) => {
+                    console.log('開始等待認證狀態...');
+                    
+                    // 先檢查當前是否有已登入的使用者
+                    const currentUser = window.firebaseAuth.currentUser;
+                    if (currentUser) {
+                        console.log('檢測到當前已登入使用者:', currentUser.uid, currentUser.email);
+                        resolve(currentUser);
+                        return;
+                    }
+                    
+                    console.log('當前無登入使用者，等待認證狀態變化...');
+                    
+                    const unsubscribe = window.firebaseOnAuthStateChanged(window.firebaseAuth, (user) => {
+                        console.log('認證狀態變化:', user ? `已登入 ${user.email}` : '已登出');
+                        unsubscribe(); // 取消監聽
+                        resolve(user);
+                    });
+                    
+                    // 設置超時，避免無限等待
+                    setTimeout(() => {
+                        console.log('認證狀態檢查超時');
+                        unsubscribe();
+                        resolve(null);
+                    }, 10000); // 10秒超時
+                });
+            }
+
+            // 更新使用者基本資料
+            async updateUserProfile(user) {
+                try {
+                    // 確保Firebase函數已載入
+                    if (!window.firebaseDoc || !window.firebaseSetDoc || !window.firebaseServerTimestamp) {
+                        console.error('Firebase函數未載入，無法更新使用者資料');
+                        return;
+                    }
+                    
+                    const userRef = window.firebaseDoc(window.firebaseDb, 'users', user.uid);
+                    await window.firebaseSetDoc(userRef, {
+                        uid: user.uid,
+                        email: user.email ?? null,
+                        displayName: user.displayName ?? null,
+                        photoURL: user.photoURL ?? null,
+                        providerId: user.providerData?.[0]?.providerId ?? null,
+                        lastLoginAt: window.firebaseServerTimestamp(),
+                        isActive: false,  // 預設不啟用
+                        createdAt: window.firebaseServerTimestamp(),
+                        status: 'pending'  // pending, active, suspended
+                    }, { merge: true });
+                    
+                    console.log('使用者資料已更新:', user.uid);
+                } catch (error) {
+                    console.error('更新使用者資料失敗:', error);
+                }
+            }
+
+            // 顯示Firebase錯誤訊息
+            showFirebaseError(error) {
+                const mainContent = document.querySelector('main');
+                if (mainContent) {
+                    mainContent.innerHTML = `
+                        <div class="inactive-user-container">
+                            <div class="inactive-user-card">
+                                <div class="inactive-user-icon">⚠️</div>
+                                <h2>系統初始化失敗</h2>
+                                <p>很抱歉，系統無法正常載入。請檢查以下項目：</p>
+                                <div class="user-info">
+                                    <p><strong>錯誤訊息:</strong> ${error.message}</p>
+                                    <p><strong>可能原因:</strong></p>
+                                    <ul style="text-align: left; margin: 10px 0;">
+                                        <li>網路連線問題</li>
+                                        <li>Firebase服務暫時無法使用</li>
+                                        <li>瀏覽器快取問題</li>
+                                        <li>Firebase配置錯誤</li>
+                                    </ul>
+                                </div>
+                                <div class="action-buttons">
+                                    <button onclick="location.reload();" class="logout-btn" style="background: #3498db;">
+                                        重新載入
+                                    </button>
+                                    <button onclick="window.location.href='expenses_login.html';" class="logout-btn">
+                                        返回登入
+                                    </button>
+                                </div>
+                                <div style="margin-top: 20px; font-size: 0.9em; color: #999;">
+                                    <p>如果問題持續發生，請聯繫技術支援</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            // 檢查使用者啟用狀態
+            async checkUserStatus(user) {
+                try {
+                    console.log('檢查使用者狀態:', user.uid);
+                    
+                    // 確保Firebase函數已載入
+                    if (!window.firebaseDoc || !window.firebaseGetDocs || !window.firebaseCollection) {
+                        console.error('Firebase函數未載入');
+                        return { isActive: false, status: 'pending' };
+                    }
+                    
+                    const userDoc = await window.firebaseGetDocs(window.firebaseCollection(window.firebaseDb, 'users'));
+                    
+                    // 找到當前使用者的資料
+                    const currentUserDoc = userDoc.docs.find(doc => doc.id === user.uid);
+                    if (currentUserDoc) {
+                        const userData = currentUserDoc.data();
+                        console.log('找到使用者資料:', userData);
+                        return {
+                            isActive: userData.isActive || false,
+                            status: userData.status || 'pending'
+                        };
+                    }
+                    
+                    console.log('未找到使用者資料，返回預設狀態');
+                    return { isActive: false, status: 'pending' };
+                } catch (error) {
+                    console.error('檢查使用者狀態失敗:', error);
+                    console.error('錯誤詳情:', {
+                        message: error.message,
+                        code: error.code,
+                        userId: user.uid
+                    });
+                    return { isActive: false, status: 'pending' };
+                }
+            }
+
+            // 顯示未啟用使用者訊息
+            showInactiveUserMessage(user) {
+                // 隱藏所有輸入表單
+                const mainContent = document.querySelector('main');
+                if (mainContent) {
+                    mainContent.innerHTML = `
+                        <div class="inactive-user-container">
+                            <div class="inactive-user-card">
+                                <div class="inactive-user-icon">⏳</div>
+                                <h2>使用者尚未啟用</h2>
+                                <p>親愛的 <strong>${user.displayName || user.email}</strong>，</p>
+                                <p>您的帳號目前尚未啟用，請聯繫管理員進行啟用。</p>
+                                <div class="user-info">
+                                    <p><strong>Email:</strong> ${user.email}</p>
+                                    <p><strong>狀態:</strong> 等待啟用</p>
+                                </div>
+                                <div class="action-buttons">
+                                    <button onclick="window.firebaseAuth.signOut(); window.location.href='expenses_login.html';" class="logout-btn">
+                                        登出
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            // 等待 Firebase 載入
+            waitForFirebase() {
+                return new Promise((resolve, reject) => {
+                    let attempts = 0;
+                    const maxAttempts = 50; // 5秒超時 (50 * 100ms)
+                    
+                    const checkFirebase = () => {
+                        attempts++;
+                        
+                        // 檢查所有必要的Firebase函數
+                        const requiredFunctions = [
+                            'firebaseAuth', 'firebaseDb', 'firebaseCollection', 
+                            'firebaseAddDoc', 'firebaseGetDocs', 'firebaseUpdateDoc', 
+                            'firebaseDeleteDoc', 'firebaseDoc', 'firebaseSetDoc',
+                            'firebaseQuery', 'firebaseOrderBy', 'firebaseWhere', 
+                            'firebaseServerTimestamp', 'firebaseOnAuthStateChanged'
+                        ];
+                        
+                        const allFunctionsLoaded = requiredFunctions.every(func => {
+                            return window[func] && typeof window[func] === 'function';
+                        });
+                        
+                        if (window.firebaseAuth && window.firebaseDb && allFunctionsLoaded) {
+                            console.log(`Firebase 載入成功，嘗試次數: ${attempts}`);
+                            resolve();
+                        } else if (attempts >= maxAttempts) {
+                            console.error('Firebase 載入超時');
+                            const missingFunctions = requiredFunctions.filter(func => !window[func]);
+                            reject(new Error(`Firebase SDK 載入超時，缺少函數: ${missingFunctions.join(', ')}`));
+                        } else {
+                            console.log(`等待 Firebase 載入... (${attempts}/${maxAttempts})`);
+                            setTimeout(checkFirebase, 100);
+                        }
+                    };
+                    
+                    checkFirebase();
+                });
+            }
+
+            // 從 Firebase 載入記錄
+            async loadRecordsFromFirebase() {
+                try {
+                    const recordsRef = window.firebaseCollection(window.firebaseDb, 'records');
+                    const q = window.firebaseQuery(
+                        recordsRef,
+                        window.firebaseWhere('userId', '==', this.currentUser.uid),
+                        window.firebaseOrderBy('date', 'desc')
+                    );
+                    
+                    const querySnapshot = await window.firebaseGetDocs(q);
+                    this.records = [];
+                    
+                    querySnapshot.forEach((doc) => {
+                        const data = doc.data();
+                        this.records.push({
+                            id: doc.id,
+                            type: data.type,
+                            member: data.member,
+                            mainCategory: data.mainCategory,
+                            subCategory: data.subCategory,
+                            amount: data.amount,
+                            description: data.description,
+                            date: data.date
+                        });
+                    });
+                    
+                    console.log(`從 Firebase 載入了 ${this.records.length} 筆記錄`);
+                    this.updateDisplay();
+                } catch (error) {
+                    console.error('從 Firebase 載入記錄失敗:', error);
+                    // 如果載入失敗，導向登入頁面
+                    window.location.href = 'expenses_login.html';
+                }
+            }
+
+            // 更新顯示
+            updateDisplay() {
+                this.displayRecords(this.records);
+                this.updateSummary(this.records);
+            }
+
+            // 顯示記錄
+            displayRecords(records) {
+                const recordsList = document.getElementById('recordsList');
+                
+                if (records.length === 0) {
+                    recordsList.innerHTML = '<div class="empty-state" style="padding: 40px; text-align: center; color: #999;">暫無記錄</div>';
+                    return;
+                }
+
+                // 計算分頁
+                const totalPages = Math.ceil(records.length / this.recordsPerPage);
+                const startIndex = (this.currentPage - 1) * this.recordsPerPage;
+                const endIndex = startIndex + this.recordsPerPage;
+                const pageRecords = records.slice(startIndex, endIndex);
+
+                let html = `
+                    <table class="records-table">
+                        <thead>
+                            <tr>
+                                <th>日期
+                                    <div class="date-filter-container">
+                                        <select class="filter-dropdown" onchange="expenseTracker.applyTableFilter(true)">
+                                            <option value="">全部</option>
+                                        </select>
+                                        <select class="filter-dropdown" onchange="expenseTracker.applyTableFilter(true)">
+                                            <option value="">全部</option>
+                                        </select>
+                                    </div>
+                                </th>
+                                <th>家庭成員
+                                    <select class="filter-dropdown" onchange="expenseTracker.applyTableFilter(true)">
+                                        <option value="">全部</option>
+                                    </select>
+                                </th>
+                                <th>類型
+                                    <select class="filter-dropdown" onchange="expenseTracker.applyTableFilter(true)">
+                                        <option value="">全部</option>
+                                    </select>
+                                </th>
+                                <th>類別
+                                    <select class="filter-dropdown" onchange="expenseTracker.applyTableFilter(true)">
+                                        <option value="">全部</option>
+                                    </select>
+                                </th>
+                                <th>細項
+                                    <select class="filter-dropdown" onchange="expenseTracker.applyTableFilter(true)">
+                                        <option value="">全部</option>
+                                    </select>
+                                </th>
+                                <th>金額</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                pageRecords.forEach(record => {
+                    const amountClass = record.type === '收入' ? 'amount-income' : 
+                                       record.type === '支出' ? 'amount-expense' : 'amount-asset';
+                    
+                    html += `
+                        <tr>
+                            <td>${record.date}</td>
+                            <td>${record.member}</td>
+                            <td>${record.type}</td>
+                            <td>${record.mainCategory}</td>
+                            <td>${record.subCategory}</td>
+                            <td class="${amountClass}">$${this.formatNumber(record.amount)}</td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="action-btn edit-btn" onclick="expenseTracker.editRecord('${record.id}')" title="編輯"></button>
+                                    <button class="action-btn delete-btn" onclick="expenseTracker.deleteRecord('${record.id}')" title="刪除"></button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                html += `
+                        </tbody>
+                    </table>
+                `;
+
+                recordsList.innerHTML = html;
+            }
+
+            // 更新摘要
+            updateSummary(records) {
+                const totalIncome = records.filter(r => r.type === '收入').reduce((sum, r) => sum + r.amount, 0);
+                const totalExpense = records.filter(r => r.type === '支出').reduce((sum, r) => sum + r.amount, 0);
+                const totalAssets = records.filter(r => r.type === '資產').reduce((sum, r) => sum + r.amount, 0);
+                const totalNetWorth = totalIncome - totalExpense + totalAssets;
+
+                document.getElementById('totalIncome').textContent = '$' + this.formatNumber(totalIncome);
+                document.getElementById('totalExpense').textContent = '$' + this.formatNumber(totalExpense);
+                document.getElementById('totalAssets').textContent = '$' + this.formatNumber(totalAssets);
+                document.getElementById('totalNetWorth').textContent = '$' + this.formatNumber(totalNetWorth);
+            }
+
+            // 初始化
+            init() {
+                this.initFirebase();
+            }
+        }
+
+        // 創建 ExpenseTracker 實例
+        const expenseTracker = new ExpenseTracker();
+    </script>
 </body>
 </html>

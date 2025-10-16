@@ -167,6 +167,12 @@ class ExpenseTracker {
     // 更新使用者基本資料
     async updateUserProfile(user) {
         try {
+            // 確保Firebase函數已載入
+            if (!window.firebaseDoc || !window.firebaseSetDoc || !window.firebaseServerTimestamp) {
+                console.error('Firebase函數未載入，無法更新使用者資料');
+                return;
+            }
+            
             const userRef = window.firebaseDoc(window.firebaseDb, 'users', user.uid);
             await window.firebaseSetDoc(userRef, {
                 uid: user.uid,
@@ -228,7 +234,12 @@ class ExpenseTracker {
         try {
             console.log('檢查使用者狀態:', user.uid);
             
-            const userRef = window.firebaseDoc(window.firebaseDb, 'users', user.uid);
+            // 確保Firebase函數已載入
+            if (!window.firebaseDoc || !window.firebaseGetDocs || !window.firebaseCollection) {
+                console.error('Firebase函數未載入');
+                return { isActive: false, status: 'pending' };
+            }
+            
             const userDoc = await window.firebaseGetDocs(window.firebaseCollection(window.firebaseDb, 'users'));
             
             // 找到當前使用者的資料
@@ -291,12 +302,26 @@ class ExpenseTracker {
             const checkFirebase = () => {
                 attempts++;
                 
-                if (window.firebaseAuth && window.firebaseDb) {
+                // 檢查所有必要的Firebase函數
+                const requiredFunctions = [
+                    'firebaseAuth', 'firebaseDb', 'firebaseCollection', 
+                    'firebaseAddDoc', 'firebaseGetDocs', 'firebaseUpdateDoc', 
+                    'firebaseDeleteDoc', 'firebaseDoc', 'firebaseSetDoc',
+                    'firebaseQuery', 'firebaseOrderBy', 'firebaseWhere', 
+                    'firebaseServerTimestamp', 'firebaseOnAuthStateChanged'
+                ];
+                
+                const allFunctionsLoaded = requiredFunctions.every(func => {
+                    return window[func] && typeof window[func] === 'function';
+                });
+                
+                if (window.firebaseAuth && window.firebaseDb && allFunctionsLoaded) {
                     console.log(`Firebase 載入成功，嘗試次數: ${attempts}`);
                     resolve();
                 } else if (attempts >= maxAttempts) {
                     console.error('Firebase 載入超時');
-                    reject(new Error('Firebase SDK 載入超時，請檢查網路連線'));
+                    const missingFunctions = requiredFunctions.filter(func => !window[func]);
+                    reject(new Error(`Firebase SDK 載入超時，缺少函數: ${missingFunctions.join(', ')}`));
                 } else {
                     console.log(`等待 Firebase 載入... (${attempts}/${maxAttempts})`);
                     setTimeout(checkFirebase, 100);
