@@ -49,14 +49,21 @@
                 statusDiv.style.color = '#3498db';
                 
                 const result = await signInWithPopup(auth, provider);
-                alert('Google 登入成功');
-                alert('result.user:' + result.user);
                 console.log('Google 登入成功:', result.user);
+                console.log('result.user 詳細資訊:', {
+                    uid: result.user.uid,
+                    email: result.user.email,
+                    displayName: result.user.displayName
+                });
                 
                 // 更新使用者資料到 Firestore
+                console.log('開始調用 updateUserProfile...');
                 const updateSuccess = await updateUserProfile(result.user);
+                console.log('updateUserProfile 返回結果:', updateSuccess);
                 if (!updateSuccess) {
                     console.error('使用者資料更新失敗，但繼續登入流程');
+                } else {
+                    console.log('✅ 使用者資料更新成功！');
                 }
                 
                 statusDiv.textContent = '登入成功！正在跳轉...';
@@ -107,13 +114,30 @@
         async function updateUserProfile(user) {
             try {
                 console.log('開始更新使用者資料:', user.uid, user.email);
+                console.log('使用者詳細資訊:', {
+                    uid: user.uid,
+                    email: user.email,
+                    displayName: user.displayName,
+                    photoURL: user.photoURL
+                });
                 
                 // 檢查 Firebase 函數是否可用
+                console.log('檢查 Firebase 函數狀態:', {
+                    firebaseDoc: !!window.firebaseDoc,
+                    firebaseSetDoc: !!window.firebaseSetDoc,
+                    firebaseServerTimestamp: !!window.firebaseServerTimestamp,
+                    firebaseDb: !!window.firebaseDb
+                });
+                
                 if (!window.firebaseDoc || !window.firebaseSetDoc || !window.firebaseServerTimestamp) {
+                    console.error('Firebase 函數未載入');
                     throw new Error('Firebase 函數未載入');
                 }
                 
+                console.log('創建 userRef...');
                 const userRef = window.firebaseDoc(window.firebaseDb, 'users', user.uid);
+                console.log('userRef 創建成功:', userRef);
+                
                 const userData = {
                     uid: user.uid,
                     email: user.email ?? null,
@@ -127,11 +151,39 @@
                 };
                 
                 console.log('準備寫入的使用者資料:', userData);
+                console.log('開始執行 setDoc 操作...');
                 
-                await window.firebaseSetDoc(userRef, userData, { merge: true });
-                
-                console.log('使用者資料已成功更新到 Firestore:', user.uid);
-                return true;
+                try {
+                    await window.firebaseSetDoc(userRef, userData, { merge: true });
+                    console.log('✅ setDoc 操作完成');
+                    console.log('✅ 使用者資料已成功更新到 Firestore:', user.uid);
+                    return true;
+                } catch (setDocError) {
+                    console.error('❌ setDoc 操作失敗:', setDocError);
+                    console.error('setDoc 錯誤詳情:', {
+                        message: setDocError.message,
+                        code: setDocError.code,
+                        stack: setDocError.stack
+                    });
+                    
+                    // 如果是權限錯誤，提供解決方案
+                    if (setDocError.code === 'permission-denied') {
+                        console.error('🔒 權限被拒絕！請檢查 Firebase 安全規則');
+                        console.error('建議的安全規則:');
+                        console.error(`
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+                        `);
+                    }
+                    
+                    throw setDocError;
+                }
             } catch (error) {
                 console.error('更新使用者資料失敗:', error);
                 console.error('錯誤詳情:', {
