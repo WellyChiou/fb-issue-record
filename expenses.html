@@ -323,13 +323,18 @@
                         });
                         
                         // 檢查使用者啟用狀態
+                        console.log('開始檢查使用者啟用狀態...');
                         const userStatus = await this.checkUserStatus(authState);
-                        console.log('使用者狀態:', userStatus);
+                        console.log('使用者狀態檢查結果:', userStatus);
+                        console.log('isActive 值:', userStatus.isActive);
+                        console.log('isActive 類型:', typeof userStatus.isActive);
                         
                         if (!userStatus.isActive) {
-                            console.log('使用者尚未啟用:', authState.email);
+                            console.log('❌ 使用者尚未啟用，顯示未啟用訊息:', authState.email);
                             this.showInactiveUserMessage(authState);
                             return;
+                        } else {
+                            console.log('✅ 使用者已啟用，繼續載入應用程式');
                         }
                         
                         this.currentUser = authState;
@@ -342,7 +347,7 @@
                         this.loadRecordsFromFirebase();
                     } else {
                         console.log('未檢測到登入狀態，導向登入頁面');
-                        window.location.href = 'expenses_login.html';
+                        //window.location.href = 'expenses_login.html';
                     }
                     
                     // 監聽認證狀態變化
@@ -369,7 +374,7 @@
                             });
                         } else {
                             console.log('認證狀態變化 - 已登出，導向登入頁面');
-                            window.location.href = 'expenses_login.html';
+                            //window.location.href = 'expenses_login.html';
                         }
                     });
                 } catch (error) {
@@ -512,9 +517,13 @@
                     if (userDoc.exists()) {
                         const userData = userDoc.data();
                         console.log('找到使用者資料:', userData);
-                        return {
+                        console.log('原始 isActive 值:', userData.isActive);
+                        console.log('原始 isActive 類型:', typeof userData.isActive);
+                        const result = {
                             isActive: userData.isActive || false
                         };
+                        console.log('返回的結果:', result);
+                        return result;
                     }
                     
                     console.log('未找到使用者資料，返回預設狀態');
@@ -656,7 +665,7 @@ service cloud.firestore {
                 } catch (error) {
                     console.error('從 Firebase 載入記錄失敗:', error);
                     // 如果載入失敗，導向登入頁面
-                    window.location.href = 'expenses_login.html';
+                    //window.location.href = 'expenses_login.html';
                 }
             }
 
