@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登入 - 家庭記帳系統</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFirestore, doc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        
+        // Firebase 配置
+        const firebaseConfig = {
+            apiKey: "AIzaSyDfHs1XXsCXGMSVF3NFJUtFMcslTzTd-EU",
+            authDomain: "expenses-91280.firebaseapp.com",
+            projectId: "expenses-91280",
+            storageBucket: "expenses-91280.firebasestorage.app",
+            messagingSenderId: "777956465315",
+            appId: "1:777956465315:web:04f85f2b22f2468eb2fd16",
+            measurementId: "G-1LE7YTKHGT"
+        };
+
+        // 初始化 Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+
+        // Google 登入功能
+        async function signInWithGoogle() {
+            try {
+                const loginBtn = document.getElementById('googleLoginBtn');
+                const statusDiv = document.getElementById('status');
+                
+                loginBtn.disabled = true;
+                loginBtn.innerHTML = '<div class="loading-spinner"></div>登入中...';
+                statusDiv.textContent = '正在使用 Google 登入...';
+                statusDiv.style.color = '#3498db';
+                
+                const result = await signInWithPopup(auth, provider);
+                console.log('Google 登入成功:', result.user);
+                
+                // 更新使用者資料到 Firestore
+                await updateUserProfile(result.user);
+                
+                statusDiv.textContent = '登入成功！正在跳轉...';
+                statusDiv.style.color = '#27ae60';
+                
+                // 延遲跳轉，讓用戶看到成功訊息
+                setTimeout(() => {
+                    window.location.href = 'expenses.html';
+                }, 1000);
+                
+            } catch (error) {
+                console.error('Google 登入失敗:', error);
+                const statusDiv = document.getElementById('status');
+                
+                let errorMessage = '登入失敗，請重試';
+                if (error.code === 'auth/popup-closed-by-user') {
+                    errorMessage = '登入視窗被關閉，請重試';
+                } else if (error.code === 'auth/popup-blocked') {
+                    errorMessage = '登入視窗被阻擋，請允許彈出視窗';
+                } else if (error.code === 'auth/network-request-failed') {
+                    errorMessage = '網路連線失敗，請檢查網路';
+                }
+                
+                statusDiv.textContent = errorMessage;
+                statusDiv.style.color = '#e74c3c';
+                
+                const loginBtn = document.getElementById('googleLoginBtn');
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = '<svg class="google-icon" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>使用 Google 登入';
+            }
+        }
+
+        // 更新使用者資料到 Firestore
+        async function updateUserProfile(user) {
+            try {
+                const userRef = doc(db, 'users', user.uid);
+                await setDoc(userRef, {
+                    uid: user.uid,
+                    email: user.email ?? null,
+                    displayName: user.displayName ?? null,
+                    photoURL: user.photoURL ?? null,
+                    providerId: user.providerData?.[0]?.providerId ?? null,
+                    lastLoginAt: serverTimestamp()
+                }, { merge: true });
+                
+                console.log('使用者資料已更新:', user.uid);
+            } catch (error) {
+                console.error('更新使用者資料失敗:', error);
+            }
+        }
+
+        // 監聽認證狀態
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                console.log('用戶已登入，導向主頁面');
+                window.location.href = 'expenses.html';
+            }
+        });
+
+        // 綁定登入按鈕事件
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('googleLoginBtn').addEventListener('click', signInWithGoogle);
+        });
+    </script>
+    <style>
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+        
+        .login-card {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+        
+        .login-title {
+            font-size: 2em;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .login-subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        
+        .google-login-btn {
+            background: white;
+            color: #333;
+            border: 2px solid #e0e0e0;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .google-login-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            border-color: #4285F4;
+        }
+        
+        .google-login-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        
+        .google-icon {
+            width: 20px;
+            height: 20px;
+        }
+        
+        .status {
+            font-weight: bold;
+            margin-top: 10px;
+            min-height: 20px;
+        }
+        
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .features {
+            margin-top: 30px;
+            text-align: left;
+        }
+        
+        .feature-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            color: #666;
+        }
+        
+        .feature-icon {
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+        
+        .privacy-note {
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #999;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <h1 class="login-title">家庭記帳系統</h1>
+            <p class="login-subtitle">使用 Google 帳號登入</p>
+            
+            <button id="googleLoginBtn" class="google-login-btn">
+                <svg class="google-icon" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                使用 Google 登入
+            </button>
+            
+            <div id="status" class="status"></div>
+            
+            <div class="features">
+                <h3 style="color: #333; margin-bottom: 15px;">功能特色</h3>
+                <div class="feature-item">
+                    <span class="feature-icon">📊</span>
+                    <span>詳細的收支記錄與統計</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">👥</span>
+                    <span>多成員記帳管理</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">📈</span>
+                    <span>圖表分析與報表</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">☁️</span>
+                    <span>雲端同步與備份</span>
+                </div>
+            </div>
+            
+            <div class="privacy-note">
+                <strong>隱私說明：</strong><br>
+                我們只會存取您的基本 Google 帳號資訊（姓名、電子郵件），用於識別您的身份。您的記帳資料將安全地儲存在雲端，只有您本人可以存取。
+            </div>
+        </div>
+    </div>
+</body>
+</html>

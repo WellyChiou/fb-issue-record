@@ -54,7 +54,7 @@ class ExpenseTracker {
                 this.loadRecordsFromFirebase();
             } else {
                 console.log('未檢測到登入狀態，導向登入頁面');
-                window.location.href = 'login.html';
+                window.location.href = 'expenses_login.html';
             }
             
             // 監聽認證狀態變化
@@ -71,13 +71,13 @@ class ExpenseTracker {
                     this.loadRecordsFromFirebase();
                 } else {
                     console.log('認證狀態變化 - 已登出，導向登入頁面');
-                    window.location.href = 'login.html';
+                    window.location.href = 'expenses_login.html';
                 }
             });
         } catch (error) {
             console.error('Firebase 初始化失敗:', error);
             // 如果 Firebase 失敗，導向登入頁面
-            window.location.href = 'login.html';
+            window.location.href = 'expenses_login.html';
         }
     }
 
