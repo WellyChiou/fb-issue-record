@@ -74,7 +74,7 @@
                     console.log('登入後認證狀態確認:', currentUser.email);
                     // 延遲跳轉，讓用戶看到成功訊息
                     setTimeout(() => {
-                        window.location.href = 'expenses.html';
+                        //window.location.href = 'expenses.html';
                     }, 1000);
                 } else {
                     console.error('登入後認證狀態異常');
@@ -126,9 +126,35 @@
                 });
                 
                 if (!window.firebaseDoc || !window.firebaseSetDoc || !window.firebaseServerTimestamp) {
+                    console.error('Firebase 函數未載入');
                     throw new Error('Firebase 函數未載入');
                 }
+                
+                console.log('創建 userRef...');
                 const userRef = window.firebaseDoc(window.firebaseDb, 'users', user.uid);
+                console.log('userRef 創建成功:', userRef);
+                
+                // 先嘗試簡單的測試寫入
+                console.log('嘗試簡單測試寫入...');
+                const testData = {
+                    test: 'test',
+                    timestamp: window.firebaseServerTimestamp()
+                };
+                
+                try {
+                    await window.firebaseSetDoc(userRef, testData, { merge: true });
+                    console.log('測試寫入成功！');
+                } catch (testError) {
+                    console.error('測試寫入失敗:', testError);
+                    console.error('測試錯誤詳情:', {
+                        message: testError.message,
+                        code: testError.code,
+                        stack: testError.stack
+                    });
+                    throw testError;
+                }
+                
+                console.log('準備完整使用者資料...');
                 const userData = {
                     uid: user.uid,
                     email: user.email ?? null,
@@ -142,13 +168,12 @@
                 };
                 
                 console.log('準備寫入的使用者資料:', userData);
-                console.log('開始執行 setDoc 操作...');
+                console.log('開始執行完整 setDoc 操作...');
                 
                 try {
-                    await window.firebaseSetDoc(userRef, userData, { merge: true });
+                    await window.firebaseSetDoc(userRef,    userData, { merge: true });
                     console.log('setDoc 操作完成');
                     console.log('使用者資料已成功更新到 Firestore:', user.uid);
-                    alert('使用者資料已成功更新到 Firestore:' + user.uid);
                     return true;
                 } catch (setDocError) {
                     console.error('setDoc 操作失敗:', setDocError);
@@ -157,7 +182,6 @@
                         code: setDocError.code,
                         stack: setDocError.stack
                     });
-                    alert('setDoc 操作失敗:' + setDocError.message);
                     throw setDocError;
                 }
             } catch (error) {
@@ -173,16 +197,15 @@
                         firebaseDb: !!window.firebaseDb
                     }
                 });
-                alert('更新使用者資料失敗:' + error.message);
                 return false;
-            }
+            }s
         }
 
         // 監聽認證狀態
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 console.log('用戶已登入，導向主頁面');
-                window.location.href = 'expenses.html';
+                //window.location.href = 'expenses.html';
             }
         });
 
