@@ -44,17 +44,30 @@ class ExpenseTracker {
     // Firebase 初始化
     async initFirebase() {
         try {
+            console.log('開始初始化 Firebase...');
+            
             // 等待 Firebase 載入
             await this.waitForFirebase();
+            console.log('Firebase SDK 已載入');
+            
+            // 檢查 Firebase 實例是否正確初始化
+            if (!window.firebaseAuth || !window.firebaseDb) {
+                throw new Error('Firebase 實例未正確初始化');
+            }
+            
+            console.log('Firebase 實例檢查通過');
             
             // 使用 Promise 等待認證狀態
             const authState = await this.waitForAuthStateWithPromise();
+            console.log('認證狀態檢查完成:', authState ? '已登入' : '未登入');
             
             if (authState) {
                 console.log('檢測到現有登入狀態:', authState.uid);
                 
                 // 檢查使用者啟用狀態
                 const userStatus = await this.checkUserStatus(authState);
+                console.log('使用者狀態:', userStatus);
+                
                 if (!userStatus.isActive) {
                     console.log('使用者尚未啟用:', authState.email);
                     this.showInactiveUserMessage(authState);
@@ -103,8 +116,15 @@ class ExpenseTracker {
             });
         } catch (error) {
             console.error('Firebase 初始化失敗:', error);
-            // 如果 Firebase 失敗，導向登入頁面
-            window.location.href = 'expenses_login.html';
+            console.error('錯誤詳情:', {
+                message: error.message,
+                stack: error.stack,
+                firebaseAuth: !!window.firebaseAuth,
+                firebaseDb: !!window.firebaseDb
+            });
+            
+            // 顯示錯誤訊息給使用者
+            this.showFirebaseError(error);
         }
     }
 
@@ -140,6 +160,75 @@ class ExpenseTracker {
         }
     }
 
+    // 顯示Firebase錯誤訊息
+    showFirebaseError(error) {
+        const mainContent = document.querySelector('main');
+        if (mainContent) {
+            mainContent.innerHTML = `
+                <div class="inactive-user-container">
+                    <div class="inactive-user-card">
+                        <div class="inactive-user-icon">⚠️</div>
+                        <h2>系統初始化失敗</h2>
+                        <p>很抱歉，系統無法正常載入。請檢查以下項目：</p>
+                        <div class="user-info">
+                            <p><strong>錯誤訊息:</strong> ${error.message}</p>
+                            <p><strong>可能原因:</strong></p>
+                            <ul style="text-align: left; margin: 10px 0;">
+                                <li>網路連線問題</li>
+                                <li>Firebase服務暫時無法使用</li>
+                                <li>瀏覽器快取問題</li>
+                                <li>Firebase配置錯誤</li>
+                            </ul>
+                        </div>
+                        <div class="action-buttons">
+                            <button onclick="location.reload();" class="logout-btn" style="background: #3498db;">
+                                重新載入
+                            </button>
+                            <button onclick="window.location.href='expenses_login.html';" class="logout-btn">
+                                返回登入
+                            </button>
+                        </div>
+                        <div style="margin-top: 20px; font-size: 0.9em; color: #999;">
+                            <p>如果問題持續發生，請聯繫技術支援</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    // 檢查使用者啟用狀態
+    async checkUserStatus(user) {
+        try {
+            console.log('檢查使用者狀態:', user.uid);
+            
+            const userRef = window.firebaseDoc(window.firebaseDb, 'users', user.uid);
+            const userDoc = await window.firebaseGetDocs(window.firebaseCollection(window.firebaseDb, 'users'));
+            
+            // 找到當前使用者的資料
+            const currentUserDoc = userDoc.docs.find(doc => doc.id === user.uid);
+            if (currentUserDoc) {
+                const userData = currentUserDoc.data();
+                console.log('找到使用者資料:', userData);
+                return {
+                    isActive: userData.isActive || false,
+                    status: userData.status || 'pending'
+                };
+            }
+            
+            console.log('未找到使用者資料，返回預設狀態');
+            return { isActive: false, status: 'pending' };
+        } catch (error) {
+            console.error('檢查使用者狀態失敗:', error);
+            console.error('錯誤詳情:', {
+                message: error.message,
+                code: error.code,
+                userId: user.uid
+            });
+            return { isActive: false, status: 'pending' };
+        }
+    }
+
     // 顯示未啟用使用者訊息
     showInactiveUserMessage(user) {
         // 隱藏所有輸入表單
@@ -169,14 +258,25 @@ class ExpenseTracker {
 
     // 等待 Firebase 載入
     waitForFirebase() {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
+            let attempts = 0;
+            const maxAttempts = 50; // 5秒超時 (50 * 100ms)
+            
             const checkFirebase = () => {
+                attempts++;
+                
                 if (window.firebaseAuth && window.firebaseDb) {
+                    console.log(`Firebase 載入成功，嘗試次數: ${attempts}`);
                     resolve();
+                } else if (attempts >= maxAttempts) {
+                    console.error('Firebase 載入超時');
+                    reject(new Error('Firebase SDK 載入超時，請檢查網路連線'));
                 } else {
+                    console.log(`等待 Firebase 載入... (${attempts}/${maxAttempts})`);
                     setTimeout(checkFirebase, 100);
                 }
             };
+            
             checkFirebase();
         });
     }
