@@ -2179,8 +2179,9 @@ service cloud.firestore {
                 if (/^[A-Za-z]/.test(stockCode)) {
                     yahooCode = stockCode; // 美股不需要後綴
                 }
-                // 台股：4位數字 或 4位數字+字母，添加 .TW 後綴
+                // 台股：4位數字 或 4位數字+字母，嘗試多種後綴
                 else if (/^\d{4}[A-Za-z]?$/.test(stockCode)) {
+                    // 先嘗試 .TW 後綴
                     yahooCode = stockCode + '.TW';
                 }
                 // 其他情況預設為台股
