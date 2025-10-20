@@ -368,7 +368,10 @@
                         this.isFirebaseReady = true;
                         
                         // 記錄/更新使用者基本資料
-                        this.updateUserProfile(authState);
+                        const updateSuccess = await this.updateUserProfile(authState);
+                        if (!updateSuccess) {
+                            console.warn('使用者資料更新失敗，但繼續載入系統');
+                        }
                         
                         // 載入記錄
                         this.loadRecordsFromFirebase();
@@ -383,7 +386,7 @@
                             console.log('認證狀態變化 - 已登入:', user.uid);
                             
                             // 檢查使用者啟用狀態
-                            this.checkUserStatus(user).then(userStatus => {
+                            this.checkUserStatus(user).then(async userStatus => {
                                 if (!userStatus.isActive) {
                                     console.log('使用者尚未啟用:', user.email);
                                     this.showInactiveUserMessage(user);
@@ -397,7 +400,10 @@
                                 this.showUserInfo(user);
                                 
                                 // 記錄/更新使用者基本資料
-                                this.updateUserProfile(user);
+                                const updateSuccess = await this.updateUserProfile(user);
+                                if (!updateSuccess) {
+                                    console.warn('使用者資料更新失敗，但繼續載入系統');
+                                }
                                 
                                 // 載入記錄
                                 this.loadRecordsFromFirebase();
@@ -454,17 +460,29 @@
             // 更新使用者基本資料
             async updateUserProfile(user) {
                 try {
+                    console.log('開始更新使用者資料:', user.uid, user.email);
+                    
                     // 確保Firebase函數已載入
                     if (!window.firebaseDoc || !window.firebaseSetDoc || !window.firebaseServerTimestamp || !window.firebaseGetDoc) {
                         console.error('Firebase函數未載入，無法更新使用者資料');
-                        return;
+                        console.error('缺少的函數:', {
+                            firebaseDoc: !!window.firebaseDoc,
+                            firebaseSetDoc: !!window.firebaseSetDoc,
+                            firebaseServerTimestamp: !!window.firebaseServerTimestamp,
+                            firebaseGetDoc: !!window.firebaseGetDoc
+                        });
+                        return false;
                     }
                     
+                    console.log('Firebase函數檢查通過');
                     const userRef = window.firebaseDoc(window.firebaseDb, 'users', user.uid);
+                    console.log('使用者參考已建立:', userRef);
                     
                     // 先檢查使用者是否已存在
+                    console.log('檢查使用者是否已存在...');
                     const existingUserDoc = await window.firebaseGetDoc(userRef);
                     const isNewUser = !existingUserDoc.exists();
+                    console.log('使用者是否為新使用者:', isNewUser);
                     
                     // 準備使用者資料
                     const userData = {
@@ -483,12 +501,24 @@
                         userData.createdAt = window.firebaseServerTimestamp();
                     } else {
                         console.log('現有使用者，保持原有 isActive 狀態');
+                        const existingData = existingUserDoc.data();
+                        console.log('現有使用者狀態:', existingData?.isActive);
                     }
                     
+                    console.log('準備寫入的使用者資料:', userData);
+                    console.log('開始執行 setDoc 操作...');
+                    
                     await window.firebaseSetDoc(userRef, userData, { merge: true });
-                    console.log('使用者資料已更新:', user.uid);
+                    console.log('✅ 使用者資料已成功更新:', user.uid);
+                    return true;
                 } catch (error) {
-                    console.error('更新使用者資料失敗:', error);
+                    console.error('❌ 更新使用者資料失敗:', error);
+                    console.error('錯誤詳情:', {
+                        message: error.message,
+                        code: error.code,
+                        user: user ? user.uid : 'null'
+                    });
+                    return false;
                 }
             }
 
