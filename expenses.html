@@ -1329,19 +1329,28 @@ service cloud.firestore {
 
             // 更新顯示
             updateDisplay() {
-                this.displayRecords(this.records);
-                this.updateSummary(this.records);
+                const filteredRecords = this.getCurrentFilteredRecords();
+                this.displayRecords(filteredRecords);
+                this.updateSummary(filteredRecords);
             }
 
             // 顯示記錄
             displayRecords(records) {
                 const recordsList = document.getElementById('recordsList');
                 
-                if (records.length === 0) {
-                    recordsList.innerHTML = '<div class="empty-state" style="padding: 40px; text-align: center; color: #999;">暫無記錄</div>';
-                    this.updatePagination(0);
-                    return;
-                }
+                // 保存當前的篩選值，如果沒有設定則使用當前年月作為預設值
+                const currentDate = new Date();
+                const defaultYear = currentDate.getFullYear().toString();
+                const defaultMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
+                
+                const currentFilters = {
+                    year: document.getElementById('tableFilterYear')?.value || defaultYear,
+                    month: document.getElementById('tableFilterMonth')?.value || defaultMonth,
+                    member: document.getElementById('tableFilterMember')?.value || '',
+                    type: document.getElementById('tableFilterType')?.value || '',
+                    mainCategory: document.getElementById('tableFilterMainCategory')?.value || '',
+                    subCategory: document.getElementById('tableFilterSubCategory')?.value || ''
+                };
 
                 // 獲取所有可能的篩選選項（使用所有記錄，不是篩選後的記錄）
                 const allMembers = [...new Set(this.records.map(r => r.member))];
@@ -1350,6 +1359,59 @@ service cloud.firestore {
                 const allSubCategories = [...new Set(this.records.map(r => r.subCategory))];
                 const allYears = [...new Set(this.records.map(r => r.date.split('-')[0]))].sort((a, b) => b - a);
                 const allMonths = [...new Set(this.records.map(r => r.date.split('-')[1]))].sort((a, b) => a - b);
+
+                // 生成篩選條件HTML
+                const filterHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <div style="margin-bottom: 10px;">
+                            <h3 style="margin: 0; display: inline-block;">篩選條件</h3>
+                            <button id="resetFilters" onclick="expenseTracker.resetFilters()" title="重置篩選條件" style="background: #6c757d; color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 12px; margin-left: 10px;">
+                                🔄
+                            </button>
+                        </div>
+                        <div class="filter-group">
+                            <label for="tableFilterYear">年份：</label>
+                            <select id="tableFilterYear" onchange="expenseTracker.applyTableFilter(true)">
+                                ${allYears.map(year => `<option value="${year}" ${currentFilters.year === year ? 'selected' : ''}>${year}</option>`).join('')}
+                            </select>
+                            
+                            <label for="tableFilterMonth">月份：</label>
+                            <select id="tableFilterMonth" onchange="expenseTracker.applyTableFilter(true)">
+                                ${allMonths.map(month => `<option value="${month}" ${currentFilters.month === month ? 'selected' : ''}>${month}月</option>`).join('')}
+                            </select>
+                            
+                            <label for="tableFilterMember">家庭成員：</label>
+                            <select id="tableFilterMember" onchange="expenseTracker.applyTableFilter(true)">
+                                <option value="">全部成員</option>
+                                ${allMembers.map(member => `<option value="${member}" ${currentFilters.member === member ? 'selected' : ''}>${member}</option>`).join('')}
+                            </select>
+                            
+                            <label for="tableFilterType">類型：</label>
+                            <select id="tableFilterType" onchange="expenseTracker.applyTableFilter(true)">
+                                <option value="">全部類型</option>
+                                ${allTypes.map(type => `<option value="${type}" ${currentFilters.type === type ? 'selected' : ''}>${type}</option>`).join('')}
+                            </select>
+                            
+                            <label for="tableFilterMainCategory">類別：</label>
+                            <select id="tableFilterMainCategory" onchange="expenseTracker.applyTableFilter(true)">
+                                <option value="">全部類別</option>
+                                ${allMainCategories.map(cat => `<option value="${cat}" ${currentFilters.mainCategory === cat ? 'selected' : ''}>${cat}</option>`).join('')}
+                            </select>
+                            
+                            <label for="tableFilterSubCategory">細項：</label>
+                            <select id="tableFilterSubCategory" onchange="expenseTracker.applyTableFilter(true)">
+                                <option value="">全部細項</option>
+                                ${allSubCategories.map(sub => `<option value="${sub}" ${currentFilters.subCategory === sub ? 'selected' : ''}>${sub}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+                `;
+                
+                if (records.length === 0) {
+                    recordsList.innerHTML = filterHTML + '<div class="empty-state" style="padding: 40px; text-align: center; color: #999;">暫無記錄</div>';
+                    this.updatePagination(0);
+                    return;
+                }
 
                 // 計算分頁
                 const totalPages = Math.ceil(records.length / this.recordsPerPage);
@@ -1362,48 +1424,13 @@ service cloud.firestore {
                     <table class="records-table">
                         <thead>
                             <tr>
-                                <th>
-                                    日期
-                                    <div class="date-filter-container">
-                                        <select id="tableFilterYear" onchange="expenseTracker.applyTableFilter(true)">
-                                            <option value="">全部年份</option>
-                                            ${allYears.map(year => `<option value="${year}">${year}</option>`).join('')}
-                                        </select>
-                                        <select id="tableFilterMonth" onchange="expenseTracker.applyTableFilter(true)">
-                                            <option value="">全部月份</option>
-                                            ${allMonths.map(month => `<option value="${month}">${month}月</option>`).join('')}
-                                        </select>
-                                    </div>
-                                </th>
-                                <th>
-                                    家庭成員
-                                    <select class="filter-dropdown" id="tableFilterMember" onchange="expenseTracker.applyTableFilter(true)">
-                                        <option value="">全部成員</option>
-                                        ${allMembers.map(member => `<option value="${member}">${member}</option>`).join('')}
-                                    </select>
-                                </th>
-                                <th>
-                                    類型
-                                    <select class="filter-dropdown" id="tableFilterType" onchange="expenseTracker.applyTableFilter(true)">
-                                        <option value="">全部類型</option>
-                                        ${allTypes.map(type => `<option value="${type}">${type}</option>`).join('')}
-                                    </select>
-                                </th>
-                                <th>
-                                    類別
-                                    <select class="filter-dropdown" id="tableFilterMainCategory" onchange="expenseTracker.applyTableFilter(true)">
-                                        <option value="">全部類別</option>
-                                        ${allMainCategories.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
-                                    </select>
-                                </th>
-                                <th>
-                                    細項
-                                    <select class="filter-dropdown" id="tableFilterSubCategory" onchange="expenseTracker.applyTableFilter(true)">
-                                        <option value="">全部細項</option>
-                                        ${allSubCategories.map(sub => `<option value="${sub}">${sub}</option>`).join('')}
-                                    </select>
-                                </th>
+                                <th>日期</th>
+                                <th>家庭成員</th>
+                                <th>類型</th>
+                                <th>類別</th>
+                                <th>細項</th>
                                 <th>金額</th>
+                                <th>描述</th>
                                 <th>操作</th>
                             </tr>
                         </thead>
@@ -1423,11 +1450,12 @@ service cloud.firestore {
                                             <td>${record.type}</td>
                                             <td>${record.mainCategory}</td>
                                             <td>${record.subCategory}</td>
-                                            <td class="${amountClass}">${amountPrefix}$${this.formatNumber(record.amount)}</td>
+                                            <td class="${amountClass}">${amountPrefix}$${this.formatNumber(record.amount)} (${record.currency || 'TWD'})</td>
+                                            <td>${record.description || '-'}</td>
                                             <td>
                                                 <div class="action-buttons">
-                                                    <button class="action-btn edit-btn" onclick="expenseTracker.editRecord('${record.id}')" title="編輯"></button>
-                                                    <button class="action-btn delete-btn" onclick="expenseTracker.deleteRecord('${record.id}')" title="刪除"></button>
+                                                    <button class="action-btn edit-btn" onclick="expenseTracker.editRecord('${record.id}')" title="編輯" style="padding: 2px 4px; font-size: 10px;"></button>
+                                                    <button class="action-btn delete-btn" onclick="expenseTracker.deleteRecord('${record.id}')" title="刪除" style="padding: 2px 4px; font-size: 10px;"></button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -1437,52 +1465,44 @@ service cloud.firestore {
                     </table>
                 `;
                 
-                recordsList.innerHTML = tableHTML;
+                recordsList.innerHTML = filterHTML + tableHTML;
                 this.updatePagination(records.length);
             }
 
             // 更新摘要
-            updateSummary(records) {
-                // 取得當前月份
-                const currentDate = new Date();
-                const currentYear = currentDate.getFullYear();
-                const currentMonth = currentDate.getMonth() + 1; // 0-11 轉為 1-12
-                
-                // 篩選本月記錄
-                const monthlyRecords = records.filter(record => {
-                    const recordDate = new Date(record.date);
-                    return recordDate.getFullYear() === currentYear && 
-                           recordDate.getMonth() + 1 === currentMonth;
-                });
-                
-                // 計算本月收入、支出
-                const monthlyIncome = monthlyRecords.filter(r => r.type === '收入').reduce((sum, r) => sum + r.amount, 0);
-                const monthlyExpense = monthlyRecords.filter(r => r.type === '支出').reduce((sum, r) => sum + r.amount, 0);
-                const monthlyNetIncome = monthlyIncome - monthlyExpense;
+            updateSummary(filteredRecords) {
+                // 按照幣別轉換為TWD金額進行統計計算
+                const filteredIncome = filteredRecords.filter(r => r.type === '收入').reduce((sum, r) => sum + this.convertToTWD(r.amount, r.currency || 'TWD'), 0);
+                const filteredExpense = filteredRecords.filter(r => r.type === '支出').reduce((sum, r) => sum + this.convertToTWD(r.amount, r.currency || 'TWD'), 0);
+                const filteredNetIncome = filteredIncome - filteredExpense;
                 
                 // 更新顯示
-                document.getElementById('monthlyIncome').textContent = '$' + this.formatNumber(monthlyIncome);
-                document.getElementById('monthlyExpense').textContent = '$' + this.formatNumber(monthlyExpense);
+                document.getElementById('monthlyIncome').textContent = '$' + this.formatNumber(filteredIncome);
+                document.getElementById('monthlyExpense').textContent = '$' + this.formatNumber(filteredExpense);
                 
-                // 本月淨收入顯示
+                // 淨收入顯示
                 const netIncomeElement = document.getElementById('monthlyNetIncome');
-                netIncomeElement.textContent = '$' + this.formatNumber(Math.abs(monthlyNetIncome));
+                netIncomeElement.textContent = '$' + this.formatNumber(Math.abs(filteredNetIncome));
                 
                 // 根據正負值設定顏色
-                if (monthlyNetIncome >= 0) {
+                if (filteredNetIncome >= 0) {
                     netIncomeElement.className = 'amount net-income positive';
                 } else {
                     netIncomeElement.className = 'amount net-income negative';
                 }
                 
-                console.log(`本月統計 (${currentYear}/${currentMonth}): 收入 $${monthlyIncome}, 支出 $${monthlyExpense}, 淨收入 $${monthlyNetIncome}`);
+                console.log(`篩選後統計: 收入 $${filteredIncome}, 支出 $${filteredExpense}, 淨收入 $${filteredNetIncome}`);
             }
 
             // 獲取當前篩選後的記錄
             getCurrentFilteredRecords() {
-                // 獲取表格篩選器的值
-                const yearFilter = document.getElementById('tableFilterYear')?.value || '';
-                const monthFilter = document.getElementById('tableFilterMonth')?.value || '';
+                // 獲取表格篩選器的值，如果沒有設定則使用當前年月作為預設值
+                const currentDate = new Date();
+                const defaultYear = currentDate.getFullYear().toString();
+                const defaultMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
+                
+                const yearFilter = document.getElementById('tableFilterYear')?.value || defaultYear;
+                const monthFilter = document.getElementById('tableFilterMonth')?.value || defaultMonth;
                 const memberFilter = document.getElementById('tableFilterMember')?.value || '';
                 const typeFilter = document.getElementById('tableFilterType')?.value || '';
                 const mainCategoryFilter = document.getElementById('tableFilterMainCategory')?.value || '';
@@ -1493,8 +1513,8 @@ service cloud.firestore {
                     const recordYear = record.date.split('-')[0];
                     const recordMonth = record.date.split('-')[1];
                     
-                    return (!yearFilter || recordYear === yearFilter) &&
-                           (!monthFilter || recordMonth === monthFilter) &&
+                    return (recordYear === yearFilter) &&
+                           (recordMonth === monthFilter) &&
                            (!memberFilter || record.member === memberFilter) &&
                            (!typeFilter || record.type === typeFilter) &&
                            (!mainCategoryFilter || record.mainCategory === mainCategoryFilter) &&
@@ -1511,7 +1531,34 @@ service cloud.firestore {
                     this.currentPage = 1;
                 }
                 this.displayRecords(filteredRecords);
+                // 統計應該基於篩選後的記錄，與表格顯示保持一致
                 this.updateSummary(filteredRecords);
+            }
+
+            // 重置篩選條件
+            resetFilters() {
+                // 取得當前年月作為預設值
+                const currentDate = new Date();
+                const defaultYear = currentDate.getFullYear().toString();
+                const defaultMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
+                
+                // 重置所有篩選選單到預設值
+                const yearElement = document.getElementById('tableFilterYear');
+                const monthElement = document.getElementById('tableFilterMonth');
+                const memberElement = document.getElementById('tableFilterMember');
+                const typeElement = document.getElementById('tableFilterType');
+                const mainCategoryElement = document.getElementById('tableFilterMainCategory');
+                const subCategoryElement = document.getElementById('tableFilterSubCategory');
+                
+                if (yearElement) yearElement.value = defaultYear;
+                if (monthElement) monthElement.value = defaultMonth;
+                if (memberElement) memberElement.value = '';
+                if (typeElement) typeElement.value = '';
+                if (mainCategoryElement) mainCategoryElement.value = '';
+                if (subCategoryElement) subCategoryElement.value = '';
+                
+                // 重新應用篩選
+                this.applyTableFilter(true);
             }
 
             // 更新分頁
@@ -3108,7 +3155,7 @@ service cloud.firestore {
                                 <div class="original-record">
                                     <strong>${record.subCategory}</strong><br>
                                     <small>${record.description || '無描述'}</small><br>
-                                    <small>金額: $${this.formatNumber(record.amount)}</small>
+                                    <small>金額: $${this.formatNumber(record.amount)} (${record.currency || 'TWD'})</small>
                                 </div>
                             </td>
                             <td>
@@ -3512,7 +3559,7 @@ service cloud.firestore {
                                         const value = context.parsed;
                                         const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                         const percentage = ((value / total) * 100).toFixed(1);
-                                        return `${label}: $${expenseTracker.formatNumber(value)} (${percentage}%)`;
+                                        return `${label}: $${expenseTracker.formatNumber(value)} (TWD) (${percentage}%)`;
                                     }
                                 }
                             }
@@ -3548,7 +3595,7 @@ service cloud.firestore {
                                         const value = context.parsed;
                                         const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                         const percentage = ((value / total) * 100).toFixed(1);
-                                        return `${label}: $${expenseTracker.formatNumber(value)} (${percentage}%)`;
+                                        return `${label}: $${expenseTracker.formatNumber(value)} (TWD) (${percentage}%)`;
                                     }
                                 }
                             }
@@ -3590,7 +3637,7 @@ service cloud.firestore {
                                         const value = context.parsed;
                                         const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                         const percentage = ((value / total) * 100).toFixed(1);
-                                        return `${label}: $${expenseTracker.formatNumber(value)} (${percentage}%)`;
+                                        return `${label}: $${expenseTracker.formatNumber(value)} (TWD) (${percentage}%)`;
                                     }
                                 }
                             }
@@ -3626,7 +3673,7 @@ service cloud.firestore {
                                         const value = context.parsed;
                                         const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                         const percentage = ((value / total) * 100).toFixed(1);
-                                        return `${label}: $${expenseTracker.formatNumber(value)} (${percentage}%)`;
+                                        return `${label}: $${expenseTracker.formatNumber(value)} (TWD) (${percentage}%)`;
                                     }
                                 }
                             }
@@ -3668,7 +3715,7 @@ service cloud.firestore {
                                         const value = context.parsed;
                                         const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                         const percentage = ((value / total) * 100).toFixed(1);
-                                        return `${label}: $${expenseTracker.formatNumber(value)} (${percentage}%)`;
+                                        return `${label}: $${expenseTracker.formatNumber(value)} (TWD) (${percentage}%)`;
                                     }
                                 }
                             }
@@ -3704,7 +3751,7 @@ service cloud.firestore {
                                         const value = context.parsed;
                                         const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                         const percentage = ((value / total) * 100).toFixed(1);
-                                        return `${label}: $${expenseTracker.formatNumber(value)} (${percentage}%)`;
+                                        return `${label}: $${expenseTracker.formatNumber(value)} (TWD) (${percentage}%)`;
                                     }
                                 }
                             }

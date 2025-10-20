@@ -138,10 +138,6 @@
     box-shadow: 0 2px 6px rgba(220, 53, 69, 0.3);
 }
 
-.action-buttons {
-    margin-top: 30px;
-}
-
 * {
     margin: 0;
     padding: 0;
@@ -633,42 +629,48 @@ button:hover {
 /* 欄位寬度設定 */
 .records-table th:nth-child(1),
 .records-table td:nth-child(1) {
-    width: 12%; /* 日期 */
+    width: 10%; /* 日期 */
     min-height: auto;
 }
 
 .records-table th:nth-child(2),
 .records-table td:nth-child(2) {
-    width: 12%; /* 家庭成員 */
+    width: 8%; /* 家庭成員 */
     min-height: auto;
 }
 
 .records-table th:nth-child(3),
 .records-table td:nth-child(3) {
-    width: 10%; /* 類型 */
+    width: 6%; /* 類型 */
     min-height: auto;
 }
 
 .records-table th:nth-child(4),
 .records-table td:nth-child(4) {
-    width: 15%; /* 類別 */
+    width: 10%; /* 類別 */
     min-height: auto;
 }
 
 .records-table th:nth-child(5),
 .records-table td:nth-child(5) {
-    width: 15%; /* 細項 */
+    width: 12%; /* 細項 */
     min-height: auto;
 }
 
 .records-table th:nth-child(6),
 .records-table td:nth-child(6) {
-    width: 12%; /* 金額 */
+    width: 15%; /* 金額 */
     min-height: auto;
 }
 
 .records-table th:nth-child(7),
 .records-table td:nth-child(7) {
+    width: 20%; /* 描述 */
+    min-height: auto;
+}
+
+.records-table th:nth-child(8),
+.records-table td:nth-child(8) {
     width: 8%; /* 操作按鈕 */
     text-align: center;
 }
@@ -808,7 +810,9 @@ button:hover {
     .records-table th:nth-child(4),
     .records-table td:nth-child(4),
     .records-table th:nth-child(5),
-    .records-table td:nth-child(5) {
+    .records-table td:nth-child(5),
+    .records-table th:nth-child(7),
+    .records-table td:nth-child(7) {
         display: none;
     }
     
@@ -954,14 +958,16 @@ button:hover {
 
 .btn-primary, .btn-secondary {
     padding: 12px 24px;
-    border: none;
-    border-radius: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 15px;
     font-size: 1em;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
     letter-spacing: 0.5px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
 }
 
 .btn-primary {
@@ -973,6 +979,7 @@ button:hover {
     transform: translateY(-3px);
     box-shadow: 0 8px 25px rgba(255, 193, 7, 0.4);
     background: linear-gradient(135deg, rgba(255, 193, 7, 0.9) 0%, rgba(255, 152, 0, 0.9) 100%);
+    border-color: rgba(255, 255, 255, 0.5);
 }
 
 .btn-secondary {
@@ -984,6 +991,7 @@ button:hover {
     background: linear-gradient(135deg, rgba(52, 152, 219, 0.9) 0%, rgba(41, 128, 185, 0.9) 100%);
     transform: translateY(-3px);
     box-shadow: 0 8px 25px rgba(52, 152, 219, 0.4);
+    border-color: rgba(255, 255, 255, 0.5);
 }
 
 @media (max-width: 768px) {
@@ -1345,21 +1353,24 @@ button:hover {
 .btn-chart {
     background: linear-gradient(135deg, rgba(46, 204, 113, 0.8) 0%, rgba(39, 174, 96, 0.8) 100%) !important;
     color: white !important;
-    border: none !important;
+    border: 2px solid rgba(255, 255, 255, 0.3) !important;
     padding: 12px 24px !important;
-    border-radius: 12px !important;
+    border-radius: 15px !important;
     font-size: 1em !important;
     font-weight: 600 !important;
     cursor: pointer !important;
     transition: all 0.3s ease !important;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
     letter-spacing: 0.5px !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
+    backdrop-filter: blur(10px) !important;
 }
 
 .btn-chart:hover {
     transform: translateY(-3px) !important;
     box-shadow: 0 8px 25px rgba(46, 204, 113, 0.4) !important;
     background: linear-gradient(135deg, rgba(46, 204, 113, 0.9) 0%, rgba(39, 174, 96, 0.9) 100%) !important;
+    border-color: rgba(255, 255, 255, 0.5) !important;
 }
 
 /* 功能按鈕響應式設計 */
