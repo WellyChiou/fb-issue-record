@@ -638,6 +638,12 @@
           </svg>
           搜尋
         </button>
+        <button id="btnStatusInProgress" class="btn btn-warning flex-1 md:flex-initial">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span id="inProgressCount">載入中...</span>
+        </button>
         <button id="btnClear" class="btn btn-secondary flex-1 md:flex-initial">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -1121,6 +1127,8 @@
 	const qBugFound  = document.getElementById('q_bug_found');
     const btnSearch = document.getElementById('btnSearch');
 	const btnClear = document.getElementById('btnClear');
+	const btnStatusInProgress = document.getElementById('btnStatusInProgress');
+	const inProgressCount = document.getElementById('inProgressCount');
 	const btnExportExcel = document.getElementById('btnExportExcel');
 
     let pageSize = Number(pageSizeSel.value);  // 一開始就轉成 number
@@ -1151,6 +1159,35 @@
 	  if (typeof v === 'number') return v;
 	  return 0;
 	}
+
+	// 計算執行中筆數
+	async function updateInProgressCount() {
+		try {
+			const constraints = [ where('status', '==', 1) ]; // 1 = 執行中
+			const q = query(collection(db, 'records'), ...constraints);
+			const querySnapshot = await getDocs(q);
+			const count = querySnapshot.size;
+			inProgressCount.textContent = `執行中 (${count})`;
+		} catch (error) {
+			console.error('計算執行中筆數失敗:', error);
+			inProgressCount.textContent = '執行中 (?)';
+		}
+	}
+
+	// 狀態=執行中按鈕點擊事件
+	btnStatusInProgress.addEventListener('click', async () => {
+		// 清空其他篩選欄位
+		qKeyword.value = '';
+		qCategory.value = '';
+		qTestPlan.value = '';
+		qBugFound.value = '';
+		
+		// 設定狀態為執行中
+		qStatus.value = '1';
+		
+		// 執行搜尋
+		btnSearch.click();
+	});
 
 
 	async function fetchPage(forward = true) {
@@ -1420,6 +1457,8 @@
 
     async function reload(forward=true){
       await fetchPage(forward);
+      // 更新執行中筆數
+      updateInProgressCount();
     }
 
 	// 關鍵字查詢綁定 Enter 按鍵
