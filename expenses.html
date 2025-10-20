@@ -78,20 +78,16 @@
             </div>
             <div class="summary">
                 <div class="summary-item">
-                    <span class="label">總收入</span>
-                    <span class="amount income" id="totalIncome">$0</span>
+                    <span class="label">本月收入</span>
+                    <span class="amount income" id="monthlyIncome">$0</span>
                 </div>
                 <div class="summary-item">
-                    <span class="label">總支出</span>
-                    <span class="amount expense" id="totalExpense">$0</span>
+                    <span class="label">本月支出</span>
+                    <span class="amount expense" id="monthlyExpense">$0</span>
                 </div>
                 <div class="summary-item">
-                    <span class="label">現有資產</span>
-                    <span class="amount asset" id="totalAssets">$0</span>
-                </div>
-                <div class="summary-item">
-                    <span class="label">總資產</span>
-                    <span class="amount balance" id="totalNetWorth">$0</span>
+                    <span class="label">本月淨收入</span>
+                    <span class="amount net-income" id="monthlyNetIncome">$0</span>
                 </div>
             </div>
             
@@ -640,6 +636,25 @@
             
             .assets-table tr:hover {
                 background-color: #f5f5f5;
+            }
+            
+            /* 本月淨收入樣式 */
+            .net-income.positive {
+                color: #28a745;
+                font-weight: bold;
+            }
+            
+            .net-income.negative {
+                color: #dc3545;
+                font-weight: bold;
+            }
+            
+            .net-income.positive::before {
+                content: "+";
+            }
+            
+            .net-income.negative::before {
+                content: "-";
             }
         </style>
 
@@ -1329,15 +1344,39 @@ service cloud.firestore {
 
             // 更新摘要
             updateSummary(records) {
-                const totalIncome = records.filter(r => r.type === '收入').reduce((sum, r) => sum + r.amount, 0);
-                const totalExpense = records.filter(r => r.type === '支出').reduce((sum, r) => sum + r.amount, 0);
-                const totalAssets = records.filter(r => r.type === '資產').reduce((sum, r) => sum + r.amount, 0);
-                const totalNetWorth = totalIncome - totalExpense + totalAssets;
-
-                document.getElementById('totalIncome').textContent = '$' + this.formatNumber(totalIncome);
-                document.getElementById('totalExpense').textContent = '$' + this.formatNumber(totalExpense);
-                document.getElementById('totalAssets').textContent = '$' + this.formatNumber(totalAssets);
-                document.getElementById('totalNetWorth').textContent = '$' + this.formatNumber(totalNetWorth);
+                // 取得當前月份
+                const currentDate = new Date();
+                const currentYear = currentDate.getFullYear();
+                const currentMonth = currentDate.getMonth() + 1; // 0-11 轉為 1-12
+                
+                // 篩選本月記錄
+                const monthlyRecords = records.filter(record => {
+                    const recordDate = new Date(record.date);
+                    return recordDate.getFullYear() === currentYear && 
+                           recordDate.getMonth() + 1 === currentMonth;
+                });
+                
+                // 計算本月收入、支出
+                const monthlyIncome = monthlyRecords.filter(r => r.type === '收入').reduce((sum, r) => sum + r.amount, 0);
+                const monthlyExpense = monthlyRecords.filter(r => r.type === '支出').reduce((sum, r) => sum + r.amount, 0);
+                const monthlyNetIncome = monthlyIncome - monthlyExpense;
+                
+                // 更新顯示
+                document.getElementById('monthlyIncome').textContent = '$' + this.formatNumber(monthlyIncome);
+                document.getElementById('monthlyExpense').textContent = '$' + this.formatNumber(monthlyExpense);
+                
+                // 本月淨收入顯示
+                const netIncomeElement = document.getElementById('monthlyNetIncome');
+                netIncomeElement.textContent = '$' + this.formatNumber(Math.abs(monthlyNetIncome));
+                
+                // 根據正負值設定顏色
+                if (monthlyNetIncome >= 0) {
+                    netIncomeElement.className = 'amount net-income positive';
+                } else {
+                    netIncomeElement.className = 'amount net-income negative';
+                }
+                
+                console.log(`本月統計 (${currentYear}/${currentMonth}): 收入 $${monthlyIncome}, 支出 $${monthlyExpense}, 淨收入 $${monthlyNetIncome}`);
             }
 
             // 獲取當前篩選後的記錄
