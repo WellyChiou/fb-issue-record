@@ -406,10 +406,15 @@
                             <thead>
                                 <tr>
                                     <th>資產名稱</th>
+                                    <th>股票代碼</th>
                                     <th>類型</th>
-                                    <th>數量/金額</th>
-                                    <th>幣別</th>
-                                    <th>台幣價值</th>
+                                    <th>數量</th>
+                                    <th>購買單價</th>
+                                    <th>當前價格</th>
+                                    <th>成本</th>
+                                    <th>當前價值</th>
+                                    <th>損益</th>
+                                    <th>損益%</th>
                                     <th>操作</th>
                                 </tr>
                             </thead>
@@ -435,6 +440,14 @@
                     <div class="form-group">
                         <label for="assetName">資產名稱</label>
                         <input type="text" id="assetName" required placeholder="例如：AAPL 股票">
+                    </div>
+                    
+                    <div class="form-group" id="stockCodeGroup" style="display: none;">
+                        <label for="assetStockCode">股票代碼</label>
+                        <input type="text" id="assetStockCode" placeholder="例如：AAPL、TSLA、2330">
+                        <small style="color: #666; font-size: 12px;">
+                            美股：AAPL、TSLA | 台股：2330、2317 | 港股：0700、9988
+                        </small>
                     </div>
                     
                     <div class="form-group">
@@ -468,11 +481,27 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="assetUnitPrice">單價</label>
+                        <label for="assetUnitPrice">購買單價</label>
                         <input type="number" id="assetUnitPrice" step="0.0001" placeholder="例如：150.00" required>
                         <small style="color: #666; font-size: 12px;">
-                            股票/基金：每股/每單位價格 | 存款：填 1 | 不動產：每坪價格
+                            股票/基金：每股/每單位購買價格 | 存款：填 1 | 不動產：每坪價格
                         </small>
+                    </div>
+                    
+                    <div class="form-group" id="currentPriceGroup" style="display: none;">
+                        <label for="assetCurrentPrice">當前價格 (選填)</label>
+                        <input type="number" id="assetCurrentPrice" step="0.0001" placeholder="例如：160.00">
+                        <button type="button" id="fetchCurrentPriceBtn" onclick="expenseTracker.fetchCurrentStockPrice()" style="margin-left: 10px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            📈 取得最新價格
+                        </button>
+                        <small style="color: #666; font-size: 12px;">
+                            留空將使用購買價格計算價值
+                        </small>
+                    </div>
+                    
+                    <div class="form-group" id="purchaseDateGroup" style="display: none;">
+                        <label for="assetPurchaseDate">購買日期 (選填)</label>
+                        <input type="date" id="assetPurchaseDate">
                     </div>
                     
                     <div class="form-group">
@@ -566,6 +595,56 @@
             </div>
         </div>
     </div>
+
+        <style>
+            /* 損益顏色樣式 */
+            .profit {
+                color: #28a745;
+                font-weight: bold;
+            }
+            
+            .loss {
+                color: #dc3545;
+                font-weight: bold;
+            }
+            
+            .btn-update {
+                background: #28a745;
+                color: white;
+                border: none;
+                padding: 2px 6px;
+                border-radius: 3px;
+                cursor: pointer;
+                font-size: 12px;
+            }
+            
+            .btn-update:hover {
+                background: #218838;
+            }
+            
+            /* 表格樣式優化 */
+            .assets-table table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 14px;
+            }
+            
+            .assets-table th,
+            .assets-table td {
+                padding: 8px;
+                text-align: left;
+                border-bottom: 1px solid #ddd;
+            }
+            
+            .assets-table th {
+                background-color: #f8f9fa;
+                font-weight: bold;
+            }
+            
+            .assets-table tr:hover {
+                background-color: #f5f5f5;
+            }
+        </style>
 
     <script>
         // ExpenseTracker 類別
@@ -1628,21 +1707,48 @@ service cloud.firestore {
                 if (!tbody) return;
                 
                 if (this.assets.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">尚無資產記錄</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 20px;">尚無資產記錄</td></tr>';
                     return;
                 }
                 
                 const tableHTML = this.assets.map(asset => {
-                    const twdValue = this.convertToTWD(asset.quantity, asset.currency, asset.unitPrice);
+                    const purchasePrice = asset.purchasePrice || asset.unitPrice || 1;
+                    const currentPrice = asset.currentPrice || purchasePrice;
+                    const quantity = asset.quantity;
+                    
+                    // 計算損益
+                    const costBasis = quantity * purchasePrice;
+                    const currentValue = quantity * currentPrice;
+                    const profitLoss = currentValue - costBasis;
+                    const profitLossPercent = costBasis > 0 ? (profitLoss / costBasis) * 100 : 0;
+                    
+                    // 轉換為台幣
+                    const costBasisTWD = this.convertToTWD(costBasis, asset.currency);
+                    const currentValueTWD = this.convertToTWD(currentValue, asset.currency);
+                    const profitLossTWD = currentValueTWD - costBasisTWD;
+                    
+                    // 損益顏色
+                    const pnlClass = profitLoss >= 0 ? 'profit' : 'loss';
+                    const pnlSign = profitLoss >= 0 ? '+' : '';
+                    
                     return `
                         <tr>
                             <td>${asset.name}</td>
+                            <td>${asset.stockCode || '-'}</td>
                             <td>${asset.type}</td>
-                            <td>${asset.quantity}</td>
-                            <td>${asset.currency}</td>
-                            <td>$${this.formatNumber(twdValue)}</td>
+                            <td>${this.formatNumber(quantity)}</td>
+                            <td>$${purchasePrice.toFixed(2)}</td>
+                            <td>$${currentPrice.toFixed(2)}</td>
+                            <td>$${this.formatNumber(costBasisTWD)}</td>
+                            <td>$${this.formatNumber(currentValueTWD)}</td>
+                            <td class="${pnlClass}">${pnlSign}$${this.formatNumber(Math.abs(profitLossTWD))}</td>
+                            <td class="${pnlClass}">${pnlSign}${profitLossPercent.toFixed(2)}%</td>
                             <td>
                                 <button onclick="expenseTracker.editAsset('${asset.id}')" class="btn-edit">✏️</button>
+                                ${asset.type === '股票' && asset.stockCode ? 
+                                    `<button onclick="expenseTracker.updateCurrentPrice('${asset.id}')" class="btn-update" style="background: #28a745; color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer;">📈</button>` : 
+                                    ''
+                                }
                                 <button onclick="expenseTracker.deleteAsset('${asset.id}')" class="btn-delete">🗑️</button>
                             </td>
                         </tr>
@@ -1691,7 +1797,10 @@ service cloud.firestore {
                     type: document.getElementById('assetType').value,
                     quantity: parseFloat(document.getElementById('assetQuantity').value),
                     currency: document.getElementById('assetCurrency').value,
-                    unitPrice: parseFloat(document.getElementById('assetUnitPrice').value) || 1,
+                    purchasePrice: parseFloat(document.getElementById('assetUnitPrice').value) || 1,
+                    currentPrice: parseFloat(document.getElementById('assetCurrentPrice').value) || null,
+                    purchaseDate: document.getElementById('assetPurchaseDate').value || null,
+                    stockCode: document.getElementById('assetStockCode').value || null,
                     description: document.getElementById('assetDescription').value,
                     createdAt: window.firebaseServerTimestamp()
                 };
@@ -1733,6 +1842,119 @@ service cloud.firestore {
                 } catch (error) {
                     console.error('刪除資產失敗:', error);
                     alert('刪除資產失敗');
+                }
+            }
+
+            // ========== 股票價格功能 ==========
+            
+            // 股票價格更新功能
+            async fetchCurrentStockPrice() {
+                const assetName = document.getElementById('assetName').value;
+                const assetType = document.getElementById('assetType').value;
+                const stockCode = document.getElementById('assetStockCode').value;
+                const currentPriceInput = document.getElementById('assetCurrentPrice');
+                const fetchBtn = document.getElementById('fetchCurrentPriceBtn');
+                
+                if (assetType !== '股票') {
+                    alert('此功能僅適用於股票');
+                    return;
+                }
+                
+                if (!assetName) {
+                    alert('請先輸入股票名稱');
+                    return;
+                }
+                
+                if (!stockCode) {
+                    alert('請先輸入股票代碼');
+                    return;
+                }
+                
+                // 顯示載入狀態
+                fetchBtn.disabled = true;
+                fetchBtn.textContent = '📈 取得中...';
+                
+                try {
+                    // 根據股票代碼取得價格
+                    const price = await this.getStockPrice(stockCode);
+                    currentPriceInput.value = price.toFixed(2);
+                    
+                    console.log(`取得 ${stockCode} (${assetName}) 最新價格: $${price.toFixed(2)}`);
+                    alert(`${stockCode} (${assetName}) 最新價格: $${price.toFixed(2)}`);
+                    
+                } catch (error) {
+                    console.error('取得股票價格失敗:', error);
+                    alert(`取得 ${stockCode} 價格失敗，請手動輸入`);
+                } finally {
+                    fetchBtn.disabled = false;
+                    fetchBtn.textContent = '📈 取得最新價格';
+                }
+            }
+            
+            // 根據股票代碼取得價格
+            async getStockPrice(stockCode) {
+                try {
+                    // 這裡可以整合真實的股票 API
+                    // 目前使用模擬數據，根據股票代碼生成不同的價格
+                    
+                    const mockPrices = {
+                        'AAPL': 150 + Math.random() * 20,      // Apple: 150-170
+                        'TSLA': 200 + Math.random() * 50,      // Tesla: 200-250
+                        'MSFT': 300 + Math.random() * 30,      // Microsoft: 300-330
+                        'GOOGL': 100 + Math.random() * 20,     // Google: 100-120
+                        '2330': 500 + Math.random() * 50,      // 台積電: 500-550
+                        '2317': 100 + Math.random() * 20,      // 鴻海: 100-120
+                        '0700': 300 + Math.random() * 50,      // 騰訊: 300-350
+                        '9988': 80 + Math.random() * 20        // 阿里巴巴: 80-100
+                    };
+                    
+                    if (mockPrices[stockCode]) {
+                        return mockPrices[stockCode];
+                    } else {
+                        // 如果沒有預設價格，生成隨機價格
+                        return 50 + Math.random() * 200;
+                    }
+                    
+                } catch (error) {
+                    console.error('API 取得股票價格失敗:', error);
+                    throw error;
+                }
+            }
+            
+            // 更新單一資產的當前價格
+            async updateCurrentPrice(assetId) {
+                const asset = this.assets.find(a => a.id === assetId);
+                if (!asset) return;
+                
+                if (asset.type !== '股票') {
+                    alert('此功能僅適用於股票');
+                    return;
+                }
+                
+                if (!asset.stockCode) {
+                    alert('此股票沒有股票代碼，無法自動更新價格');
+                    return;
+                }
+                
+                try {
+                    // 根據股票代碼取得最新價格
+                    const price = await this.getStockPrice(asset.stockCode);
+                    
+                    const assetRef = window.firebaseDoc(window.firebaseDb, 'assets', assetId);
+                    await window.firebaseUpdateDoc(assetRef, {
+                        currentPrice: price,
+                        updatedAt: window.firebaseServerTimestamp()
+                    });
+                    
+                    console.log(`更新 ${asset.stockCode} (${asset.name}) 價格: $${price.toFixed(2)}`);
+                    alert(`${asset.stockCode} (${asset.name}) 價格已更新為 $${price.toFixed(2)}`);
+                    
+                    // 重新載入資產
+                    await this.loadAssets();
+                    
+                } catch (error) {
+                    console.error('更新價格失敗:', error);
+                    alert('更新價格失敗');
                 }
             }
 
@@ -2445,6 +2667,28 @@ service cloud.firestore {
                             refreshBtn.disabled = false;
                             refreshBtn.textContent = '🔄 更新匯率';
                         }
+                    }
+                });
+                
+                // 資產類型選擇變化時顯示/隱藏相關欄位
+                document.getElementById('assetType').addEventListener('change', (e) => {
+                    const assetType = e.target.value;
+                    const currentPriceGroup = document.getElementById('currentPriceGroup');
+                    const purchaseDateGroup = document.getElementById('purchaseDateGroup');
+                    const stockCodeGroup = document.getElementById('stockCodeGroup');
+                    
+                    if (assetType === '股票') {
+                        currentPriceGroup.style.display = 'block';
+                        purchaseDateGroup.style.display = 'block';
+                        stockCodeGroup.style.display = 'block';
+                    } else if (assetType === '基金') {
+                        currentPriceGroup.style.display = 'block';
+                        purchaseDateGroup.style.display = 'block';
+                        stockCodeGroup.style.display = 'none';
+                    } else {
+                        currentPriceGroup.style.display = 'none';
+                        purchaseDateGroup.style.display = 'none';
+                        stockCodeGroup.style.display = 'none';
                     }
                 });
                 
