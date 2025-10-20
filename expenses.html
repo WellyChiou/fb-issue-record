@@ -2203,50 +2203,57 @@ service cloud.firestore {
             
             // Yahoo Finance API
             async tryYahooFinance(stockCode) {
-                let yahooCode = stockCode;
+                console.log(`📊 Yahoo Finance: ${stockCode}`);
+                
+                // 嘗試不同的後綴
+                const suffixes = [];
                 
                 if (/^[A-Za-z]/.test(stockCode)) {
-                    yahooCode = stockCode; // 美股
+                    suffixes.push(''); // 美股無後綴
                 } else if (/^\d{4}[A-Za-z]?$/.test(stockCode)) {
-                    yahooCode = stockCode + '.TW'; // 台股
+                    suffixes.push('.TWO', '.TW'); // 台股：先試 .TWO (ETF/債券)，再試 .TW (一般股票)
                 } else {
-                    yahooCode = stockCode + '.TW';
+                    suffixes.push('.TWO', '.TW'); // 其他情況
                 }
                 
-                console.log(`📊 Yahoo Finance: ${stockCode} -> ${yahooCode}`);
-                
-                const proxyServices = [
-                    `https://cors-anywhere.herokuapp.com/https://query1.finance.yahoo.com/v8/finance/chart/${yahooCode}`,
-                    `https://api.allorigins.win/get?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooCode}`)}`,
-                    `https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/${yahooCode}`,
-                    `https://thingproxy.freeboard.io/fetch/https://query1.finance.yahoo.com/v8/finance/chart/${yahooCode}`
-                ];
-                
-                for (const proxyUrl of proxyServices) {
-                    try {
-                        const response = await fetch(proxyUrl);
-                        if (!response.ok) continue;
-                        
-                        let data;
-                        if (proxyUrl.includes('allorigins.win')) {
-                            const proxyData = await response.json();
-                            data = JSON.parse(proxyData.contents);
-                        } else {
-                            data = await response.json();
+                for (const suffix of suffixes) {
+                    const yahooCode = stockCode + suffix;
+                    console.log(`嘗試 Yahoo Finance: ${stockCode} -> ${yahooCode}`);
+                    
+                    const proxyServices = [
+                        `https://cors-anywhere.herokuapp.com/https://query1.finance.yahoo.com/v8/finance/chart/${yahooCode}`,
+                        `https://api.allorigins.win/get?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooCode}`)}`,
+                        `https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/${yahooCode}`,
+                        `https://thingproxy.freeboard.io/fetch/https://query1.finance.yahoo.com/v8/finance/chart/${yahooCode}`
+                    ];
+                    
+                    for (const proxyUrl of proxyServices) {
+                        try {
+                            const response = await fetch(proxyUrl);
+                            if (!response.ok) continue;
+                            
+                            let data;
+                            if (proxyUrl.includes('allorigins.win')) {
+                                const proxyData = await response.json();
+                                data = JSON.parse(proxyData.contents);
+                            } else {
+                                data = await response.json();
+                            }
+                            
+                            if (!data.chart?.result?.[0]) continue;
+                            
+                            const result = data.chart.result[0];
+                            const meta = result.meta;
+                            const currentPrice = meta.regularMarketPrice || result.indicators.quote[0].close.slice(-1)[0];
+                            const currency = meta.currency || this.getCurrencyByMarket(stockCode);
+                            
+                            if (currentPrice && currentPrice > 0) {
+                                console.log(`✅ Yahoo Finance 成功: ${yahooCode} = ${currentPrice} ${currency}`);
+                                return { price: currentPrice, currency };
+                            }
+                        } catch (error) {
+                            continue;
                         }
-                        
-                        if (!data.chart?.result?.[0]) continue;
-                        
-                        const result = data.chart.result[0];
-                        const meta = result.meta;
-                        const currentPrice = meta.regularMarketPrice || result.indicators.quote[0].close.slice(-1)[0];
-                        const currency = meta.currency || this.getCurrencyByMarket(stockCode);
-                        
-                        if (currentPrice && currentPrice > 0) {
-                            return { price: currentPrice, currency };
-                        }
-                    } catch (error) {
-                        continue;
                     }
                 }
                 throw new Error('Yahoo Finance API 失敗');
