@@ -1052,3 +1052,160 @@ button:hover {
     transform: none !important;
     box-shadow: none !important;
 }
+
+/* 更新股票資料 Loading 樣式 */
+#updateStocksLoadingModal {
+    z-index: 2000 !important;
+}
+
+.loading-progress {
+    margin: 20px 0;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 20px;
+    background-color: #f0f0f0;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #28a745, #20c997);
+    width: 0%;
+    transition: width 0.3s ease;
+    border-radius: 10px;
+}
+
+.progress-text {
+    text-align: center;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 20px;
+}
+
+.stocks-update-list {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.stock-update-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+    transition: background-color 0.3s ease;
+}
+
+.stock-update-item:last-child {
+    border-bottom: none;
+}
+
+.stock-update-item.updating {
+    background-color: #fff3cd;
+}
+
+.stock-update-item.success {
+    background-color: #d4edda;
+}
+
+.stock-update-item.fail {
+    background-color: #f8d7da;
+}
+
+.stock-info {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.stock-name {
+    font-weight: bold;
+    color: #333;
+}
+
+.stock-code {
+    font-size: 0.9em;
+    color: #666;
+    margin-top: 2px;
+}
+
+.update-status {
+    display: flex;
+    align-items: center;
+    font-size: 0.9em;
+    font-weight: 500;
+}
+
+.status-updating {
+    color: #856404;
+}
+
+.status-success {
+    color: #155724;
+}
+
+.status-fail {
+    color: #721c24;
+}
+
+.update-summary {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+}
+
+.update-summary h3 {
+    margin: 0 0 15px 0;
+    color: #333;
+}
+
+.summary-stats {
+    display: flex;
+    gap: 20px;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+    border-radius: 6px;
+    min-width: 80px;
+}
+
+.stat-item.success {
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+}
+
+.stat-item.fail {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+}
+
+.stat-item .label {
+    font-size: 0.9em;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.stat-item .count {
+    font-size: 1.5em;
+    font-weight: bold;
+}
+
+.stat-item.success .count {
+    color: #155724;
+}
+
+.stat-item.fail .count {
+    color: #721c24;
+}

@@ -371,7 +371,7 @@
     <div id="updateStocksLoadingModal" class="modal">
         <div class="modal-content" style="max-width: 800px;">
             <div class="modal-header">
-                <h2>📈 更新股票資料</h2>
+                <h2>📈 更新股票資料 <span id="updateResultBadge" style="font-size: 0.7em; color: #fff; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 12px; margin-left: 10px; display: none;"></span></h2>
                 <span class="close" onclick="expenseTracker.hideUpdateStocksLoading()">&times;</span>
             </div>
             <div class="modal-body">
@@ -384,20 +384,6 @@
                 
                 <div class="stocks-update-list" id="stocksUpdateList">
                     <!-- 股票更新狀態將在這裡動態生成 -->
-                </div>
-                
-                <div class="update-summary" id="updateSummary" style="display: none;">
-                    <h3>更新結果</h3>
-                    <div class="summary-stats">
-                        <div class="stat-item success">
-                            <span class="label">成功</span>
-                            <span class="count" id="successCount">0</span>
-                        </div>
-                        <div class="stat-item fail">
-                            <span class="label">失敗</span>
-                            <span class="count" id="failCount">0</span>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -2546,7 +2532,7 @@ service cloud.firestore {
                     
                     // 更新完成
                     this.updateProgress(100, '更新完成！');
-                    this.showUpdateSummary(successCount, failCount);
+                    this.showUpdateResultInTitle(successCount, failCount);
                     
                     // 重新載入資產
                     await this.loadAssets();
@@ -2616,7 +2602,7 @@ service cloud.firestore {
                 // 重置狀態
                 document.getElementById('updateProgressFill').style.width = '0%';
                 document.getElementById('updateProgressText').textContent = '準備中...';
-                document.getElementById('updateSummary').style.display = 'none';
+                document.getElementById('updateResultBadge').style.display = 'none';
                 
                 // 生成股票列表
                 const stocksList = document.getElementById('stocksUpdateList');
@@ -2673,20 +2659,21 @@ service cloud.firestore {
                 }
             }
 
-            // 顯示更新摘要
-            showUpdateSummary(successCount, failCount) {
-                const summary = document.getElementById('updateSummary');
-                const successCountEl = document.getElementById('successCount');
-                const failCountEl = document.getElementById('failCount');
-                
-                if (summary) {
-                    summary.style.display = 'block';
-                }
-                if (successCountEl) {
-                    successCountEl.textContent = successCount;
-                }
-                if (failCountEl) {
-                    failCountEl.textContent = failCount;
+            // 在標題中顯示更新結果
+            showUpdateResultInTitle(successCount, failCount) {
+                const resultBadge = document.getElementById('updateResultBadge');
+                if (resultBadge) {
+                    resultBadge.style.display = 'inline-block';
+                    resultBadge.innerHTML = `✅ ${successCount} 成功 ❌ ${failCount} 失敗`;
+                    
+                    // 根據結果設置不同的背景色
+                    if (failCount === 0) {
+                        resultBadge.style.background = 'rgba(40, 167, 69, 0.8)'; // 綠色
+                    } else if (successCount === 0) {
+                        resultBadge.style.background = 'rgba(220, 53, 69, 0.8)'; // 紅色
+                    } else {
+                        resultBadge.style.background = 'rgba(255, 193, 7, 0.8)'; // 黃色
+                    }
                 }
             }
 
