@@ -2105,15 +2105,15 @@ service cloud.firestore {
             
             // 根據股票代碼判斷幣別
             getCurrencyByMarket(stockCode) {
-                // 台股 (4位數字)
-                if (/^\d{4}$/.test(stockCode)) {
-                    return 'TWD';
-                }
                 // 港股 (4位數字，以0開頭)
-                else if (/^0\d{3}$/.test(stockCode)) {
+                if (/^0\d{3}$/.test(stockCode)) {
                     return 'HKD';
                 }
-                // 日股 (4位數字)
+                // 台股 (4位數字，不以0開頭)
+                else if (/^\d{4}$/.test(stockCode) && !stockCode.startsWith('0')) {
+                    return 'TWD';
+                }
+                // 日股 (4位數字，1000以上)
                 else if (/^\d{4}$/.test(stockCode) && parseInt(stockCode) >= 1000) {
                     return 'JPY';
                 }
@@ -2148,6 +2148,7 @@ service cloud.firestore {
                     '9988': { price: 90.00, currency: 'HKD' },        // 阿里巴巴: HK$90.00
                     '0941': { price: 55.00, currency: 'HKD' },        // 中國移動: HK$55.00
                     '1299': { price: 45.00, currency: 'HKD' },        // 友邦保險: HK$45.00
+                    '00692': { price: 15.50, currency: 'HKD' },       // 中電控股: HK$15.50
                     
                     // 日股 (JPY) - 固定價格
                     '6758': { price: 3250.00, currency: 'JPY' },      // Sony: ¥3250.00
@@ -2163,14 +2164,18 @@ service cloud.firestore {
                     // 如果沒有預設價格，根據代碼格式判斷市場並使用固定價格
                     let price, currency;
                     
-                    if (/^\d{4}$/.test(stockCode)) {
-                        // 4位數字，可能是台股
-                        price = 100.00;
-                        currency = 'TWD';
-                    } else if (/^\d{4}$/.test(stockCode) && stockCode.startsWith('0')) {
-                        // 港股
+                    if (/^0\d{3}$/.test(stockCode)) {
+                        // 港股 (4位數字，以0開頭)
                         price = 100.00;
                         currency = 'HKD';
+                    } else if (/^\d{4}$/.test(stockCode) && !stockCode.startsWith('0')) {
+                        // 台股 (4位數字，不以0開頭)
+                        price = 100.00;
+                        currency = 'TWD';
+                    } else if (/^\d{4}$/.test(stockCode) && parseInt(stockCode) >= 1000) {
+                        // 日股
+                        price = 2000.00;
+                        currency = 'JPY';
                     } else {
                         // 預設為美股
                         price = 150.00;
