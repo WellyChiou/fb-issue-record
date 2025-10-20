@@ -2400,7 +2400,19 @@ service cloud.firestore {
             async fetchRealStockPrice(stockCode) {
                 console.log(`🔍 開始查詢 ${stockCode} 的價格...`);
                 
-                // 嘗試多個 API
+                // 優先使用 Google Finance API
+                try {
+                    console.log(`嘗試 Google Finance API`);
+                    const result = await this.tryGoogleFinance(stockCode);
+                    if (result) {
+                        console.log(`✅ Google Finance 成功: ${stockCode} = ${result.price} ${result.currency}`);
+                        return result;
+                    }
+                } catch (error) {
+                    console.warn(`❌ Google Finance 失敗:`, error.message);
+                }
+                
+                // 備用 API
                 const apis = [
                     () => this.tryYahooFinance(stockCode),
                     () => this.tryFinancialModelingPrep(stockCode),
@@ -2411,20 +2423,194 @@ service cloud.firestore {
                 
                 for (let i = 0; i < apis.length; i++) {
                     try {
-                        console.log(`嘗試 API ${i + 1}/${apis.length}`);
+                        console.log(`嘗試備用 API ${i + 1}/${apis.length}`);
                         const result = await apis[i]();
                         if (result) {
-                            console.log(`✅ API ${i + 1} 成功: ${stockCode} = ${result.price} ${result.currency}`);
+                            console.log(`✅ 備用 API ${i + 1} 成功: ${stockCode} = ${result.price} ${result.currency}`);
                             return result;
                         }
                     } catch (error) {
-                        console.warn(`❌ API ${i + 1} 失敗:`, error.message);
+                        console.warn(`❌ 備用 API ${i + 1} 失敗:`, error.message);
                         if (i === apis.length - 1) {
                             throw new Error(`所有 API 都失敗: ${error.message}`);
                         }
                         continue;
                     }
                 }
+            }
+            
+            // Google Finance API
+            async tryGoogleFinance(stockCode) {
+                console.log(`📊 Google Finance: ${stockCode}`);
+                
+                try {
+                    // 根據股票代碼自動添加市場後綴
+                    let googleFinanceCode = stockCode;
+                    
+                    // 常見美國ETF列表
+                    const usEtfSymbols = ["SPY", "VOO", "VTI", "IVV", "QQQ", "SCHD", "JEPI", "VT", "ARKK", "ARKQ", "ARKW", "ARKG", "ARKF", "XLF", "XLK", "XLE", "XLI", "XLV", "XLY", "XLP", "XLU", "XLRE", "XLB", "XLC", "XLNX"];
+                    
+                    // 檢測股票代碼類型並添加相應的市場後綴
+                    if (/^\d{4}[A-Za-z]?$/.test(stockCode)) {
+                        // 台股：4位數字或4位數字+字母（如00692B）
+                        googleFinanceCode = `${stockCode}:TPE`;
+                        console.log(`台股代碼: ${stockCode} -> ${googleFinanceCode}`);
+                    } else if (usEtfSymbols.includes(stockCode.toUpperCase())) {
+                        // 美國ETF：使用 NYSEARCA 交易所
+                        googleFinanceCode = `${stockCode}:NYSEARCA`;
+                        console.log(`美國ETF: ${stockCode} -> ${googleFinanceCode}`);
+                    } else if (/^[A-Za-z]{1,5}$/.test(stockCode)) {
+                        // 美國股票：使用 NASDAQ 交易所（預設）
+                        googleFinanceCode = `${stockCode}:NASDAQ`;
+                        console.log(`美國股票: ${stockCode} -> ${googleFinanceCode}`);
+                    } else if (/^\d{4}$/.test(stockCode)) {
+                        // 4位純數字：可能是台股
+                        googleFinanceCode = `${stockCode}:TPE`;
+                        console.log(`4位數字台股: ${stockCode} -> ${googleFinanceCode}`);
+                    } else if (/^\d{5}$/.test(stockCode)) {
+                        // 5位數字：可能是港股
+                        googleFinanceCode = `${stockCode}:HKG`;
+                        console.log(`5位數字港股: ${stockCode} -> ${googleFinanceCode}`);
+                    } else if (/^\d{4}\.HK$/.test(stockCode)) {
+                        // 港股格式：如 0700.HK
+                        googleFinanceCode = `${stockCode.replace('.HK', '')}:HKG`;
+                        console.log(`港股格式: ${stockCode} -> ${googleFinanceCode}`);
+                    } else if (/^\d{4}\.T$/.test(stockCode)) {
+                        // 日股格式：如 6758.T
+                        googleFinanceCode = `${stockCode.replace('.T', '')}:TYO`;
+                        console.log(`日股格式: ${stockCode} -> ${googleFinanceCode}`);
+                    } else if (/^\d{4}\.L$/.test(stockCode)) {
+                        // 英股格式：如 0700.L
+                        googleFinanceCode = `${stockCode.replace('.L', '')}:LON`;
+                        console.log(`英股格式: ${stockCode} -> ${googleFinanceCode}`);
+                    } else {
+                        // 其他情況：預設為美股 NASDAQ
+                        googleFinanceCode = `${stockCode}:NASDAQ`;
+                        console.log(`預設美股: ${stockCode} -> ${googleFinanceCode}`);
+                    }
+                    
+                    const apiUrl = `https://www.google.com/finance/quote/${googleFinanceCode}`;
+                    console.log(`Google Finance API URL: ${apiUrl}`);
+                    
+                    const response = await fetch(apiUrl, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                            'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8',
+                            'Accept-Encoding': 'gzip, deflate, br',
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                            'DNT': '1',
+                            'Connection': 'keep-alive',
+                            'Upgrade-Insecure-Requests': '1',
+                            'Sec-Fetch-Dest': 'document',
+                            'Sec-Fetch-Mode': 'navigate',
+                            'Sec-Fetch-Site': 'none',
+                            'Sec-Fetch-User': '?1',
+                            'Cache-Control': 'max-age=0',
+                            'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+                            'sec-ch-ua-mobile': '?0',
+                            'sec-ch-ua-platform': '"Windows"'
+                        },
+                        mode: 'cors',
+                        credentials: 'omit',
+                        referrerPolicy: 'strict-origin-when-cross-origin'
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const html = await response.text();
+                    console.log('Google Finance 回應長度:', html.length);
+                    
+                    // 使用統一的解析方法
+                    return this.parseGoogleFinanceResponse(html, stockCode);
+                    
+                } catch (error) {
+                    console.error(`Google Finance 直接請求失敗:`, error);
+                    
+                    // 如果直接請求失敗，嘗試使用 CORS 代理
+                    if (error.message.includes('403') || error.message.includes('CORS')) {
+                        console.log('嘗試使用 CORS 代理...');
+                        try {
+                            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(apiUrl)}`;
+                            console.log(`CORS 代理 URL: ${proxyUrl}`);
+                            
+                            const proxyResponse = await fetch(proxyUrl);
+                            if (!proxyResponse.ok) {
+                                throw new Error(`代理請求失敗: ${proxyResponse.status}`);
+                            }
+                            
+                            const proxyData = await proxyResponse.json();
+                            const html = proxyData.contents;
+                            console.log('CORS 代理回應長度:', html.length);
+                            
+                            // 使用相同的解析邏輯
+                            return this.parseGoogleFinanceResponse(html, stockCode);
+                            
+                        } catch (proxyError) {
+                            console.error(`CORS 代理也失敗:`, proxyError);
+                            throw new Error(`Google Finance 和 CORS 代理都失敗: ${error.message}`);
+                        }
+                    }
+                    
+                    throw error;
+                }
+            }
+            
+            // 解析 Google Finance 回應
+            parseGoogleFinanceResponse(html, stockCode) {
+                // 解析 HTML 中的價格數據
+                // Google Finance 使用 JSON-LD 結構化數據
+                const jsonLdMatch = html.match(/<script type="application\/ld\+json">(.*?)<\/script>/s);
+                if (jsonLdMatch) {
+                    try {
+                        const jsonData = JSON.parse(jsonLdMatch[1]);
+                        console.log('Google Finance JSON 數據:', jsonData);
+                        
+                        if (jsonData.price) {
+                            const price = parseFloat(jsonData.price);
+                            const currency = this.getCurrencyByMarket(stockCode);
+                            console.log(`✅ Google Finance 解析成功: ${price} ${currency}`);
+                            return { price, currency };
+                        }
+                    } catch (jsonError) {
+                        console.warn('JSON 解析失敗:', jsonError);
+                    }
+                }
+                
+                // 備用解析方法：從 HTML 中提取價格
+                const priceMatch = html.match(/"price":"([^"]+)"/);
+                if (priceMatch) {
+                    const price = parseFloat(priceMatch[1]);
+                    const currency = this.getCurrencyByMarket(stockCode);
+                    console.log(`✅ Google Finance 備用解析成功: ${price} ${currency}`);
+                    return { price, currency };
+                }
+                
+                // 另一個備用解析方法
+                const pricePattern = /data-last-price="([^"]+)"/;
+                const priceMatch2 = html.match(pricePattern);
+                if (priceMatch2) {
+                    const price = parseFloat(priceMatch2[1]);
+                    const currency = this.getCurrencyByMarket(stockCode);
+                    console.log(`✅ Google Finance 第二備用解析成功: ${price} ${currency}`);
+                    return { price, currency };
+                }
+                
+                // 嘗試從頁面標題或內容中提取價格
+                const titleMatch = html.match(/<title[^>]*>([^<]*\$[0-9.]+[^<]*)<\/title>/i);
+                if (titleMatch) {
+                    const priceMatch3 = titleMatch[1].match(/\$([0-9.]+)/);
+                    if (priceMatch3) {
+                        const price = parseFloat(priceMatch3[1]);
+                        const currency = this.getCurrencyByMarket(stockCode);
+                        console.log(`✅ Google Finance 標題解析成功: ${price} ${currency}`);
+                        return { price, currency };
+                    }
+                }
+                
+                throw new Error('無法從 Google Finance 解析價格數據');
             }
             
             // Yahoo Finance API
@@ -2753,7 +2939,20 @@ service cloud.firestore {
             async fetchRealStockPriceWithProgress(stockCode, assetId) {
                 console.log(`🔍 開始查詢 ${stockCode} 的價格...`);
                 
-                // 嘗試多個 API
+                // 優先使用 Google Finance API
+                try {
+                    this.updateStockStatus(assetId, 'updating', '嘗試 Google Finance API');
+                    console.log(`嘗試 Google Finance API`);
+                    const result = await this.tryGoogleFinance(stockCode);
+                    if (result) {
+                        console.log(`✅ Google Finance 成功: ${stockCode} = ${result.price} ${result.currency}`);
+                        return result;
+                    }
+                } catch (error) {
+                    console.warn(`❌ Google Finance 失敗:`, error.message);
+                }
+                
+                // 備用 API
                 const apis = [
                     () => this.tryYahooFinance(stockCode),
                     () => this.tryFinancialModelingPrep(stockCode),
@@ -2765,16 +2964,16 @@ service cloud.firestore {
                 for (let i = 0; i < apis.length; i++) {
                     try {
                         // 更新狀態顯示嘗試次數
-                        this.updateStockStatus(assetId, 'updating', `第 ${i + 1} 次嘗試 (API ${i + 1}/${apis.length})`);
+                        this.updateStockStatus(assetId, 'updating', `第 ${i + 1} 次嘗試 (備用 API ${i + 1}/${apis.length})`);
                         
-                        console.log(`嘗試 API ${i + 1}/${apis.length}`);
+                        console.log(`嘗試備用 API ${i + 1}/${apis.length}`);
                         const result = await apis[i]();
                         if (result) {
-                            console.log(`✅ API ${i + 1} 成功: ${stockCode} = ${result.price} ${result.currency}`);
+                            console.log(`✅ 備用 API ${i + 1} 成功: ${stockCode} = ${result.price} ${result.currency}`);
                             return result;
                         }
                     } catch (error) {
-                        console.warn(`❌ API ${i + 1} 失敗:`, error.message);
+                        console.warn(`❌ 備用 API ${i + 1} 失敗:`, error.message);
                         if (i === apis.length - 1) {
                             throw new Error(`所有 API 都失敗: ${error.message}`);
                         }
