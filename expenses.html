@@ -367,6 +367,42 @@
         </div>
     </div>
 
+    <!-- 更新股票資料 Loading 模態框 -->
+    <div id="updateStocksLoadingModal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>📈 更新股票資料</h2>
+                <span class="close" onclick="expenseTracker.hideUpdateStocksLoading()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="loading-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="updateProgressFill"></div>
+                    </div>
+                    <div class="progress-text" id="updateProgressText">準備中...</div>
+                </div>
+                
+                <div class="stocks-update-list" id="stocksUpdateList">
+                    <!-- 股票更新狀態將在這裡動態生成 -->
+                </div>
+                
+                <div class="update-summary" id="updateSummary" style="display: none;">
+                    <h3>更新結果</h3>
+                    <div class="summary-stats">
+                        <div class="stat-item success">
+                            <span class="label">成功</span>
+                            <span class="count" id="successCount">0</span>
+                        </div>
+                        <div class="stat-item fail">
+                            <span class="label">失敗</span>
+                            <span class="count" id="failCount">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 資產組合管理模態框 -->
     <div id="assetPortfolioModal" class="modal">
         <div class="modal-content" style="max-width: 1200px;">
@@ -493,7 +529,7 @@
                         <label for="assetCurrentPrice">當前價格 (選填)</label>
                         <input type="number" id="assetCurrentPrice" step="0.0001" placeholder="例如：160.00">
                         <button type="button" id="fetchCurrentPriceBtn" onclick="expenseTracker.fetchCurrentStockPrice()" style="margin-left: 10px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                            📈 取得最新價格
+                            📈 
                         </button>
                         <small style="color: #666; font-size: 12px;">
                             留空將使用購買價格計算價值
@@ -2454,19 +2490,11 @@ service cloud.firestore {
                     return;
                 }
                 
-                const updateBtn = document.getElementById('updateAllStocksBtn');
-                let originalButtonContent = '';
-                if (updateBtn) {
-                    originalButtonContent = updateBtn.innerHTML;
-                    updateBtn.disabled = true;
-                    updateBtn.innerHTML = '🔄 更新中...';
-                    updateBtn.style.opacity = '0.6';
-                    updateBtn.style.cursor = 'not-allowed';
-                }
+                // 顯示 loading 模態框
+                this.showUpdateStocksLoading(stockAssets);
                 
                 let successCount = 0;
                 let failCount = 0;
-                const results = [];
                 
                 try {
                     console.log(`🔄 開始批量更新 ${stockAssets.length} 支股票...`);
@@ -2474,10 +2502,12 @@ service cloud.firestore {
                     for (let i = 0; i < stockAssets.length; i++) {
                         const asset = stockAssets[i];
                         
-                        // 更新按鈕顯示進度
-                        if (updateBtn) {
-                            updateBtn.innerHTML = `🔄 更新中... (${i + 1}/${stockAssets.length})`;
-                        }
+                        // 更新進度條
+                        const progress = ((i + 1) / stockAssets.length) * 100;
+                        this.updateProgress(progress, `正在更新 ${asset.name} (${asset.stockCode})...`);
+                        
+                        // 更新股票狀態為「更新中」
+                        this.updateStockStatus(asset.id, 'updating', `第 ${i + 1} 次嘗試...`);
                         
                         try {
                             console.log(`🔄 正在更新 ${asset.stockCode} (${asset.name})...`);
@@ -2493,12 +2523,12 @@ service cloud.firestore {
                             });
                             
                             successCount++;
-                            results.push(`✅ ${asset.stockCode} (${asset.name}): ${stockData.price.toFixed(2)} ${stockData.currency}`);
+                            this.updateStockStatus(asset.id, 'success', `成功: ${stockData.price.toFixed(2)} ${stockData.currency}`);
                             console.log(`✅ 更新 ${asset.stockCode} 成功`);
                             
                         } catch (error) {
                             failCount++;
-                            results.push(`❌ ${asset.stockCode} (${asset.name}): ${error.message}`);
+                            this.updateStockStatus(asset.id, 'fail', `失敗: ${error.message}`);
                             console.error(`❌ 更新 ${asset.stockCode} 失敗:`, error.message);
                         }
                         
@@ -2508,24 +2538,98 @@ service cloud.firestore {
                         }
                     }
                     
+                    // 更新完成
+                    this.updateProgress(100, '更新完成！');
+                    this.showUpdateSummary(successCount, failCount);
+                    
                     // 重新載入資產
                     await this.loadAssets();
                     
-                    // 顯示結果
-                    const resultMessage = `更新完成！\n成功: ${successCount} 支\n失敗: ${failCount} 支\n\n詳細結果:\n${results.join('\n')}`;
-                    alert(resultMessage);
-                    
                 } catch (error) {
                     console.error('❌ 批量更新失敗:', error);
-                    alert(`批量更新失敗: ${error.message}`);
-                } finally {
-                    // 恢復按鈕狀態
-                    if (updateBtn) {
-                        updateBtn.disabled = false;
-                        updateBtn.innerHTML = originalButtonContent;
-                        updateBtn.style.opacity = '1';
-                        updateBtn.style.cursor = 'pointer';
-                    }
+                    this.updateProgress(0, '更新失敗');
+                }
+            }
+
+            // 顯示更新股票資料 Loading 模態框
+            showUpdateStocksLoading(stockAssets) {
+                const modal = document.getElementById('updateStocksLoadingModal');
+                if (!modal) return;
+                
+                // 重置狀態
+                document.getElementById('updateProgressFill').style.width = '0%';
+                document.getElementById('updateProgressText').textContent = '準備中...';
+                document.getElementById('updateSummary').style.display = 'none';
+                
+                // 生成股票列表
+                const stocksList = document.getElementById('stocksUpdateList');
+                stocksList.innerHTML = stockAssets.map(asset => `
+                    <div class="stock-update-item" id="stock-${asset.id}">
+                        <div class="stock-info">
+                            <div class="stock-name">${asset.name}</div>
+                            <div class="stock-code">${asset.stockCode}</div>
+                        </div>
+                        <div class="update-status status-updating">等待中...</div>
+                    </div>
+                `).join('');
+                
+                modal.style.display = 'block';
+            }
+
+            // 隱藏更新股票資料 Loading 模態框
+            hideUpdateStocksLoading() {
+                const modal = document.getElementById('updateStocksLoadingModal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+            }
+
+            // 更新進度條
+            updateProgress(percentage, text) {
+                const progressFill = document.getElementById('updateProgressFill');
+                const progressText = document.getElementById('updateProgressText');
+                
+                if (progressFill) {
+                    progressFill.style.width = `${percentage}%`;
+                }
+                if (progressText) {
+                    progressText.textContent = text;
+                }
+            }
+
+            // 更新股票狀態
+            updateStockStatus(assetId, status, message) {
+                const stockItem = document.getElementById(`stock-${assetId}`);
+                if (!stockItem) return;
+                
+                // 移除所有狀態類別
+                stockItem.classList.remove('updating', 'success', 'fail');
+                
+                // 添加新的狀態類別
+                stockItem.classList.add(status);
+                
+                // 更新狀態文字
+                const statusElement = stockItem.querySelector('.update-status');
+                if (statusElement) {
+                    statusElement.textContent = message;
+                    statusElement.className = `update-status status-${status}`;
+                }
+            }
+
+            // 顯示更新摘要
+            showUpdateSummary(successCount, failCount) {
+                const summary = document.getElementById('updateSummary');
+                const successCountEl = document.getElementById('successCount');
+                const failCountEl = document.getElementById('failCount');
+                
+                if (summary) {
+                    summary.style.display = 'block';
+                }
+                if (successCountEl) {
+                    successCountEl.textContent = successCount;
+                }
+                if (failCountEl) {
+                    failCountEl.textContent = failCount;
                 }
             }
 
