@@ -1841,11 +1841,11 @@ service cloud.firestore {
                             <td class="operation-cell">
                                 <div class="btn-group">
                                     <button onclick="expenseTracker.editAsset('${asset.id}')" class="btn-edit" title="編輯">✏️</button>
+                                    <button onclick="expenseTracker.deleteAsset('${asset.id}')" class="btn-delete" title="刪除">🗑️</button>
                                     ${asset.type === '股票' && asset.stockCode ? 
                                         `<button onclick="expenseTracker.updateCurrentPrice('${asset.id}')" class="btn-update" title="取得最新價格" data-update-price="${asset.id}">📈 取得最新價格</button>` : 
                                         ''
                                     }
-                                    <button onclick="expenseTracker.deleteAsset('${asset.id}')" class="btn-delete" title="刪除">🗑️</button>
                                 </div>
                             </td>
                         </tr>
