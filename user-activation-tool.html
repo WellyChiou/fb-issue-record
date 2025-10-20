@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用戶啟用管理工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .section {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .success { background-color: #d4edda; }
+        .error { background-color: #f8d7da; }
+        .warning { background-color: #fff3cd; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        button.danger { background: #dc3545; }
+        button.danger:hover { background: #c82333; }
+        button.success { background: #28a745; }
+        button.success:hover { background: #218838; }
+        #log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .user-info {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>用戶啟用管理工具</h1>
+    
+    <div class="section warning">
+        <h3>⚠️ 重要說明</h3>
+        <p>這個工具用來啟用家庭記帳系統的用戶。只有啟用的用戶才能使用系統功能。</p>
+        <p>請先登入，然後使用下方功能來啟用您的帳號。</p>
+    </div>
+    
+    <div class="section">
+        <h3>登入/登出</h3>
+        <button id="loginBtn" onclick="loginWithGoogle()" class="success">使用 Google 登入</button>
+        <button id="logoutBtn" onclick="logout()" class="danger" style="display: none;">登出</button>
+        <div id="userInfo" style="margin-top: 10px; display: none;">
+            <div class="user-info">
+                <strong>已登入用戶：</strong><span id="userEmail"></span><br>
+                <strong>用戶 ID：</strong><span id="userId"></span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="section">
+        <h3>用戶管理操作</h3>
+        <button onclick="checkUserStatus()">1. 檢查用戶狀態</button>
+        <button onclick="activateUser()" class="success">2. 啟用當前用戶</button>
+        <button onclick="deactivateUser()" class="danger">3. 停用當前用戶</button>
+        <button onclick="createUserProfile()">4. 創建用戶資料</button>
+        <button onclick="clearLog()">清除日誌</button>
+    </div>
+    
+    <div class="section">
+        <h3>操作日誌</h3>
+        <div id="log"></div>
+    </div>
+
+    <!-- Firebase SDK (Compat 版本) -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        // Firebase 配置
+        const firebaseConfig = {
+            apiKey: "AIzaSyDfHs1XXsCXGMSVF3NFJUtFMcslTzTd-EU",
+            authDomain: "expenses-91280.firebaseapp.com",
+            projectId: "expenses-91280",
+            storageBucket: "expenses-91280.firebasestorage.app",
+            messagingSenderId: "777956465315",
+            appId: "1:777956465315:web:04f85f2b22f2468eb2fd16",
+            measurementId: "G-1LE7YTKHGT"
+        };
+
+        // 初始化 Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        
+        let currentUser = null;
+        
+        // 監聽認證狀態
+        auth.onAuthStateChanged((user) => {
+            currentUser = user;
+            const loginBtn = document.getElementById('loginBtn');
+            const logoutBtn = document.getElementById('logoutBtn');
+            const userInfo = document.getElementById('userInfo');
+            const userEmail = document.getElementById('userEmail');
+            const userId = document.getElementById('userId');
+            
+            if (user) {
+                log(`✅ 用戶已登入: ${user.email} (${user.uid})`, 'success');
+                loginBtn.style.display = 'none';
+                logoutBtn.style.display = 'inline-block';
+                userInfo.style.display = 'block';
+                userEmail.textContent = user.email;
+                userId.textContent = user.uid;
+            } else {
+                log('❌ 用戶未登入', 'error');
+                loginBtn.style.display = 'inline-block';
+                logoutBtn.style.display = 'none';
+                userInfo.style.display = 'none';
+            }
+        });
+        
+        // 日誌函數
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}\n`;
+            logDiv.textContent += logEntry;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            
+            // 更新測試區域的樣式
+            const testSection = document.querySelector('.section:last-of-type');
+            if (type === 'success') {
+                testSection.classList.add('success');
+            } else if (type === 'error') {
+                testSection.classList.add('error');
+            }
+        }
+        
+        // Google 登入
+        async function loginWithGoogle() {
+            try {
+                log('開始 Google 登入...');
+                const provider = new firebase.auth.GoogleAuthProvider();
+                const result = await auth.signInWithPopup(provider);
+                log(`✅ Google 登入成功: ${result.user.email}`, 'success');
+            } catch (error) {
+                log(`❌ Google 登入失敗: ${error.message}`, 'error');
+            }
+        }
+        
+        // 登出
+        async function logout() {
+            try {
+                log('開始登出...');
+                await auth.signOut();
+                log('✅ 登出成功', 'success');
+            } catch (error) {
+                log(`❌ 登出失敗: ${error.message}`, 'error');
+            }
+        }
+        
+        // 檢查用戶狀態
+        async function checkUserStatus() {
+            if (!currentUser) {
+                log('❌ 請先登入', 'error');
+                return;
+            }
+            
+            log('檢查用戶狀態...');
+            
+            try {
+                const userRef = db.collection('users').doc(currentUser.uid);
+                const userDoc = await userRef.get();
+                
+                if (userDoc.exists) {
+                    const userData = userDoc.data();
+                    log('✅ 找到用戶資料:', 'success');
+                    log(`- Email: ${userData.email}`);
+                    log(`- Display Name: ${userData.displayName}`);
+                    log(`- isActive: ${userData.isActive}`);
+                    log(`- Created At: ${userData.createdAt?.toDate?.() || 'N/A'}`);
+                    log(`- Last Login: ${userData.lastLoginAt?.toDate?.() || 'N/A'}`);
+                } else {
+                    log('❌ 用戶資料不存在', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ 檢查用戶狀態失敗: ${error.message}`, 'error');
+            }
+        }
+        
+        // 啟用用戶
+        async function activateUser() {
+            if (!currentUser) {
+                log('❌ 請先登入', 'error');
+                return;
+            }
+            
+            log('開始啟用用戶...');
+            
+            try {
+                const userRef = db.collection('users').doc(currentUser.uid);
+                
+                // 先檢查用戶是否存在
+                const userDoc = await userRef.get();
+                
+                if (userDoc.exists) {
+                    // 更新現有用戶
+                    await userRef.update({
+                        isActive: true,
+                        activatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    log('✅ 用戶已啟用！', 'success');
+                } else {
+                    // 創建新用戶並啟用
+                    await userRef.set({
+                        uid: currentUser.uid,
+                        email: currentUser.email,
+                        displayName: currentUser.displayName,
+                        photoURL: currentUser.photoURL,
+                        providerId: currentUser.providerData?.[0]?.providerId,
+                        isActive: true,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        activatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    log('✅ 新用戶已創建並啟用！', 'success');
+                }
+                
+            } catch (error) {
+                log(`❌ 啟用用戶失敗: ${error.message}`, 'error');
+            }
+        }
+        
+        // 停用用戶
+        async function deactivateUser() {
+            if (!currentUser) {
+                log('❌ 請先登入', 'error');
+                return;
+            }
+            
+            log('開始停用用戶...');
+            
+            try {
+                const userRef = db.collection('users').doc(currentUser.uid);
+                await userRef.update({
+                    isActive: false,
+                    deactivatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                log('✅ 用戶已停用！', 'success');
+            } catch (error) {
+                log(`❌ 停用用戶失敗: ${error.message}`, 'error');
+            }
+        }
+        
+        // 創建用戶資料
+        async function createUserProfile() {
+            if (!currentUser) {
+                log('❌ 請先登入', 'error');
+                return;
+            }
+            
+            log('開始創建用戶資料...');
+            
+            try {
+                const userRef = db.collection('users').doc(currentUser.uid);
+                
+                const userData = {
+                    uid: currentUser.uid,
+                    email: currentUser.email,
+                    displayName: currentUser.displayName,
+                    photoURL: currentUser.photoURL,
+                    providerId: currentUser.providerData?.[0]?.providerId,
+                    isActive: false, // 預設不啟用
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                
+                await userRef.set(userData, { merge: true });
+                log('✅ 用戶資料已創建！', 'success');
+                log('注意：用戶預設為未啟用狀態，請使用「啟用當前用戶」功能來啟用。');
+                
+            } catch (error) {
+                log(`❌ 創建用戶資料失敗: ${error.message}`, 'error');
+            }
+        }
+        
+        // 清除日誌
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+            const testSection = document.querySelector('.section:last-of-type');
+            testSection.classList.remove('success', 'error');
+        }
+        
+        log('用戶啟用管理工具已載入，請先登入...');
+    </script>
+</body>
+</html>
