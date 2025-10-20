@@ -413,6 +413,14 @@
                             <span class="label">總資產價值 (台幣)</span>
                             <span class="amount" id="portfolioTotalValue">$0</span>
                         </div>
+                        <div class="summary-item">
+                            <span class="label">總成本 (台幣)</span>
+                            <span class="amount" id="portfolioTotalCost">$0</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="label">總損益價值 (台幣)</span>
+                            <span class="amount" id="portfolioTotalProfitLoss">$0</span>
+                        </div>
                     </div>
                     
                     <div class="assets-table">
@@ -2064,13 +2072,39 @@ service cloud.firestore {
             }
             
             updatePortfolioSummary() {
-                const totalValue = this.assets.reduce((sum, asset) => {
-                    const currentPrice = asset.currentPrice || asset.purchasePrice || asset.unitPrice || 1;
-                    const currentValue = asset.quantity * currentPrice;
-                    return sum + this.convertToTWD(currentValue, asset.currency);
-                }, 0);
+                let totalValue = 0;
+                let totalCost = 0;
                 
+                this.assets.forEach(asset => {
+                    const quantity = parseFloat(asset.quantity) || 0;
+                    const purchasePrice = parseFloat(asset.purchasePrice) || parseFloat(asset.unitPrice) || 0;
+                    const currentPrice = parseFloat(asset.currentPrice) || purchasePrice;
+                    
+                    // 計算成本（台幣）
+                    const cost = quantity * purchasePrice;
+                    const costTWD = this.convertToTWD(cost, asset.currency);
+                    totalCost += costTWD;
+                    
+                    // 計算當前價值（台幣）
+                    const currentValue = quantity * currentPrice;
+                    const currentValueTWD = this.convertToTWD(currentValue, asset.currency);
+                    totalValue += currentValueTWD;
+                });
+                
+                // 計算總損益
+                const totalProfitLoss = totalValue - totalCost;
+                
+                // 更新顯示
                 document.getElementById('portfolioTotalValue').textContent = '$' + this.formatNumber(totalValue);
+                document.getElementById('portfolioTotalCost').textContent = '$' + this.formatNumber(totalCost);
+                
+                // 損益顯示（正數顯示綠色，負數顯示紅色）
+                const profitLossElement = document.getElementById('portfolioTotalProfitLoss');
+                if (profitLossElement) {
+                    const sign = totalProfitLoss >= 0 ? '+' : '';
+                    profitLossElement.textContent = sign + '$' + this.formatNumber(Math.abs(totalProfitLoss));
+                    profitLossElement.className = totalProfitLoss >= 0 ? 'amount profit' : 'amount loss';
+                }
                 
                 // 更新標題中的資產項目數
                 const assetCountDisplay = document.getElementById('assetCountDisplay');

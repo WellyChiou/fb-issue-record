@@ -1053,7 +1053,7 @@ button:hover {
     box-shadow: none !important;
 }
 
-/* 更新股票資料 Loading 樣式 */
+/* 更新股價 Loading 樣式 */
 #updateStocksLoadingModal {
     z-index: 2000 !important;
 }
@@ -1208,4 +1208,53 @@ button:hover {
 
 .stat-item.fail .count {
     color: #721c24;
+}
+
+/* 資產表格拖拉排序樣式 */
+.draggable-row {
+    cursor: move !important;
+    transition: all 0.2s ease !important;
+}
+
+.draggable-row:hover {
+    background-color: rgba(0, 123, 255, 0.05) !important;
+}
+
+.draggable-row.dragging {
+    opacity: 0.5 !important;
+    transform: rotate(2deg) !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2) !important;
+    z-index: 1000 !important;
+}
+
+.drag-handle {
+    cursor: grab !important;
+    color: #666 !important;
+    font-size: 16px !important;
+    margin-right: 8px !important;
+    padding: 4px 6px !important;
+    border-radius: 4px !important;
+    background-color: rgba(0, 0, 0, 0.1) !important;
+    display: inline-block !important;
+    line-height: 1 !important;
+    user-select: none !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    min-width: 20px !important;
+    text-align: center !important;
+    pointer-events: auto !important;
+}
+
+.drag-handle:hover {
+    background-color: rgba(0, 123, 255, 0.1) !important;
+    color: #007bff !important;
+}
+
+.drag-handle:active {
+    cursor: grabbing !important;
+}
+
+/* 拖拉時的視覺反饋 */
+.draggable-row.drag-over {
+    border-top: 2px solid #007bff !important;
+    background-color: rgba(0, 123, 255, 0.1) !important;
 }
