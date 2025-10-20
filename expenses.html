@@ -773,10 +773,9 @@ service cloud.firestore {
                     console.log('開始從 Firebase 載入記錄...');
                     const recordsRef = window.firebaseCollection(window.firebaseDb, 'records');
                     
-                    // 使用 Firebase 原生查詢和排序（需要複合索引）
+                    // 使用 Firebase 原生查詢和排序（載入所有用戶的記錄）
                     const q = window.firebaseQuery(
                         recordsRef,
-                        window.firebaseWhere('userId', '==', this.currentUser.uid),
                         window.firebaseOrderBy('date', 'desc')
                     );
                     
@@ -797,7 +796,7 @@ service cloud.firestore {
                         });
                     });
                     
-                    console.log(`從 Firebase 載入了 ${this.records.length} 筆記錄（已按日期降序排列）`);
+                    console.log(`從 Firebase 載入了 ${this.records.length} 筆記錄（所有用戶，已按日期降序排列）`);
                     this.updateDisplay();
                 } catch (error) {
                     console.error('從 Firebase 載入記錄失敗:', error);
