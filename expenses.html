@@ -458,8 +458,8 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="assetQuantity">數量/金額</label>
-                        <input type="number" id="assetQuantity" step="0.0001" required placeholder="例如：100">
+                        <label for="assetQuantity">股數/數量</label>
+                        <input type="number" id="assetQuantity" step="0.0001" required placeholder="例如：1000">
                     </div>
                     
                     <div class="form-group">
@@ -474,10 +474,18 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="assetUnitPrice">購買單價</label>
-                        <input type="number" id="assetUnitPrice" step="0.0001" placeholder="例如：150.00" required>
+                        <label for="assetCost">總成本</label>
+                        <input type="number" id="assetCost" step="0.01" placeholder="例如：100000" required>
                         <small style="color: #666; font-size: 12px;">
-                            股票/基金：每股/每單位購買價格 | 存款：填 1 | 不動產：每坪價格
+                            實際投入的總金額（包含手續費等）
+                        </small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="assetUnitPrice">購買單價（自動計算）</label>
+                        <input type="number" id="assetUnitPrice" step="0.0001" readonly placeholder="自動計算">
+                        <small style="color: #666; font-size: 12px;">
+                            購買單價 = 總成本 ÷ 股數
                         </small>
                     </div>
                     
@@ -1715,6 +1723,22 @@ service cloud.firestore {
             
             // ========== 資產組合管理功能 ==========
             
+            // 自動計算購買單價
+            calculateUnitPrice() {
+                const quantity = parseFloat(document.getElementById('assetQuantity').value) || 0;
+                const cost = parseFloat(document.getElementById('assetCost').value) || 0;
+                const unitPriceInput = document.getElementById('assetUnitPrice');
+                
+                if (quantity > 0 && cost > 0) {
+                    const unitPrice = cost / quantity;
+                    unitPriceInput.value = unitPrice.toFixed(4);
+                    unitPriceInput.style.backgroundColor = '#f0f8ff';
+                } else {
+                    unitPriceInput.value = '';
+                    unitPriceInput.style.backgroundColor = '';
+                }
+            }
+            
             showAssetPortfolio() {
                 console.log('顯示資產組合管理');
                 const modal = document.getElementById('assetPortfolioModal');
@@ -1923,6 +1947,12 @@ service cloud.firestore {
                         submitBtn.textContent = '新增資產';
                     }
                     
+                    // 重置購買單價欄位樣式
+                    const unitPriceInput = document.getElementById('assetUnitPrice');
+                    if (unitPriceInput) {
+                        unitPriceInput.style.backgroundColor = '';
+                    }
+                    
                     // 隱藏所有動態欄位
                     document.getElementById('currentPriceGroup').style.display = 'none';
                     document.getElementById('purchaseDateGroup').style.display = 'none';
@@ -1937,6 +1967,7 @@ service cloud.firestore {
                     type: document.getElementById('assetType').value,
                     quantity: parseFloat(document.getElementById('assetQuantity').value),
                     currency: document.getElementById('assetCurrency').value,
+                    cost: parseFloat(document.getElementById('assetCost').value), // 新增總成本欄位
                     purchasePrice: parseFloat(document.getElementById('assetUnitPrice').value) || 1,
                     currentPrice: parseFloat(document.getElementById('assetCurrentPrice').value) || null,
                     purchaseDate: document.getElementById('assetPurchaseDate').value || null,
@@ -2004,6 +2035,7 @@ service cloud.firestore {
                 document.getElementById('assetType').value = asset.type || '';
                 document.getElementById('assetQuantity').value = asset.quantity || '';
                 document.getElementById('assetCurrency').value = asset.currency || 'TWD';
+                document.getElementById('assetCost').value = asset.cost || (asset.purchasePrice * asset.quantity) || '';
                 document.getElementById('assetUnitPrice').value = asset.purchasePrice || asset.unitPrice || '';
                 document.getElementById('assetCurrentPrice').value = asset.currentPrice || '';
                 document.getElementById('assetPurchaseDate').value = asset.purchaseDate || '';
@@ -3013,6 +3045,10 @@ service cloud.firestore {
                     e.preventDefault();
                     this.addAsset();
                 });
+                
+                // 監聽股數和總成本變更，自動計算購買單價
+                document.getElementById('assetQuantity').addEventListener('input', this.calculateUnitPrice.bind(this));
+                document.getElementById('assetCost').addEventListener('input', this.calculateUnitPrice.bind(this));
                 
                 // 幣別選擇變化時顯示/隱藏匯率欄位
                 document.getElementById('currency').addEventListener('change', async (e) => {
