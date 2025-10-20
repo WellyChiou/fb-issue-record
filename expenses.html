@@ -398,6 +398,7 @@
                         <table>
                             <thead>
                                 <tr>
+                                    <th>取得最新價格</th>
                                     <th>資產名稱</th>
                                     <th>股票代碼</th>
                                     <th>類型</th>
@@ -1852,6 +1853,12 @@ service cloud.firestore {
                     
                     return `
                         <tr>
+                            <td class="operation-cell">
+                                ${asset.type === '股票' && asset.stockCode ? 
+                                    `<button onclick="expenseTracker.updateCurrentPrice('${asset.id}')" class="btn-update" title="取得最新價格" data-update-price="${asset.id}">📈 取得最新價格</button>` : 
+                                    '<span style="color: #999;">-</span>'
+                                }
+                            </td>
                             <td>${asset.name}</td>
                             <td>${asset.stockCode || '-'}</td>
                             <td>${asset.type}</td>
@@ -1866,10 +1873,6 @@ service cloud.firestore {
                                 <div class="btn-group">
                                     <button onclick="expenseTracker.editAsset('${asset.id}')" class="btn-edit" title="編輯">✏️</button>
                                     <button onclick="expenseTracker.deleteAsset('${asset.id}')" class="btn-delete" title="刪除">🗑️</button>
-                                    ${asset.type === '股票' && asset.stockCode ? 
-                                        `<button onclick="expenseTracker.updateCurrentPrice('${asset.id}')" class="btn-update" title="取得最新價格" data-update-price="${asset.id}">📈 取得最新價格</button>` : 
-                                        ''
-                                    }
                                 </div>
                             </td>
                         </tr>
@@ -1881,7 +1884,9 @@ service cloud.firestore {
             
             updatePortfolioSummary() {
                 const totalValue = this.assets.reduce((sum, asset) => {
-                    return sum + this.convertToTWD(asset.quantity, asset.currency, asset.unitPrice);
+                    const currentPrice = asset.currentPrice || asset.purchasePrice || asset.unitPrice || 1;
+                    const currentValue = asset.quantity * currentPrice;
+                    return sum + this.convertToTWD(currentValue, asset.currency);
                 }, 0);
                 
                 document.getElementById('portfolioTotalValue').textContent = '$' + this.formatNumber(totalValue);
