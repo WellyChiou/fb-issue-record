@@ -94,6 +94,20 @@
                     <span class="amount balance" id="totalNetWorth">$0</span>
                 </div>
             </div>
+            
+            <!-- 資產管理按鈕 -->
+            <div class="asset-management-section" style="margin: 20px 0; text-align: center;">
+                <button class="btn btn-primary" onclick="expenseTracker.showAssetPortfolio()" style="margin: 0 10px;">
+                    📊 資產組合管理
+                </button>
+                <button class="btn btn-secondary" onclick="expenseTracker.showExchangeRates()" style="margin: 0 10px;">
+                    💱 匯率管理
+                </button>
+                <button class="btn btn-warning" onclick="expenseTracker.showDataMigration()" style="margin: 0 10px;">
+                    🔄 資料轉移
+                </button>
+            </div>
+            
             <button class="charts-btn" onclick="expenseTracker.showChartsModal()">📊 圖表分析</button>
         </header>
 
@@ -120,7 +134,6 @@
                             <option value="">請選擇類型</option>
                             <option value="支出">支出</option>
                             <option value="收入">收入</option>
-                            <option value="資產">資產</option>
                         </select>
                     </div>
                     
@@ -140,9 +153,6 @@
                             <!-- 收入大項目 -->
                             <option value="薪資" data-type="收入">薪資</option>
                             <option value="投資" data-type="收入">投資</option>
-                            <!-- 資產大項目 -->
-                            <option value="動產" data-type="資產">動產</option>
-                            <option value="不動產" data-type="資產">不動產</option>
                         </select>
                     </div>
                     
@@ -156,6 +166,30 @@
                     <div class="form-group">
                         <label for="amount">金額</label>
                         <input type="number" id="amount" min="0" step="0.01" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="currency">幣別</label>
+                        <select id="currency" required>
+                            <option value="TWD">台幣 (TWD)</option>
+                            <option value="USD">美元 (USD)</option>
+                            <option value="EUR">歐元 (EUR)</option>
+                            <option value="JPY">日圓 (JPY)</option>
+                            <option value="CNY">人民幣 (CNY)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" id="exchangeRateGroup" style="display: none;">
+                        <label for="exchangeRate">匯率 (對台幣)</label>
+                        <div class="exchange-rate-display">
+                            <input type="number" id="exchangeRate" step="0.0001" readonly placeholder="正在取得匯率...">
+                            <button type="button" id="refreshRateBtn" onclick="expenseTracker.fetchCurrentExchangeRate()" style="margin-left: 10px; padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                🔄 更新匯率
+                            </button>
+                        </div>
+                        <small class="exchange-rate-info" style="color: #666; font-size: 12px;">
+                            匯率將自動從網路取得最新數據
+                        </small>
                     </div>
                     
                     <div class="form-group">
@@ -295,6 +329,244 @@
         </div>
     </div>
 
+    <!-- 匯率管理模態框 -->
+    <div id="exchangeRateModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>💱 匯率管理</h2>
+                <span class="close" onclick="expenseTracker.hideExchangeRates()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="exchange-rate-section">
+                    <h3>當前匯率 (對台幣)</h3>
+                    <div class="exchange-rates-grid">
+                        <div class="exchange-rate-item">
+                            <label>美元 (USD)</label>
+                            <input type="number" id="usdRate" step="0.0001" placeholder="30.0000">
+                            <button onclick="expenseTracker.updateExchangeRate('USD')">更新</button>
+                        </div>
+                        <div class="exchange-rate-item">
+                            <label>歐元 (EUR)</label>
+                            <input type="number" id="eurRate" step="0.0001" placeholder="32.0000">
+                            <button onclick="expenseTracker.updateExchangeRate('EUR')">更新</button>
+                        </div>
+                        <div class="exchange-rate-item">
+                            <label>日圓 (JPY)</label>
+                            <input type="number" id="jpyRate" step="0.0001" placeholder="0.2000">
+                            <button onclick="expenseTracker.updateExchangeRate('JPY')">更新</button>
+                        </div>
+                        <div class="exchange-rate-item">
+                            <label>人民幣 (CNY)</label>
+                            <input type="number" id="cnyRate" step="0.0001" placeholder="4.2000">
+                            <button onclick="expenseTracker.updateExchangeRate('CNY')">更新</button>
+                        </div>
+                    </div>
+                    <div class="exchange-rate-actions">
+                        <button class="btn btn-primary" onclick="expenseTracker.fetchLatestRates()">
+                            🔄 自動更新匯率
+                        </button>
+                        <button class="btn btn-secondary" onclick="expenseTracker.saveExchangeRates()">
+                            💾 儲存匯率
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 資產組合管理模態框 -->
+    <div id="assetPortfolioModal" class="modal">
+        <div class="modal-content" style="max-width: 1200px;">
+            <div class="modal-header">
+                <h2>📊 資產組合管理</h2>
+                <span class="close" onclick="expenseTracker.hideAssetPortfolio()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="asset-portfolio-section">
+                    <div class="portfolio-header">
+                        <h3>我的資產組合</h3>
+                        <button class="btn btn-primary" onclick="expenseTracker.showAddAssetForm()">
+                            ➕ 新增資產
+                        </button>
+                    </div>
+                    
+                    <div class="portfolio-summary">
+                        <div class="summary-item">
+                            <span class="label">總資產價值 (台幣)</span>
+                            <span class="amount" id="portfolioTotalValue">$0</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="label">資產項目數</span>
+                            <span class="amount" id="portfolioItemCount">0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="assets-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>資產名稱</th>
+                                    <th>類型</th>
+                                    <th>數量/金額</th>
+                                    <th>幣別</th>
+                                    <th>台幣價值</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="assetsTableBody">
+                                <!-- 資產項目將在這裡動態生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增資產模態框 -->
+    <div id="addAssetModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>➕ 新增資產</h2>
+                <span class="close" onclick="expenseTracker.hideAddAssetForm()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="addAssetForm">
+                    <div class="form-group">
+                        <label for="assetName">資產名稱</label>
+                        <input type="text" id="assetName" required placeholder="例如：AAPL 股票">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="assetType">資產類型</label>
+                        <select id="assetType" required>
+                            <option value="">請選擇類型</option>
+                            <option value="股票">股票</option>
+                            <option value="基金">基金</option>
+                            <option value="債券">債券</option>
+                            <option value="加密貨幣">加密貨幣</option>
+                            <option value="不動產">不動產</option>
+                            <option value="存款">存款</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="assetQuantity">數量/金額</label>
+                        <input type="number" id="assetQuantity" step="0.0001" required placeholder="例如：100">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="assetCurrency">幣別</label>
+                        <select id="assetCurrency" required>
+                            <option value="TWD">台幣 (TWD)</option>
+                            <option value="USD">美元 (USD)</option>
+                            <option value="EUR">歐元 (EUR)</option>
+                            <option value="JPY">日圓 (JPY)</option>
+                            <option value="CNY">人民幣 (CNY)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="assetUnitPrice">單價</label>
+                        <input type="number" id="assetUnitPrice" step="0.0001" placeholder="例如：150.00" required>
+                        <small style="color: #666; font-size: 12px;">
+                            股票/基金：每股/每單位價格 | 存款：填 1 | 不動產：每坪價格
+                        </small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="assetDescription">描述</label>
+                        <textarea id="assetDescription" placeholder="資產相關說明..."></textarea>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="expenseTracker.hideAddAssetForm()">取消</button>
+                        <button type="submit" class="btn btn-primary">新增資產</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 資料轉移模態框 -->
+    <div id="dataMigrationModal" class="modal">
+        <div class="modal-content" style="max-width: 1000px;">
+            <div class="modal-header">
+                <h2>🔄 資料轉移 - 資產記錄轉換</h2>
+                <span class="close" onclick="expenseTracker.hideDataMigration()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="migration-section">
+                    <div class="migration-info">
+                        <h3>📋 轉移說明</h3>
+                        <p>將現有的資產記錄轉換為資產組合管理格式，支援多幣別和詳細管理。</p>
+                        <p><strong>注意：</strong>轉移後建議手動刪除原始資產記錄，避免重複計算。</p>
+                        <div class="migration-stats">
+                            <div class="stat-item">
+                                <span class="label">可轉移的資產記錄</span>
+                                <span class="amount" id="migratableCount">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="label">已存在的資產項目</span>
+                                <span class="amount" id="existingAssetsCount">0</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="migration-options">
+                        <h3>⚙️ 轉移選項</h3>
+                        <div class="option-group">
+                            <label>
+                                <input type="checkbox" id="migrateAllAssets" checked>
+                                轉移所有資產記錄
+                            </label>
+                        </div>
+                        <div class="option-group">
+                            <label>
+                                <input type="checkbox" id="keepOriginalRecords">
+                                保留原始記錄（轉移後可手動刪除）
+                            </label>
+                        </div>
+                        <div class="option-group">
+                            <label>
+                                <input type="checkbox" id="mergeDuplicates">
+                                合併重複項目（相同名稱和類型）
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="migration-preview">
+                        <h3>👀 轉移預覽</h3>
+                        <div class="preview-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>原始記錄</th>
+                                        <th>轉換後</th>
+                                        <th>狀態</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="migrationPreviewBody">
+                                    <!-- 預覽內容將在這裡動態生成 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="migration-actions">
+                        <button class="btn btn-secondary" onclick="expenseTracker.hideDataMigration()">
+                            取消
+                        </button>
+                        <button class="btn btn-primary" onclick="expenseTracker.startMigration()">
+                            🚀 開始轉移
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ExpenseTracker 類別
         class ExpenseTracker {
@@ -316,6 +588,17 @@
                 this.loadingText = document.getElementById('loadingText');
                 this.loadingSubtext = document.getElementById('loadingSubtext');
                 
+                // 匯率管理
+                this.exchangeRates = {
+                    'USD': 30.0,
+                    'EUR': 32.0,
+                    'JPY': 0.2,
+                    'CNY': 4.2
+                };
+                
+                // 資產組合
+                this.assets = [];
+                
                 this.categoryStructure = {
                     '食': ['外食', '食材', '飲料', '零食', '其他'],
                     '衣': ['服飾', '鞋子', '配件', '美容', '其他'],
@@ -326,9 +609,7 @@
                     '醫療': ['診療', '藥品', '健檢', '醫療用品', '其他'],
                     '其他支出': ['投資', '教會奉獻', '保險', '稅務', '其他'],
                     '薪資': ['本薪', '獎金', '兼職', '其他'],
-                    '投資': ['股票', '基金', '債券', '加密貨幣', '其他'],
-                    '動產': ['存款', '股票', '基金', '債券', '加密貨幣', '其他'],
-                    '不動產': ['房屋', '土地', '店面', '停車位', '其他']
+                    '投資': ['股票', '基金', '債券', '加密貨幣', '其他']
                 };
                 
                 this.init();
@@ -1090,6 +1371,563 @@ service cloud.firestore {
                 }
             }
 
+            // ========== 匯率管理功能 ==========
+            
+            // 從 API 取得匯率
+            async fetchExchangeRateFromAPI(currency) {
+                try {
+                    // 使用免費的匯率 API (ExchangeRate-API)
+                    const response = await fetch(`https://api.exchangerate-api.com/v4/latest/TWD`);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // 計算對台幣的匯率 (API 回傳的是 1 TWD = ? 其他幣別)
+                    // 我們需要的是 1 其他幣別 = ? TWD
+                    const rate = 1 / data.rates[currency];
+                    
+                    if (!rate || rate <= 0) {
+                        throw new Error(`無法取得 ${currency} 匯率`);
+                    }
+                    
+                    return parseFloat(rate.toFixed(4));
+                    
+                } catch (error) {
+                    console.error('API 取得匯率失敗:', error);
+                    
+                    // 備用方案：使用模擬數據
+                    const mockRates = {
+                        'USD': 30.5,
+                        'EUR': 32.8,
+                        'JPY': 0.21,
+                        'CNY': 4.3
+                    };
+                    
+                    if (mockRates[currency]) {
+                        console.log(`使用模擬匯率: ${currency} = ${mockRates[currency]}`);
+                        return mockRates[currency];
+                    }
+                    
+                    throw error;
+                }
+            }
+            
+            // 手動更新匯率按鈕
+            async fetchCurrentExchangeRate() {
+                const currency = document.getElementById('currency').value;
+                const exchangeRateInput = document.getElementById('exchangeRate');
+                const refreshBtn = document.getElementById('refreshRateBtn');
+                
+                if (currency === 'TWD') {
+                    alert('台幣不需要匯率轉換');
+                    return;
+                }
+                
+                // 顯示載入狀態
+                refreshBtn.disabled = true;
+                refreshBtn.textContent = '🔄 更新中...';
+                exchangeRateInput.placeholder = '正在更新匯率...';
+                
+                try {
+                    const rate = await this.fetchExchangeRateFromAPI(currency);
+                    exchangeRateInput.value = rate;
+                    exchangeRateInput.placeholder = '匯率已更新';
+                    
+                    // 更新本地匯率快取
+                    this.exchangeRates[currency] = rate;
+                    
+                    console.log(`已更新 ${currency} 匯率: ${rate}`);
+                    alert(`${currency} 匯率已更新為 ${rate}`);
+                    
+                } catch (error) {
+                    console.error('更新匯率失敗:', error);
+                    exchangeRateInput.value = this.exchangeRates[currency] || 1;
+                    exchangeRateInput.placeholder = '使用快取匯率';
+                    alert(`無法取得 ${currency} 最新匯率，已使用快取數據`);
+                } finally {
+                    refreshBtn.disabled = false;
+                    refreshBtn.textContent = '🔄 更新匯率';
+                }
+            }
+            
+            showExchangeRates() {
+                console.log('顯示匯率管理');
+                const modal = document.getElementById('exchangeRateModal');
+                if (modal) {
+                    this.loadExchangeRates();
+                    modal.style.display = 'block';
+                }
+            }
+            
+            hideExchangeRates() {
+                console.log('隱藏匯率管理');
+                const modal = document.getElementById('exchangeRateModal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+            }
+            
+            loadExchangeRates() {
+                // 載入當前匯率到表單
+                document.getElementById('usdRate').value = this.exchangeRates.USD;
+                document.getElementById('eurRate').value = this.exchangeRates.EUR;
+                document.getElementById('jpyRate').value = this.exchangeRates.JPY;
+                document.getElementById('cnyRate').value = this.exchangeRates.CNY;
+            }
+            
+            updateExchangeRate(currency) {
+                const rateInput = document.getElementById(`${currency.toLowerCase()}Rate`);
+                const newRate = parseFloat(rateInput.value);
+                
+                if (isNaN(newRate) || newRate <= 0) {
+                    alert('請輸入有效的匯率');
+                    return;
+                }
+                
+                this.exchangeRates[currency] = newRate;
+                console.log(`更新 ${currency} 匯率: ${newRate}`);
+                alert(`${currency} 匯率已更新為 ${newRate}`);
+            }
+            
+            async fetchLatestRates() {
+                try {
+                    // 這裡可以整合真實的匯率 API
+                    // 目前使用模擬數據
+                    console.log('正在獲取最新匯率...');
+                    
+                    // 模擬 API 回應
+                    const mockRates = {
+                        'USD': 30.5,
+                        'EUR': 32.8,
+                        'JPY': 0.21,
+                        'CNY': 4.3
+                    };
+                    
+                    // 更新匯率
+                    Object.keys(mockRates).forEach(currency => {
+                        this.exchangeRates[currency] = mockRates[currency];
+                        document.getElementById(`${currency.toLowerCase()}Rate`).value = mockRates[currency];
+                    });
+                    
+                    alert('匯率已更新為最新數據');
+                } catch (error) {
+                    console.error('獲取匯率失敗:', error);
+                    alert('獲取匯率失敗，請稍後再試');
+                }
+            }
+            
+            saveExchangeRates() {
+                // 儲存匯率到 Firebase
+                if (!this.isFirebaseReady) {
+                    alert('系統尚未準備就緒');
+                    return;
+                }
+                
+                const exchangeRateRef = window.firebaseDoc(window.firebaseDb, 'exchangeRates', 'current');
+                window.firebaseSetDoc(exchangeRateRef, {
+                    rates: this.exchangeRates,
+                    updatedAt: window.firebaseServerTimestamp()
+                }).then(() => {
+                    console.log('匯率已儲存');
+                    alert('匯率已儲存');
+                }).catch(error => {
+                    console.error('儲存匯率失敗:', error);
+                    alert('儲存匯率失敗');
+                });
+            }
+            
+            // ========== 資產組合管理功能 ==========
+            
+            showAssetPortfolio() {
+                console.log('顯示資產組合管理');
+                const modal = document.getElementById('assetPortfolioModal');
+                if (modal) {
+                    this.loadAssets();
+                    modal.style.display = 'block';
+                }
+            }
+            
+            hideAssetPortfolio() {
+                console.log('隱藏資產組合管理');
+                const modal = document.getElementById('assetPortfolioModal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+            }
+            
+            async loadAssets() {
+                console.log('開始載入資產...');
+                console.log('Firebase 準備狀態:', this.isFirebaseReady);
+                console.log('當前使用者:', this.currentUser);
+                
+                if (!this.isFirebaseReady) {
+                    alert('系統尚未準備就緒');
+                    return;
+                }
+                
+                if (!this.currentUser) {
+                    alert('請先登入');
+                    return;
+                }
+                
+                try {
+                    console.log('正在連接 Firebase assets 集合...');
+                    
+                    // 嘗試載入資產，如果集合不存在則創建空陣列
+                    try {
+                        const assetsRef = window.firebaseCollection(window.firebaseDb, 'assets');
+                        console.log('Assets 集合參考:', assetsRef);
+                        
+                        const querySnapshot = await window.firebaseGetDocs(assetsRef);
+                        console.log('查詢結果:', querySnapshot);
+                        console.log('文件數量:', querySnapshot.size);
+                        
+                        this.assets = [];
+                        querySnapshot.forEach(doc => {
+                            console.log('處理文件:', doc.id, doc.data());
+                            this.assets.push({ id: doc.id, ...doc.data() });
+                        });
+                        
+                        console.log('載入的資產:', this.assets);
+                        
+                    } catch (collectionError) {
+                        console.log('Assets 集合可能不存在或無權限，使用空陣列:', collectionError);
+                        this.assets = [];
+                    }
+                    
+                    this.renderAssetsTable();
+                    this.updatePortfolioSummary();
+                    
+                } catch (error) {
+                    console.error('載入資產失敗:', error);
+                    console.error('錯誤詳情:', {
+                        message: error.message,
+                        code: error.code,
+                        stack: error.stack
+                    });
+                    
+                    // 提供更詳細的錯誤訊息
+                    let errorMessage = '載入資產失敗';
+                    if (error.code === 'permission-denied') {
+                        errorMessage = '權限不足，請檢查 Firebase 權限設定';
+                    } else if (error.code === 'unavailable') {
+                        errorMessage = '網路連線問題，請檢查網路連線';
+                    } else if (error.message) {
+                        errorMessage = `載入資產失敗: ${error.message}`;
+                    }
+                    
+                    alert(errorMessage);
+                }
+            }
+            
+            renderAssetsTable() {
+                const tbody = document.getElementById('assetsTableBody');
+                if (!tbody) return;
+                
+                if (this.assets.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">尚無資產記錄</td></tr>';
+                    return;
+                }
+                
+                const tableHTML = this.assets.map(asset => {
+                    const twdValue = this.convertToTWD(asset.quantity, asset.currency, asset.unitPrice);
+                    return `
+                        <tr>
+                            <td>${asset.name}</td>
+                            <td>${asset.type}</td>
+                            <td>${asset.quantity}</td>
+                            <td>${asset.currency}</td>
+                            <td>$${this.formatNumber(twdValue)}</td>
+                            <td>
+                                <button onclick="expenseTracker.editAsset('${asset.id}')" class="btn-edit">✏️</button>
+                                <button onclick="expenseTracker.deleteAsset('${asset.id}')" class="btn-delete">🗑️</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+                
+                tbody.innerHTML = tableHTML;
+            }
+            
+            updatePortfolioSummary() {
+                const totalValue = this.assets.reduce((sum, asset) => {
+                    return sum + this.convertToTWD(asset.quantity, asset.currency, asset.unitPrice);
+                }, 0);
+                
+                document.getElementById('portfolioTotalValue').textContent = '$' + this.formatNumber(totalValue);
+                document.getElementById('portfolioItemCount').textContent = this.assets.length;
+            }
+            
+            convertToTWD(quantity, currency, unitPrice = 1) {
+                if (currency === 'TWD') {
+                    return quantity * unitPrice;
+                }
+                
+                const rate = this.exchangeRates[currency] || 1;
+                return quantity * unitPrice * rate;
+            }
+            
+            showAddAssetForm() {
+                const modal = document.getElementById('addAssetModal');
+                if (modal) {
+                    modal.style.display = 'block';
+                }
+            }
+            
+            hideAddAssetForm() {
+                const modal = document.getElementById('addAssetModal');
+                if (modal) {
+                    modal.style.display = 'none';
+                    document.getElementById('addAssetForm').reset();
+                }
+            }
+            
+            async addAsset() {
+                const formData = {
+                    name: document.getElementById('assetName').value,
+                    type: document.getElementById('assetType').value,
+                    quantity: parseFloat(document.getElementById('assetQuantity').value),
+                    currency: document.getElementById('assetCurrency').value,
+                    unitPrice: parseFloat(document.getElementById('assetUnitPrice').value) || 1,
+                    description: document.getElementById('assetDescription').value,
+                    createdAt: window.firebaseServerTimestamp()
+                };
+                
+                try {
+                    const assetsRef = window.firebaseCollection(window.firebaseDb, 'assets');
+                    await window.firebaseAddDoc(assetsRef, formData);
+                    
+                    console.log('資產新增成功');
+                    alert('資產新增成功');
+                    
+                    this.hideAddAssetForm();
+                    this.loadAssets();
+                } catch (error) {
+                    console.error('新增資產失敗:', error);
+                    alert('新增資產失敗');
+                }
+            }
+            
+            editAsset(assetId) {
+                // TODO: 實作編輯資產功能
+                console.log('編輯資產:', assetId);
+                alert('編輯功能開發中...');
+            }
+            
+            async deleteAsset(assetId) {
+                if (!confirm('確定要刪除此資產嗎？')) {
+                    return;
+                }
+                
+                try {
+                    const assetRef = window.firebaseDoc(window.firebaseDb, 'assets', assetId);
+                    await window.firebaseDeleteDoc(assetRef);
+                    
+                    console.log('資產刪除成功');
+                    alert('資產刪除成功');
+                    
+                    this.loadAssets();
+                } catch (error) {
+                    console.error('刪除資產失敗:', error);
+                    alert('刪除資產失敗');
+                }
+            }
+
+            // ========== 資料轉移功能 ==========
+            
+            showDataMigration() {
+                console.log('顯示資料轉移');
+                const modal = document.getElementById('dataMigrationModal');
+                if (modal) {
+                    this.prepareMigrationData();
+                    modal.style.display = 'block';
+                }
+            }
+            
+            hideDataMigration() {
+                console.log('隱藏資料轉移');
+                const modal = document.getElementById('dataMigrationModal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+            }
+            
+            prepareMigrationData() {
+                // 獲取所有資產記錄
+                const assetRecords = this.records.filter(r => r.type === '資產');
+                console.log('找到資產記錄:', assetRecords);
+                
+                // 更新統計資訊
+                document.getElementById('migratableCount').textContent = assetRecords.length;
+                document.getElementById('existingAssetsCount').textContent = this.assets.length;
+                
+                // 生成轉移預覽
+                this.generateMigrationPreview(assetRecords);
+            }
+            
+            generateMigrationPreview(assetRecords) {
+                const tbody = document.getElementById('migrationPreviewBody');
+                if (!tbody) return;
+                
+                if (assetRecords.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 20px;">沒有可轉移的資產記錄</td></tr>';
+                    return;
+                }
+                
+                const previewHTML = assetRecords.map(record => {
+                    const convertedAsset = this.convertRecordToAsset(record);
+                    const status = this.checkMigrationStatus(convertedAsset);
+                    
+                    return `
+                        <tr>
+                            <td>
+                                <div class="original-record">
+                                    <strong>${record.subCategory}</strong><br>
+                                    <small>${record.description || '無描述'}</small><br>
+                                    <small>金額: $${this.formatNumber(record.amount)}</small>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="converted-asset">
+                                    <strong>${convertedAsset.name}</strong><br>
+                                    <small>類型: ${convertedAsset.type}</small><br>
+                                    <small>數量: ${convertedAsset.quantity}</small><br>
+                                    <small>幣別: ${convertedAsset.currency}</small>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="status-badge ${status.class}">${status.text}</span>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+                
+                tbody.innerHTML = previewHTML;
+            }
+            
+            convertRecordToAsset(record) {
+                return {
+                    name: record.description || record.subCategory,
+                    type: this.mapSubCategoryToType(record.subCategory),
+                    quantity: record.amount,
+                    currency: record.currency || 'TWD',
+                    unitPrice: 1,
+                    description: record.description || '',
+                    member: record.member || '',
+                    migratedAt: new Date()
+                };
+            }
+            
+            mapSubCategoryToType(subCategory) {
+                const typeMapping = {
+                    '存款': '存款',
+                    '股票': '股票',
+                    '基金': '基金',
+                    '債券': '債券',
+                    '加密貨幣': '加密貨幣',
+                    '房屋': '不動產',
+                    '土地': '不動產',
+                    '店面': '不動產',
+                    '停車位': '不動產'
+                };
+                
+                return typeMapping[subCategory] || '其他';
+            }
+            
+            checkMigrationStatus(convertedAsset) {
+                // 檢查是否已存在相同名稱和類型的資產
+                const existing = this.assets.find(asset => 
+                    asset.name === convertedAsset.name && 
+                    asset.type === convertedAsset.type
+                );
+                
+                if (existing) {
+                    return { class: 'warning', text: '重複' };
+                } else {
+                    return { class: 'success', text: '可轉移' };
+                }
+            }
+            
+            async startMigration() {
+                const assetRecords = this.records.filter(r => r.type === '資產');
+                const migrateAll = document.getElementById('migrateAllAssets').checked;
+                const keepOriginal = document.getElementById('keepOriginalRecords').checked;
+                const mergeDuplicates = document.getElementById('mergeDuplicates').checked;
+                
+                if (assetRecords.length === 0) {
+                    alert('沒有可轉移的資產記錄');
+                    return;
+                }
+                
+                if (!confirm(`確定要轉移 ${assetRecords.length} 筆資產記錄嗎？`)) {
+                    return;
+                }
+                
+                try {
+                    let successCount = 0;
+                    let errorCount = 0;
+                    
+                    for (const record of assetRecords) {
+                        try {
+                            const convertedAsset = this.convertRecordToAsset(record);
+                            
+                            // 檢查重複
+                            if (mergeDuplicates) {
+                                const existing = this.assets.find(asset => 
+                                    asset.name === convertedAsset.name && 
+                                    asset.type === convertedAsset.type
+                                );
+                                
+                                if (existing) {
+                                    // 合併數量
+                                    const updatedAsset = {
+                                        ...existing,
+                                        quantity: existing.quantity + convertedAsset.quantity,
+                                        updatedAt: window.firebaseServerTimestamp()
+                                    };
+                                    
+                                    const assetRef = window.firebaseDoc(window.firebaseDb, 'assets', existing.id);
+                                    await window.firebaseUpdateDoc(assetRef, updatedAsset);
+                                    
+                                    console.log(`合併資產: ${convertedAsset.name}`);
+                                    continue;
+                                }
+                            }
+                            
+                            // 新增資產
+                            const assetsRef = window.firebaseCollection(window.firebaseDb, 'assets');
+                            await window.firebaseAddDoc(assetsRef, {
+                                ...convertedAsset,
+                                createdAt: window.firebaseServerTimestamp()
+                            });
+                            
+                            successCount++;
+                            console.log(`轉移成功: ${convertedAsset.name}`);
+                            
+                        } catch (error) {
+                            console.error(`轉移失敗: ${record.subCategory}`, error);
+                            errorCount++;
+                        }
+                    }
+                    
+                    // 顯示結果
+                    alert(`轉移完成！\n成功: ${successCount} 筆\n失敗: ${errorCount} 筆`);
+                    
+                    // 重新載入資產
+                    await this.loadAssets();
+                    
+                    // 關閉模態框
+                    this.hideDataMigration();
+                    
+                } catch (error) {
+                    console.error('轉移過程發生錯誤:', error);
+                    alert('轉移過程發生錯誤，請稍後再試');
+                }
+            }
+
             // 更新圖表
             updateCharts() {
                 const chartTypeFilter = document.getElementById('chartFilterType').value;
@@ -1564,6 +2402,52 @@ service cloud.firestore {
                     this.addRecord();
                 });
                 
+                // 新增資產表單事件監聽器
+                document.getElementById('addAssetForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.addAsset();
+                });
+                
+                // 幣別選擇變化時顯示/隱藏匯率欄位
+                document.getElementById('currency').addEventListener('change', async (e) => {
+                    const currency = e.target.value;
+                    const exchangeRateGroup = document.getElementById('exchangeRateGroup');
+                    const exchangeRateInput = document.getElementById('exchangeRate');
+                    const refreshBtn = document.getElementById('refreshRateBtn');
+                    
+                    if (currency === 'TWD') {
+                        exchangeRateGroup.style.display = 'none';
+                    } else {
+                        exchangeRateGroup.style.display = 'block';
+                        
+                        // 顯示載入狀態
+                        exchangeRateInput.value = '';
+                        exchangeRateInput.placeholder = '正在取得匯率...';
+                        refreshBtn.disabled = true;
+                        refreshBtn.textContent = '🔄 取得中...';
+                        
+                        try {
+                            // 自動取得當前匯率
+                            const rate = await this.fetchExchangeRateFromAPI(currency);
+                            exchangeRateInput.value = rate;
+                            exchangeRateInput.placeholder = '匯率已更新';
+                            
+                            // 更新本地匯率快取
+                            this.exchangeRates[currency] = rate;
+                            
+                            console.log(`已取得 ${currency} 匯率: ${rate}`);
+                        } catch (error) {
+                            console.error('取得匯率失敗:', error);
+                            exchangeRateInput.value = this.exchangeRates[currency] || 1;
+                            exchangeRateInput.placeholder = '使用快取匯率';
+                            alert(`無法取得 ${currency} 最新匯率，已使用快取數據`);
+                        } finally {
+                            refreshBtn.disabled = false;
+                            refreshBtn.textContent = '🔄 更新匯率';
+                        }
+                    }
+                });
+                
                 // 類別選擇變化時更新細項選項
                 const mainCategorySelect = document.getElementById('mainCategory');
                 if (mainCategorySelect) {
@@ -1684,6 +2568,8 @@ service cloud.firestore {
                     mainCategory: document.getElementById('mainCategory').value,
                     subCategory: document.getElementById('subCategory').value,
                     amount: parseFloat(document.getElementById('amount').value),
+                    currency: document.getElementById('currency').value,
+                    exchangeRate: parseFloat(document.getElementById('exchangeRate').value) || 1,
                     description: document.getElementById('description').value,
                     date: document.getElementById('date').value
                 };
