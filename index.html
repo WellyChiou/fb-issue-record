@@ -686,6 +686,7 @@
         <table class="table-fixed min-w-[1600px] text-sm">
 			    <!-- ✅ 把 colgroup 放在這裡（thead 前面） -->
 				<colgroup>
+				  <col style="width:140px" />  <!-- 操作 -->
 				  <col style="width:60px" />  <!-- 序號 -->
 				  <col style="width:50px" />  <!-- Issue# -->
 				  <col style="width:70px" />  <!-- 狀態 -->
@@ -696,11 +697,11 @@
 				  <col style="width:120px" />  <!-- 完成日期 -->
 				  <col style="width:50px" />  <!-- 測試案例 -->
 				  <col style="width:400px" />  <!-- Memo -->
-				  <col style="width:140px" />  <!-- 操作 -->
 				</colgroup>
 
 				<thead class="table-head text-slate-600 text-xs uppercase tracking-wide">
 					<tr>
+					  <th class="px-3 py-2 text-left">操作</th>
 					  <th class="px-3 py-2 text-left">#</th>
 					  <th class="px-3 py-2 text-left">Issue#</th>
 					  <th class="px-3 py-2 text-left">狀態</th>
@@ -711,9 +712,8 @@
 					  <th class="px-3 py-2 text-left">完成日期</th>
 					  <th class="px-3 py-2 text-left">測試案例</th>
 					  <th class="px-3 py-2 text-left">Memo</th>
-					  <th class="px-3 py-2 text-left">操作</th>
 					</tr>
-			  </thead>
+				</thead>
           <tbody id="recordsTbody"></tbody>
         </table>
       </div>
@@ -1319,6 +1319,12 @@
 		  : (r.issue_number ?? '');
 
 		tr.innerHTML = `
+		  <td class="px-3 py-2">
+			<div class="flex gap-2">
+				<button class="text-blue-600 hover:underline" data-edit="${r.id}">✏️</button>
+				<button class="text-red-500 hover:underline" data-del="${r.id}">🗑️</button>
+			</div>
+		  </td>
 		  <td class="px-3 py-2 text-slate-500">${seq}</td>
 		  <td class="px-3 py-2">${issueDisplay}</td>
 		  <td class="px-3 py-2">${statusChip(r.status)}</td>
@@ -1329,12 +1335,6 @@
 		  <td class="px-3 py-2">${fmtDate(r.completed_at)}</td>
 		  <td class="px-3 py-2">${r.test_cases ?? ''}</td>
 		  <td class="px-3 py-2 whitespace-pre-wrap break-words">${r.memo ?? ''}</td>
-		  <td class="px-3 py-2">
-			<div class="flex gap-2">
-				<button class="text-blue-600 hover:underline" data-edit="${r.id}">✏️</button>
-				<button class="text-red-500 hover:underline" data-del="${r.id}">🗑️</button>
-			</div>
-		  </td>
 		`;
 		tbody.appendChild(tr);
 	  });
@@ -1471,10 +1471,10 @@
 
     // Excel export (current table)
 	btnExportExcel.addEventListener('click', () => {
-	  // 1) 產生表頭（去掉最後的「操作」）
+	  // 1) 產生表頭（去掉第一個的「操作」）
 	  let headers = ['ISSUE#','狀態','類型','功能','Test Plan','BUG','驗證失敗','開始測試日期','預計交付日期','完成日期','測試案例','MEMO'];
 
-	  if (headers[headers.length - 1] === '操作') headers = headers.slice(0, -1);
+	  if (headers[0] === '操作') headers = headers.slice(1);
 
 	  // 2) 轉換工具（與原本一致）
 	  const statusText = (v) => {
