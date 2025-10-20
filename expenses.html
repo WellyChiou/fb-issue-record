@@ -2282,58 +2282,8 @@ service cloud.firestore {
             
             // 固定價格備用方案
             getFixedPrice(stockCode) {
-                const fixedPrices = {
-                    // 美股 (USD) - 固定價格
-                    'AAPL': { price: 160.00, currency: 'USD' },      // Apple: $160.00
-                    'TSLA': { price: 220.00, currency: 'USD' },       // Tesla: $220.00
-                    'MSFT': { price: 315.00, currency: 'USD' },       // Microsoft: $315.00
-                    'GOOGL': { price: 110.00, currency: 'USD' },      // Google: $110.00
-                    'NVDA': { price: 425.00, currency: 'USD' },       // NVIDIA: $425.00
-                    'AMZN': { price: 135.00, currency: 'USD' },       // Amazon: $135.00
-                    'META': { price: 280.00, currency: 'USD' },       // Meta: $280.00
-                    
-                    // 台股 (TWD) - 固定價格
-                    '2330': { price: 525.00, currency: 'TWD' },       // 台積電: NT$525.00
-                    '2317': { price: 110.00, currency: 'TWD' },       // 鴻海: NT$110.00
-                    '2454': { price: 215.00, currency: 'TWD' },       // 聯發科: NT$215.00
-                    '2881': { price: 22.00, currency: 'TWD' },        // 富邦金: NT$22.00
-                    '0050': { price: 85.00, currency: 'TWD' },        // 元大台灣50: NT$85.00
-                    '1101': { price: 35.00, currency: 'TWD' },        // 台泥: NT$35.00
-                    
-                    // 港股 (HKD) - 固定價格
-                    '0700': { price: 325.00, currency: 'HKD' },       // 騰訊: HK$325.00
-                    '9988': { price: 90.00, currency: 'HKD' },        // 阿里巴巴: HK$90.00
-                    '0941': { price: 55.00, currency: 'HKD' },        // 中國移動: HK$55.00
-                    '1299': { price: 45.00, currency: 'HKD' },        // 友邦保險: HK$45.00
-                    '00692': { price: 56.85, currency: 'TWD' },       // 台股: NT$56.85
-                    
-                    // 日股 (JPY) - 固定價格
-                    '6758': { price: 3250.00, currency: 'JPY' },      // Sony: ¥3250.00
-                    '7203': { price: 2150.00, currency: 'JPY' },       // Toyota: ¥2150.00
-                    '7974': { price: 8500.00, currency: 'JPY' },      // Nintendo: ¥8500.00
-                };
-                
-                if (fixedPrices[stockCode]) {
-                    const result = fixedPrices[stockCode];
-                    console.log(`使用 ${stockCode} 固定價格: ${result.price.toFixed(2)} ${result.currency}`);
-                    return result;
-                } else {
-                    // 如果沒有預設價格，根據代碼格式判斷市場並使用固定價格
-                    let price, currency;
-                    
-                    if (/^\d{4}$/.test(stockCode)) {
-                        // 非美股（4位數字）都是台股
-                        price = 100.00;
-                        currency = 'TWD';
-                    } else {
-                        // 美股（字母）
-                        price = 150.00;
-                        currency = 'USD';
-                    }
-                    
-                    console.log(`使用 ${stockCode} 預設固定價格: ${price.toFixed(2)} ${currency}`);
-                    return { price, currency };
-                }
+                // 不再提供固定價格，直接拋出錯誤
+                throw new Error(`無法取得 ${stockCode} 的價格資料，請手動輸入當前價格`);
             }
             
             // 更新單一資產的當前價格
