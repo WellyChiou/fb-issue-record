@@ -185,8 +185,22 @@ header h1 {
     gap: 50px;
 }
 
+/* 資產組合摘要 - 平行顯示 */
+.portfolio-summary {
+    display: flex;
+    justify-content: space-around;
+    gap: 20px;
+    margin-bottom: 20px;
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 15px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
 .summary-item {
     text-align: center;
+    flex: 1;
+    min-width: 0;
 }
 
 .summary-item .label {
@@ -216,6 +230,14 @@ header h1 {
 
 .summary-item .amount.asset {
     color: #f39c12;
+}
+
+.summary-item .amount.profit {
+    color: #27ae60;
+}
+
+.summary-item .amount.loss {
+    color: #e74c3c;
 }
 
 main {

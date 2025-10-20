@@ -2492,68 +2492,31 @@ service cloud.firestore {
                     const apiUrl = `https://www.google.com/finance/quote/${googleFinanceCode}`;
                     console.log(`Google Finance API URL: ${apiUrl}`);
                     
-                    const response = await fetch(apiUrl, {
+                    // 直接使用 CORS 代理，因為 Google Finance 有嚴格的 CORS 政策
+                    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(apiUrl)}`;
+                    console.log(`CORS 代理 URL: ${proxyUrl}`);
+                    
+                    const response = await fetch(proxyUrl, {
                         method: 'GET',
                         headers: {
-                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-                            'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8',
-                            'Accept-Encoding': 'gzip, deflate, br',
-                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                            'DNT': '1',
-                            'Connection': 'keep-alive',
-                            'Upgrade-Insecure-Requests': '1',
-                            'Sec-Fetch-Dest': 'document',
-                            'Sec-Fetch-Mode': 'navigate',
-                            'Sec-Fetch-Site': 'none',
-                            'Sec-Fetch-User': '?1',
-                            'Cache-Control': 'max-age=0',
-                            'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-                            'sec-ch-ua-mobile': '?0',
-                            'sec-ch-ua-platform': '"Windows"'
-                        },
-                        mode: 'cors',
-                        credentials: 'omit',
-                        referrerPolicy: 'strict-origin-when-cross-origin'
+                            'Accept': 'application/json',
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                        }
                     });
                     
                     if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        throw new Error(`代理請求失敗: ${response.status} ${response.statusText}`);
                     }
                     
-                    const html = await response.text();
-                    console.log('Google Finance 回應長度:', html.length);
+                    const proxyData = await response.json();
+                    const html = proxyData.contents;
+                    console.log('CORS 代理回應長度:', html.length);
                     
                     // 使用統一的解析方法
                     return this.parseGoogleFinanceResponse(html, stockCode);
                     
                 } catch (error) {
-                    console.error(`Google Finance 直接請求失敗:`, error);
-                    
-                    // 如果直接請求失敗，嘗試使用 CORS 代理
-                    if (error.message.includes('403') || error.message.includes('CORS')) {
-                        console.log('嘗試使用 CORS 代理...');
-                        try {
-                            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(apiUrl)}`;
-                            console.log(`CORS 代理 URL: ${proxyUrl}`);
-                            
-                            const proxyResponse = await fetch(proxyUrl);
-                            if (!proxyResponse.ok) {
-                                throw new Error(`代理請求失敗: ${proxyResponse.status}`);
-                            }
-                            
-                            const proxyData = await proxyResponse.json();
-                            const html = proxyData.contents;
-                            console.log('CORS 代理回應長度:', html.length);
-                            
-                            // 使用相同的解析邏輯
-                            return this.parseGoogleFinanceResponse(html, stockCode);
-                            
-                        } catch (proxyError) {
-                            console.error(`CORS 代理也失敗:`, proxyError);
-                            throw new Error(`Google Finance 和 CORS 代理都失敗: ${error.message}`);
-                        }
-                    }
-                    
+                    console.error(`Google Finance CORS 代理失敗:`, error);
                     throw error;
                 }
             }
