@@ -390,8 +390,19 @@
                         if (user) {
                             console.log('認證狀態變化 - 已登入:', user.uid);
                             
-                            // 檢查使用者啟用狀態
-                            this.checkUserStatus(user).then(async userStatus => {
+                            // 先更新使用者基本資料（無論啟用狀態如何）
+                            console.log('開始執行 updateUserProfile...');
+                            this.updateUserProfile(user).then(async updateSuccess => {
+                                console.log('updateUserProfile 執行結果:', updateSuccess);
+                                if (!updateSuccess) {
+                                    console.error('❌ 使用者資料更新失敗！');
+                                    console.error('這可能是因為 Firebase 權限問題或網路問題');
+                                } else {
+                                    console.log('✅ 使用者資料更新成功');
+                                }
+                                
+                                // 然後檢查使用者啟用狀態
+                                const userStatus = await this.checkUserStatus(user);
                                 if (!userStatus.isActive) {
                                     console.log('使用者尚未啟用:', user.email);
                                     this.showInactiveUserMessage(user);
@@ -403,17 +414,6 @@
                                 
                                 // 顯示用戶資訊
                                 this.showUserInfo(user);
-                                
-                                // 記錄/更新使用者基本資料
-                                console.log('開始執行 updateUserProfile...');
-                                const updateSuccess = await this.updateUserProfile(user);
-                                console.log('updateUserProfile 執行結果:', updateSuccess);
-                                if (!updateSuccess) {
-                                    console.error('❌ 使用者資料更新失敗！');
-                                    console.error('這可能是因為 Firebase 權限問題或網路問題');
-                                } else {
-                                    console.log('✅ 使用者資料更新成功');
-                                }
                                 
                                 // 載入記錄
                                 this.loadRecordsFromFirebase();
