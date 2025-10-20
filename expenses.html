@@ -1779,6 +1779,29 @@ service cloud.firestore {
             showAddAssetForm() {
                 const modal = document.getElementById('addAssetModal');
                 if (modal) {
+                    // 確保是新增模式
+                    this.editingAssetId = null;
+                    
+                    // 重置表單
+                    document.getElementById('addAssetForm').reset();
+                    
+                    // 重置表單標題和按鈕文字
+                    const modalTitle = document.querySelector('#addAssetModal .modal-header h2');
+                    if (modalTitle) {
+                        modalTitle.textContent = '➕ 新增資產';
+                    }
+                    
+                    const submitBtn = document.querySelector('#addAssetForm button[type="submit"]');
+                    if (submitBtn) {
+                        submitBtn.textContent = '新增資產';
+                    }
+                    
+                    // 隱藏所有動態欄位
+                    document.getElementById('currentPriceGroup').style.display = 'none';
+                    document.getElementById('purchaseDateGroup').style.display = 'none';
+                    document.getElementById('stockCodeGroup').style.display = 'none';
+                    document.getElementById('exchangeRateGroup').style.display = 'none';
+                    
                     modal.style.display = 'block';
                 }
             }
@@ -1788,6 +1811,26 @@ service cloud.firestore {
                 if (modal) {
                     modal.style.display = 'none';
                     document.getElementById('addAssetForm').reset();
+                    
+                    // 重置編輯模式
+                    this.editingAssetId = null;
+                    
+                    // 重置表單標題和按鈕文字
+                    const modalTitle = document.querySelector('#addAssetModal .modal-header h2');
+                    if (modalTitle) {
+                        modalTitle.textContent = '➕ 新增資產';
+                    }
+                    
+                    const submitBtn = document.querySelector('#addAssetForm button[type="submit"]');
+                    if (submitBtn) {
+                        submitBtn.textContent = '新增資產';
+                    }
+                    
+                    // 隱藏所有動態欄位
+                    document.getElementById('currentPriceGroup').style.display = 'none';
+                    document.getElementById('purchaseDateGroup').style.display = 'none';
+                    document.getElementById('stockCodeGroup').style.display = 'none';
+                    document.getElementById('exchangeRateGroup').style.display = 'none';
                 }
             }
             
@@ -1802,28 +1845,87 @@ service cloud.firestore {
                     purchaseDate: document.getElementById('assetPurchaseDate').value || null,
                     stockCode: document.getElementById('assetStockCode').value || null,
                     description: document.getElementById('assetDescription').value,
-                    createdAt: window.firebaseServerTimestamp()
+                    updatedAt: window.firebaseServerTimestamp()
                 };
                 
                 try {
-                    const assetsRef = window.firebaseCollection(window.firebaseDb, 'assets');
-                    await window.firebaseAddDoc(assetsRef, formData);
+                    if (this.editingAssetId) {
+                        // 編輯模式：更新現有資產
+                        const assetRef = window.firebaseDoc(window.firebaseDb, 'assets', this.editingAssetId);
+                        await window.firebaseUpdateDoc(assetRef, formData);
+                        
+                        console.log('資產更新成功');
+                        alert('資產更新成功');
+                        
+                        // 清除編輯模式
+                        this.editingAssetId = null;
+                    } else {
+                        // 新增模式：建立新資產
+                        formData.createdAt = window.firebaseServerTimestamp();
+                        const assetsRef = window.firebaseCollection(window.firebaseDb, 'assets');
+                        await window.firebaseAddDoc(assetsRef, formData);
+                        
+                        console.log('資產新增成功');
+                        alert('資產新增成功');
+                    }
                     
-                    console.log('資產新增成功');
-                    alert('資產新增成功');
+                    // 重新載入資產列表
+                    await this.loadAssets();
                     
+                    // 關閉表單
                     this.hideAddAssetForm();
-                    this.loadAssets();
+                    
                 } catch (error) {
-                    console.error('新增資產失敗:', error);
-                    alert('新增資產失敗');
+                    console.error('資產操作失敗:', error);
+                    alert('資產操作失敗');
                 }
             }
             
             editAsset(assetId) {
-                // TODO: 實作編輯資產功能
-                console.log('編輯資產:', assetId);
-                alert('編輯功能開發中...');
+                const asset = this.assets.find(a => a.id === assetId);
+                if (!asset) {
+                    alert('找不到要編輯的資產');
+                    return;
+                }
+                
+                // 設定編輯模式
+                this.editingAssetId = assetId;
+                
+                // 預填表單資料
+                document.getElementById('assetName').value = asset.name || '';
+                document.getElementById('assetType').value = asset.type || '';
+                document.getElementById('assetQuantity').value = asset.quantity || '';
+                document.getElementById('assetCurrency').value = asset.currency || 'TWD';
+                document.getElementById('assetUnitPrice').value = asset.purchasePrice || asset.unitPrice || '';
+                document.getElementById('assetCurrentPrice').value = asset.currentPrice || '';
+                document.getElementById('assetPurchaseDate').value = asset.purchaseDate || '';
+                document.getElementById('assetStockCode').value = asset.stockCode || '';
+                document.getElementById('assetDescription').value = asset.description || '';
+                
+                // 觸發類型變更事件以顯示/隱藏相關欄位
+                const typeEvent = new Event('change');
+                document.getElementById('assetType').dispatchEvent(typeEvent);
+                
+                // 觸發幣別變更事件以顯示/隱藏匯率欄位
+                const currencyEvent = new Event('change');
+                document.getElementById('assetCurrency').dispatchEvent(currencyEvent);
+                
+                // 顯示新增資產表單
+                this.showAddAssetForm();
+                
+                // 更新表單標題
+                const modalTitle = document.querySelector('#addAssetModal .modal-header h2');
+                if (modalTitle) {
+                    modalTitle.textContent = '✏️ 編輯資產';
+                }
+                
+                // 更新提交按鈕文字
+                const submitBtn = document.querySelector('#addAssetForm button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.textContent = '更新資產';
+                }
+                
+                console.log('編輯資產:', asset);
             }
             
             async deleteAsset(assetId) {
