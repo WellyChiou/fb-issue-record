@@ -349,7 +349,18 @@
                             providerId: authState.providerData?.[0]?.providerId
                         });
                         
-                        // 檢查使用者啟用狀態
+                        // 先更新使用者基本資料（無論啟用狀態如何）
+                        console.log('開始執行 updateUserProfile...');
+                        const updateSuccess = await this.updateUserProfile(authState);
+                        console.log('updateUserProfile 執行結果:', updateSuccess);
+                        if (!updateSuccess) {
+                            console.error('❌ 使用者資料更新失敗！');
+                            console.error('這可能是因為 Firebase 權限問題或網路問題');
+                        } else {
+                            console.log('✅ 使用者資料更新成功');
+                        }
+                        
+                        // 然後檢查使用者啟用狀態
                         console.log('開始檢查使用者啟用狀態...');
                         const userStatus = await this.checkUserStatus(authState);
                         console.log('使用者狀態檢查結果:', userStatus);
@@ -366,17 +377,6 @@
                         
                         this.currentUser = authState;
                         this.isFirebaseReady = true;
-                        
-                        // 記錄/更新使用者基本資料
-                        console.log('開始執行 updateUserProfile...');
-                        const updateSuccess = await this.updateUserProfile(authState);
-                        console.log('updateUserProfile 執行結果:', updateSuccess);
-                        if (!updateSuccess) {
-                            console.error('❌ 使用者資料更新失敗！');
-                            console.error('這可能是因為 Firebase 權限問題或網路問題');
-                        } else {
-                            console.log('✅ 使用者資料更新成功');
-                        }
                         
                         // 載入記錄
                         this.loadRecordsFromFirebase();
