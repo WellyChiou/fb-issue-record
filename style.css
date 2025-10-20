@@ -192,9 +192,10 @@ header h1 {
     gap: 20px !important;
     margin-bottom: 20px;
     padding: 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #ffffff;
     border-radius: 15px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e0e0e0;
 }
 
 .summary-item {
@@ -208,7 +209,8 @@ header h1 {
     display: block;
     font-size: 1.1em;
     margin-bottom: 5px;
-    opacity: 0.9;
+    color: #666666;
+    font-weight: 500;
 }
 
 .summary-item .amount {
