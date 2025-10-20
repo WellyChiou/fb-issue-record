@@ -1,13 +1,27 @@
-# QA Tracker - 工作記錄追蹤系統
+# 多系統整合平台
 
-![Version](https://img.shields.io/badge/version-2.0-blue)
+![Version](https://img.shields.io/badge/version-2.1-blue)
 ![Status](https://img.shields.io/badge/status-active-success)
 
-一個簡潔且功能完整的 QA 工作記錄追蹤系統，使用 Firebase 作為後端資料庫，支援 Google 帳號登入。
+一個整合多個系統的平台，包含 QA 工作記錄追蹤系統和家庭記帳系統，使用 Firebase 作為後端資料庫，支援 Google 帳號登入。
+
+## 🏗️ 系統架構
+
+### 📦 包含系統
+1. **QA Tracker** - 工作記錄與問題追蹤系統
+2. **家庭記帳系統** - 個人與家庭財務管理系統
+3. **統一登入入口** - 系統選擇與認證管理
+
+### 🔧 技術架構
+- **前端**: HTML5 + Tailwind CSS + Vanilla JavaScript
+- **後端**: Firebase (Authentication + Firestore)
+- **部署**: 靜態檔案，支援任何網頁伺服器
 
 ## ✨ 主要功能
 
-### 📝 Issue 管理
+### 🎯 QA Tracker 系統
+
+#### 📝 Issue 管理
 - ✅ 新增、編輯、刪除 Issue 記錄
 - ✅ 追蹤 Issue 狀態（執行中、執行中止、完成）
 - ✅ 記錄測試日期、預計交付日期、完成日期
@@ -33,7 +47,16 @@
 - ✅ 自動填入預設值
 - ✅ 防止重複匯入
 
-### 🎨 介面特色
+### 💰 家庭記帳系統
+
+#### 📊 財務管理
+- ✅ 收支記錄與分類管理
+- ✅ 多成員記帳支援
+- ✅ 圖表分析與統計
+- ✅ 資產管理與追蹤
+- ✅ 月度/年度報表
+
+#### 🎨 介面特色
 - ✅ 現代化的漸層設計
 - ✅ 響應式排版（手機、平板、桌面）
 - ✅ 流暢的動畫效果
@@ -110,9 +133,10 @@ service cloud.firestore {
 ## 📖 使用說明
 
 ### 登入
-1. 開啟 `login.html`
-2. 點擊「使用 Google 登入」
-3. 選擇您的 Google 帳號
+1. 開啟 `enter_login.html`（統一登入入口）
+2. 選擇要使用的系統（QA Tracker 或家庭記帳）
+3. 點擊「使用 Google 登入」
+4. 選擇您的 Google 帳號
 
 ### 新增 Issue
 1. 點擊「新增 Issue」按鈕

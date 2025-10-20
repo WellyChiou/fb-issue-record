@@ -180,28 +180,13 @@
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    
+    <!-- 統一 Firebase 配置 -->
+    <script src="firebase-config.js"></script>
 
     <script>
-        // Firebase 配置
-        const firebaseConfigs = {
-            qa: {
-                apiKey: "AIzaSyCuTlQfSUTlgig_NF7bKV448v35UEuB0aA",
-                authDomain: "fb-issue-record.firebaseapp.com",
-                projectId: "fb-issue-record",
-                storageBucket: "fb-issue-record.firebasestorage.app",
-                messagingSenderId: "892738349977",
-                appId: "1:892738349977:web:004b30f804e2937692c108"
-            },
-            expenses: {
-                apiKey: "AIzaSyDfHs1XXsCXGMSVF3NFJUtFMcslTzTd-EU",
-                authDomain: "expenses-91280.firebaseapp.com",
-                projectId: "expenses-91280",
-                storageBucket: "expenses-91280.firebasestorage.app",
-                messagingSenderId: "777956465315",
-                appId: "1:777956465315:web:04f85f2b22f2468eb2fd16",
-                measurementId: "G-1LE7YTKHGT"
-            }
-        };
+        // 使用統一的 Firebase 配置
+        const firebaseConfigs = FIREBASE_CONFIGS;
 
         let selectedSystem = null;
         let auth = null;
@@ -459,10 +444,9 @@
 
         // 跳轉到對應系統
         function redirectToSystem(system) {
-            if (system === 'qa') {
-                window.location.href = 'index.html';
-            } else if (system === 'expenses') {
-                window.location.href = 'expenses.html';
+            const systemInfo = SYSTEM_INFO[system];
+            if (systemInfo) {
+                window.location.href = systemInfo.redirectUrl;
             }
         }
 

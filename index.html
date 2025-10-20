@@ -772,7 +772,7 @@
 			reload();
 			loadGitlabToken().catch(console.error); // 預抓 token（快取在記憶體）
 		} else {
-			// 已經登出 → 直接導向 login.html
+			// 已經登出 → 直接導向統一登入入口
 			location.href = "enter_login.html";
 		}
 	});
