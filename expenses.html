@@ -2131,16 +2131,11 @@ service cloud.firestore {
                     // 根據股票代碼判斷市場並添加適當的後綴
                     let yahooCode = stockCode;
                     
-                    // 台股需要添加 .TW 後綴
+                    // 非美股（4位數字）自動添加 .TW 後綴
                     if (/^\d{4}$/.test(stockCode)) {
                         yahooCode = stockCode + '.TW';
                     }
-                    // 美股不需要後綴
-                    
-                    // 特殊處理：00692 可能需要不同的格式
-                    if (stockCode === '00692') {
-                        yahooCode = '00692.TW';  // 確保使用正確的台股格式
-                    }
+                    // 美股（字母）不需要後綴
                     
                     console.log(`查詢 Yahoo Finance: ${stockCode} -> ${yahooCode}`);
                     console.log(`API URL: https://query1.finance.yahoo.com/v8/finance/chart/${yahooCode}`);
@@ -2193,11 +2188,11 @@ service cloud.firestore {
             
             // 根據股票代碼判斷幣別
             getCurrencyByMarket(stockCode) {
-                // 台股 (4位數字)
+                // 非美股（4位數字）都是台股
                 if (/^\d{4}$/.test(stockCode)) {
                     return 'TWD';
                 }
-                // 美股 (字母)
+                // 美股（字母）
                 else {
                     return 'USD';
                 }
@@ -2245,11 +2240,11 @@ service cloud.firestore {
                     let price, currency;
                     
                     if (/^\d{4}$/.test(stockCode)) {
-                        // 台股 (4位數字)
+                        // 非美股（4位數字）都是台股
                         price = 100.00;
                         currency = 'TWD';
                     } else {
-                        // 預設為美股
+                        // 美股（字母）
                         price = 150.00;
                         currency = 'USD';
                     }
