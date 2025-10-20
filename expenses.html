@@ -2140,7 +2140,7 @@ service cloud.firestore {
                     console.log(`查詢 Yahoo Finance: ${stockCode} -> ${yahooCode}`);
                     console.log(`API URL: https://query1.finance.yahoo.com/v8/finance/chart/${yahooCode}`);
                     
-                    // 使用 Yahoo Finance API (免費，無需 API Key)
+                    // 直接使用 Yahoo Finance API
                     const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooCode}`);
                     
                     console.log(`API 回應狀態: ${response.status} ${response.statusText}`);
