@@ -2127,62 +2127,87 @@ service cloud.firestore {
             
             // 取得真實股票價格
             async fetchRealStockPrice(stockCode) {
-                try {
-                    // 根據股票代碼判斷市場並添加適當的後綴
-                    let yahooCode = stockCode;
-                    
-                    // 非美股（4位數字）自動添加 .TW 後綴
-                    if (/^\d{4}$/.test(stockCode)) {
-                        yahooCode = stockCode + '.TW';
+                // 根據股票代碼判斷市場並添加適當的後綴
+                let yahooCode = stockCode;
+                
+                // 非美股（4位數字）自動添加 .TW 後綴
+                if (/^\d{4}$/.test(stockCode)) {
+                    yahooCode = stockCode + '.TW';
+                }
+                // 美股（字母）不需要後綴
+                
+                console.log(`查詢 Yahoo Finance: ${stockCode} -> ${yahooCode}`);
+                console.log(`API URL: https://query1.finance.yahoo.com/v8/finance/chart/${yahooCode}`);
+                
+                // 多個 CORS 代理備用方案
+                const proxyServices = [
+                    `https://cors-anywhere.herokuapp.com/https://query1.finance.yahoo.com/v8/finance/chart/${yahooCode}`,
+                    `https://api.allorigins.win/get?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooCode}`)}`,
+                    `https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/${yahooCode}`,
+                    `https://thingproxy.freeboard.io/fetch/https://query1.finance.yahoo.com/v8/finance/chart/${yahooCode}`
+                ];
+                
+                for (let i = 0; i < proxyServices.length; i++) {
+                    try {
+                        const proxyUrl = proxyServices[i];
+                        console.log(`嘗試代理 ${i + 1}/${proxyServices.length}: ${proxyUrl}`);
+                        
+                        const response = await fetch(proxyUrl);
+                        
+                        console.log(`API 回應狀態: ${response.status} ${response.statusText}`);
+                        
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        }
+                        
+                        let data;
+                        if (proxyUrl.includes('allorigins.win')) {
+                            // allorigins.win 需要特殊解析
+                            const proxyData = await response.json();
+                            data = JSON.parse(proxyData.contents);
+                        } else {
+                            // 其他代理直接解析
+                            data = await response.json();
+                        }
+                        
+                        console.log(`API 回應資料:`, data);
+                        
+                        if (!data.chart || !data.chart.result || data.chart.result.length === 0) {
+                            throw new Error('無效的股票代碼或資料格式');
+                        }
+                        
+                        const result = data.chart.result[0];
+                        const meta = result.meta;
+                        const quote = result.indicators.quote[0];
+                        
+                        console.log(`股票資訊:`, meta);
+                        
+                        // 取得當前價格
+                        const currentPrice = meta.regularMarketPrice || quote.close[quote.close.length - 1];
+                        const currency = meta.currency || this.getCurrencyByMarket(stockCode);
+                        
+                        console.log(`解析結果: 價格=${currentPrice}, 幣別=${currency}`);
+                        
+                        if (!currentPrice || currentPrice <= 0) {
+                            throw new Error('無法取得有效價格');
+                        }
+                        
+                        console.log(`Yahoo Finance 成功 (代理 ${i + 1}): ${stockCode} = ${currentPrice} ${currency}`);
+                        
+                        return {
+                            price: currentPrice,
+                            currency: currency
+                        };
+                        
+                    } catch (error) {
+                        console.warn(`代理 ${i + 1} 失敗:`, error.message);
+                        if (i === proxyServices.length - 1) {
+                            // 所有代理都失敗了
+                            throw new Error(`所有 CORS 代理都失敗: ${error.message}`);
+                        }
+                        // 繼續嘗試下一個代理
+                        continue;
                     }
-                    // 美股（字母）不需要後綴
-                    
-                    console.log(`查詢 Yahoo Finance: ${stockCode} -> ${yahooCode}`);
-                    console.log(`API URL: https://query1.finance.yahoo.com/v8/finance/chart/${yahooCode}`);
-                    
-                    // 直接使用 Yahoo Finance API
-                    const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooCode}`);
-                    
-                    console.log(`API 回應狀態: ${response.status} ${response.statusText}`);
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
-                    
-                    const data = await response.json();
-                    console.log(`API 回應資料:`, data);
-                    
-                    if (!data.chart || !data.chart.result || data.chart.result.length === 0) {
-                        console.log(`API 資料格式錯誤或無資料`);
-                        throw new Error('無效的股票代碼或資料格式');
-                    }
-                    
-                    const result = data.chart.result[0];
-                    const meta = result.meta;
-                    const quote = result.indicators.quote[0];
-                    
-                    console.log(`股票資訊:`, meta);
-                    
-                    // 取得當前價格
-                    const currentPrice = meta.regularMarketPrice || quote.close[quote.close.length - 1];
-                    const currency = meta.currency || this.getCurrencyByMarket(stockCode);
-                    
-                    console.log(`解析結果: 價格=${currentPrice}, 幣別=${currency}`);
-                    
-                    if (!currentPrice || currentPrice <= 0) {
-                        throw new Error('無法取得有效價格');
-                    }
-                    
-                    console.log(`Yahoo Finance 成功: ${stockCode} = ${currentPrice} ${currency}`);
-                    
-                    return {
-                        price: currentPrice,
-                        currency: currency
-                    };
-                    
-                } catch (error) {
-                    console.error(`Yahoo Finance API 錯誤 (${stockCode}):`, error.message);
-                    throw error;
                 }
             }
             
