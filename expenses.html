@@ -459,7 +459,7 @@
                     
                     <div class="form-group">
                         <label for="assetQuantity">股數/數量</label>
-                        <input type="number" id="assetQuantity" step="0.0001" required placeholder="例如：1000">
+                        <input type="number" id="assetQuantity" step="0.0001" min="0" required placeholder="例如：1000">
                     </div>
                     
                     <div class="form-group">
@@ -1962,13 +1962,26 @@ service cloud.firestore {
             }
             
             async addAsset() {
+                // 提交前確保購買單價已計算
+                this.calculateUnitPrice();
+                
+                const quantity = parseFloat(document.getElementById('assetQuantity').value);
+                const cost = parseFloat(document.getElementById('assetCost').value);
+                const unitPrice = parseFloat(document.getElementById('assetUnitPrice').value);
+                
+                // 驗證必要欄位
+                if (!quantity || quantity <= 0 || !cost || cost <= 0 || !unitPrice || unitPrice <= 0) {
+                    alert('請確認股數、總成本和購買單價都已正確填寫且大於0');
+                    return;
+                }
+                
                 const formData = {
                     name: document.getElementById('assetName').value,
                     type: document.getElementById('assetType').value,
-                    quantity: parseFloat(document.getElementById('assetQuantity').value),
+                    quantity: quantity,
                     currency: document.getElementById('assetCurrency').value,
-                    cost: parseFloat(document.getElementById('assetCost').value), // 新增總成本欄位
-                    purchasePrice: parseFloat(document.getElementById('assetUnitPrice').value) || 1,
+                    cost: cost, // 新增總成本欄位
+                    purchasePrice: unitPrice,
                     currentPrice: parseFloat(document.getElementById('assetCurrentPrice').value) || null,
                     purchaseDate: document.getElementById('assetPurchaseDate').value || null,
                     stockCode: document.getElementById('assetStockCode').value || null,
