@@ -2179,8 +2179,8 @@ service cloud.firestore {
                 if (/^[A-Za-z]/.test(stockCode)) {
                     yahooCode = stockCode; // 美股不需要後綴
                 }
-                // 台股：4位數字，添加 .TW 後綴
-                else if (/^\d{4}$/.test(stockCode)) {
+                // 台股：4位數字 或 4位數字+字母，添加 .TW 後綴
+                else if (/^\d{4}[A-Za-z]?$/.test(stockCode)) {
                     yahooCode = stockCode + '.TW';
                 }
                 // 其他情況預設為台股
@@ -2269,8 +2269,8 @@ service cloud.firestore {
                 if (/^[A-Za-z]/.test(stockCode)) {
                     return 'USD';
                 }
-                // 台股：4位數字
-                else if (/^\d{4}$/.test(stockCode)) {
+                // 台股：4位數字 或 4位數字+字母（如00937B）
+                else if (/^\d{4}[A-Za-z]?$/.test(stockCode)) {
                     return 'TWD';
                 }
                 // 其他情況預設為台幣
