@@ -656,6 +656,65 @@
             .net-income.negative::before {
                 content: "-";
             }
+            
+            /* 美化操作按鈕 */
+            .btn-edit, .btn-delete, .btn-update {
+                background: none !important;
+                border: none !important;
+                padding: 4px 6px !important;
+                margin: 1px !important;
+                border-radius: 4px !important;
+                cursor: pointer !important;
+                font-size: 14px !important;
+                transition: all 0.2s ease !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                min-width: 28px !important;
+                height: 28px !important;
+            }
+            
+            .btn-edit {
+                color: #007bff !important;
+                background-color: rgba(0, 123, 255, 0.1) !important;
+            }
+            
+            .btn-edit:hover {
+                background-color: rgba(0, 123, 255, 0.2) !important;
+                transform: scale(1.05) !important;
+            }
+            
+            .btn-delete {
+                color: #dc3545 !important;
+                background-color: rgba(220, 53, 69, 0.1) !important;
+            }
+            
+            .btn-delete:hover {
+                background-color: rgba(220, 53, 69, 0.2) !important;
+                transform: scale(1.05) !important;
+            }
+            
+            .btn-update {
+                color: #28a745 !important;
+                background-color: rgba(40, 167, 69, 0.1) !important;
+            }
+            
+            .btn-update:hover {
+                background-color: rgba(40, 167, 69, 0.2) !important;
+                transform: scale(1.05) !important;
+            }
+            
+            /* 操作欄位樣式 */
+            .operation-cell {
+                white-space: nowrap;
+                padding: 8px !important;
+            }
+            
+            .operation-cell .btn-group {
+                display: flex;
+                gap: 2px;
+                align-items: center;
+            }
         </style>
 
     <script>
@@ -1779,13 +1838,15 @@ service cloud.firestore {
                             <td>NT$ ${this.formatNumber(currentValueTWD)}</td>
                             <td class="${pnlClass}">${pnlSign}NT$ ${this.formatNumber(Math.abs(profitLossTWD))}</td>
                             <td class="${pnlClass}">${pnlSign}${profitLossPercent.toFixed(2)}%</td>
-                            <td>
-                                <button onclick="expenseTracker.editAsset('${asset.id}')" class="btn-edit">✏️</button>
-                                ${asset.type === '股票' && asset.stockCode ? 
-                                    `<button onclick="expenseTracker.updateCurrentPrice('${asset.id}')" class="btn-update" style="background: #28a745; color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer;">📈</button>` : 
-                                    ''
-                                }
-                                <button onclick="expenseTracker.deleteAsset('${asset.id}')" class="btn-delete">🗑️</button>
+                            <td class="operation-cell">
+                                <div class="btn-group">
+                                    <button onclick="expenseTracker.editAsset('${asset.id}')" class="btn-edit" title="編輯">✏️</button>
+                                    ${asset.type === '股票' && asset.stockCode ? 
+                                        `<button onclick="expenseTracker.updateCurrentPrice('${asset.id}')" class="btn-update" title="更新價格">📈</button>` : 
+                                        ''
+                                    }
+                                    <button onclick="expenseTracker.deleteAsset('${asset.id}')" class="btn-delete" title="刪除">🗑️</button>
+                                </div>
                             </td>
                         </tr>
                     `;
