@@ -367,11 +367,11 @@
         </div>
     </div>
 
-    <!-- 更新股票資料 Loading 模態框 -->
+    <!-- 更新股價 Loading 模態框 -->
     <div id="updateStocksLoadingModal" class="modal">
         <div class="modal-content" style="max-width: 800px;">
             <div class="modal-header">
-                <h2>📈 更新股票資料 <span id="updateProgressBadge" style="font-size: 0.7em; color: #fff; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 12px; margin-left: 10px; display: none;"></span> <span id="updateResultBadge" style="font-size: 0.7em; color: #fff; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 12px; margin-left: 10px; display: none;"></span></h2>
+                <h2>📈 更新股價 <span id="updateProgressBadge" style="font-size: 0.7em; color: #fff; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 12px; margin-left: 10px; display: none;"></span> <span id="updateResultBadge" style="font-size: 0.7em; color: #fff; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 12px; margin-left: 10px; display: none;"></span></h2>
                 <span class="close" onclick="expenseTracker.hideUpdateStocksLoading()">&times;</span>
             </div>
             <div class="modal-body">
@@ -404,7 +404,7 @@
                             ➕ 新增資產
                         </button>
                         <button class="btn btn-primary" onclick="expenseTracker.updateAllStockPrices()" id="updateAllStocksBtn">
-                            📈 更新所有股票資料
+                            📈 更新所有股價
                         </button>
                     </div>
                     
@@ -424,7 +424,7 @@
                                     <th>股票代碼</th>
                                     <th>類型</th>
                                     <th>數量</th>
-                                    <th>購買單價</th>
+                                    <th>購買平均成本價</th>
                                     <th>當前價格</th>
                                     <th>成本</th>
                                     <th>當前價值</th>
@@ -504,10 +504,10 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="assetUnitPrice">購買單價（自動計算）</label>
+                        <label for="assetUnitPrice">購買平均成本價（自動計算）</label>
                         <input type="number" id="assetUnitPrice" step="0.0001" readonly placeholder="自動計算">
                         <small style="color: #666; font-size: 12px;">
-                            購買單價 = 總成本 ÷ 股數
+                            購買平均成本價 = 總成本 ÷ 股數
                         </small>
                     </div>
                     
@@ -778,6 +778,7 @@
                 
                 // 資產組合
                 this.assets = [];
+                this.editingAssetId = null;
                 
                 this.categoryStructure = {
                     '食': ['外食', '食材', '飲料', '零食', '其他'],
@@ -1754,7 +1755,7 @@ service cloud.firestore {
             
             // ========== 資產組合管理功能 ==========
             
-            // 自動計算購買單價
+            // 自動計算購買平均成本價
             calculateUnitPrice() {
                 const quantity = parseFloat(document.getElementById('assetQuantity').value) || 0;
                 const cost = parseFloat(document.getElementById('assetCost').value) || 0;
@@ -1776,6 +1777,9 @@ service cloud.firestore {
                 if (modal) {
                     this.loadAssets();
                     modal.style.display = 'block';
+                    
+                    // 添加拖拉排序功能
+                    this.initDragAndDrop();
                 }
             }
             
@@ -1820,7 +1824,14 @@ service cloud.firestore {
                             this.assets.push({ id: doc.id, ...doc.data() });
                         });
                         
-                        console.log('載入的資產:', this.assets);
+                        // 按 order 欄位排序，如果沒有 order 則按創建時間排序
+                        this.assets.sort((a, b) => {
+                            const orderA = a.order !== undefined ? a.order : 999999;
+                            const orderB = b.order !== undefined ? b.order : 999999;
+                            return orderA - orderB;
+                        });
+                        
+                        console.log('載入的資產（已排序）:', this.assets);
                         
                     } catch (collectionError) {
                         console.log('Assets 集合可能不存在或無權限，使用空陣列:', collectionError);
@@ -1849,6 +1860,143 @@ service cloud.firestore {
                     }
                     
                     alert(errorMessage);
+                }
+            }
+            
+            // 初始化拖拉排序功能
+            initDragAndDrop() {
+                const tbody = document.getElementById('assetsTableBody');
+                if (!tbody) return;
+                
+                // 清除舊的事件監聽器
+                const existingRows = tbody.querySelectorAll('tr[data-asset-id]');
+                existingRows.forEach(row => {
+                    row.removeEventListener('dragstart', this.handleDragStart);
+                    row.removeEventListener('dragend', this.handleDragEnd);
+                    row.removeEventListener('dragover', this.handleDragOver);
+                    row.removeEventListener('drop', this.handleDrop);
+                });
+                
+                // 為每個資產行添加拖拉功能
+                const rows = tbody.querySelectorAll('tr[data-asset-id]');
+                rows.forEach(row => {
+                    row.draggable = true;
+                    row.classList.add('draggable-row');
+                    
+                    // 添加拖拉手把
+                    const firstCell = row.querySelector('td:first-child');
+                    if (firstCell && !firstCell.querySelector('.drag-handle')) {
+                        const dragHandle = document.createElement('span');
+                        dragHandle.className = 'drag-handle';
+                        dragHandle.innerHTML = '⋮⋮';
+                        dragHandle.title = '拖拉排序';
+                        dragHandle.style.cursor = 'grab';
+                        dragHandle.draggable = false; // 防止手把本身被拖拉
+                        firstCell.insertBefore(dragHandle, firstCell.firstChild);
+                    }
+                    
+                    // 綁定拖拉事件
+                    row.addEventListener('dragstart', this.handleDragStart.bind(this));
+                    row.addEventListener('dragend', this.handleDragEnd.bind(this));
+                    row.addEventListener('dragover', this.handleDragOver.bind(this));
+                    row.addEventListener('drop', this.handleDrop.bind(this));
+                });
+            }
+            
+            // 拖拉開始事件
+            handleDragStart(e) {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/html', e.target.outerHTML);
+                e.target.classList.add('dragging');
+                console.log('開始拖拉:', e.target.getAttribute('data-asset-id'));
+                console.log('拖拉目標:', e.target);
+            }
+            
+            // 拖拉結束事件
+            handleDragEnd(e) {
+                e.target.classList.remove('dragging');
+                console.log('拖拉結束');
+            }
+            
+            // 拖拉懸停事件
+            handleDragOver(e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                console.log('拖拉懸停:', e.target);
+            }
+            
+            // 拖拉放置事件
+            handleDrop(e) {
+                e.preventDefault();
+                const draggedRow = document.querySelector('.dragging');
+                const targetRow = e.target.closest('tr[data-asset-id]');
+                
+                console.log('拖拉放置事件觸發');
+                console.log('被拖拉的行:', draggedRow);
+                console.log('目標行:', targetRow);
+                console.log('事件目標:', e.target);
+                
+                if (draggedRow && targetRow && draggedRow !== targetRow) {
+                    console.log('放置到:', targetRow.getAttribute('data-asset-id'));
+                    this.handleRowDrop(draggedRow, targetRow);
+                } else {
+                    console.log('放置條件不滿足');
+                }
+            }
+            
+            // 處理行拖拉放置
+            handleRowDrop(draggedRow, targetRow) {
+                const tbody = document.getElementById('assetsTableBody');
+                const draggedId = draggedRow.getAttribute('data-asset-id');
+                const targetId = targetRow.getAttribute('data-asset-id');
+                
+                console.log('拖拉放置:', draggedId, '到', targetId);
+                
+                // 移除被拖拉的行
+                draggedRow.remove();
+                
+                // 將拖拉的行插入到目標位置
+                tbody.insertBefore(draggedRow, targetRow);
+                
+                console.log('DOM 更新完成');
+                
+                // 更新資產順序
+                this.updateAssetOrder();
+            }
+            
+            // 更新資產順序到 Firestore
+            async updateAssetOrder() {
+                const tbody = document.getElementById('assetsTableBody');
+                const rows = tbody.querySelectorAll('tr[data-asset-id]');
+                
+                try {
+                    // 批量更新順序
+                    const updates = [];
+                    rows.forEach((row, index) => {
+                        const assetId = row.getAttribute('data-asset-id');
+                        const asset = this.assets.find(a => a.id === assetId);
+                        if (asset) {
+                            updates.push({
+                                id: assetId,
+                                order: index
+                            });
+                        }
+                    });
+                    
+                    // 更新 Firestore
+                    for (const update of updates) {
+                        const assetRef = window.firebaseDoc(window.firebaseDb, 'assets', update.id);
+                        await window.firebaseUpdateDoc(assetRef, {
+                            order: update.order,
+                            updatedAt: window.firebaseServerTimestamp()
+                        });
+                    }
+                    
+                    console.log('✅ 資產順序已更新');
+                    
+                } catch (error) {
+                    console.error('❌ 更新資產順序失敗:', error);
+                    alert('更新順序失敗，請重試');
                 }
             }
             
@@ -1882,7 +2030,7 @@ service cloud.firestore {
                     const pnlSign = profitLoss >= 0 ? '+' : '';
                     
                     return `
-                        <tr>
+                        <tr data-asset-id="${asset.id}">
                             <td class="operation-cell">
                                 ${asset.type === '股票' && asset.stockCode ? 
                                     `<button onclick="expenseTracker.updateCurrentPrice('${asset.id}')" class="btn-update" title="取得最新價格" data-update-price="${asset.id}">📈 更新股價</button>` : 
@@ -1910,6 +2058,9 @@ service cloud.firestore {
                 }).join('');
                 
                 tbody.innerHTML = tableHTML;
+                
+                // 重新初始化拖拉功能
+                this.initDragAndDrop();
             }
             
             updatePortfolioSummary() {
@@ -1987,7 +2138,7 @@ service cloud.firestore {
                         submitBtn.textContent = '新增資產';
                     }
                     
-                    // 重置購買單價欄位樣式
+                    // 重置購買平均成本價欄位樣式
                     const unitPriceInput = document.getElementById('assetUnitPrice');
                     if (unitPriceInput) {
                         unitPriceInput.style.backgroundColor = '';
@@ -2002,7 +2153,7 @@ service cloud.firestore {
             }
             
             async addAsset() {
-                // 提交前確保購買單價已計算
+                // 提交前確保購買平均成本價已計算
                 this.calculateUnitPrice();
                 
                 const quantity = parseFloat(document.getElementById('assetQuantity').value);
@@ -2011,7 +2162,7 @@ service cloud.firestore {
                 
                 // 驗證必要欄位
                 if (!quantity || quantity <= 0 || !cost || cost <= 0 || !unitPrice || unitPrice <= 0) {
-                    alert('請確認股數、總成本和購買單價都已正確填寫且大於0');
+                    alert('請確認股數、總成本和購買平均成本價都已正確填寫且大於0');
                     return;
                 }
                 
@@ -2043,6 +2194,7 @@ service cloud.firestore {
                     } else {
                         // 新增模式：建立新資產
                         formData.createdAt = window.firebaseServerTimestamp();
+                        formData.order = this.assets.length; // 新資產排在最後
                         const assetsRef = window.firebaseCollection(window.firebaseDb, 'assets');
                         await window.firebaseAddDoc(assetsRef, formData);
                         
@@ -2465,14 +2617,14 @@ service cloud.firestore {
                 }
             }
 
-            // 更新所有股票資料
+            // 更新所有股價
             async updateAllStockPrices() {
                 const stockAssets = this.assets.filter(asset => 
                     asset.type === '股票' && asset.stockCode
                 );
                 
                 if (stockAssets.length === 0) {
-                    alert('沒有找到可更新的股票資料');
+                    alert('沒有找到可更新的股票');
                     return;
                 }
                 
@@ -2597,7 +2749,7 @@ service cloud.firestore {
                 }
             }
 
-            // 顯示更新股票資料 Loading 模態框
+            // 顯示更新股價 Loading 模態框
             showUpdateStocksLoading(stockAssets) {
                 const modal = document.getElementById('updateStocksLoadingModal');
                 if (!modal) return;
@@ -2626,7 +2778,7 @@ service cloud.firestore {
                 modal.style.display = 'block';
             }
 
-            // 隱藏更新股票資料 Loading 模態框
+            // 隱藏更新股價 Loading 模態框
             hideUpdateStocksLoading() {
                 const modal = document.getElementById('updateStocksLoadingModal');
                 if (modal) {
@@ -3377,7 +3529,7 @@ service cloud.firestore {
                     this.addAsset();
                 });
                 
-                // 監聽股數和總成本變更，自動計算購買單價
+                // 監聽股數和總成本變更，自動計算購買平均成本價
                 document.getElementById('assetQuantity').addEventListener('input', this.calculateUnitPrice.bind(this));
                 document.getElementById('assetCost').addEventListener('input', this.calculateUnitPrice.bind(this));
                 
