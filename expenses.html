@@ -53,6 +53,15 @@
     </script>
 </head>
 <body>
+    <!-- 載入動畫 -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="loading-container">
+            <div class="loading-spinner"></div>
+            <div class="loading-text" id="loadingText">載入中</div>
+            <div class="loading-subtext" id="loadingSubtext">請稍候<span class="loading-dots"></span></div>
+        </div>
+    </div>
+
     <div class="container">
         <header>
             <div class="header-top">
@@ -302,6 +311,11 @@
                 this.currentUser = null;
                 this.isFirebaseReady = false;
                 
+                // 載入動畫元素
+                this.loadingOverlay = document.getElementById('loadingOverlay');
+                this.loadingText = document.getElementById('loadingText');
+                this.loadingSubtext = document.getElementById('loadingSubtext');
+                
                 this.categoryStructure = {
                     '食': ['外食', '食材', '飲料', '零食', '其他'],
                     '衣': ['服飾', '鞋子', '配件', '美容', '其他'],
@@ -324,6 +338,7 @@
             async initFirebase() {
                 try {
                     console.log('開始初始化 Firebase...');
+                    this.showLoading('初始化系統', '正在連接 Firebase...');
                     
                     // 等待 Firebase 載入
                     await this.waitForFirebase();
@@ -342,6 +357,7 @@
                     
                     if (authState) {
                         console.log('檢測到現有登入狀態:', authState.uid);
+                        this.showLoading('載入用戶資料', '正在更新用戶資訊...');
                         console.log('使用者詳細資訊:', {
                             uid: authState.uid,
                             email: authState.email,
@@ -379,7 +395,9 @@
                         this.isFirebaseReady = true;
                         
                         // 載入記錄
-                        this.loadRecordsFromFirebase();
+                        this.showLoading('載入記帳資料', '正在從資料庫讀取記錄...');
+                        await this.loadRecordsFromFirebase();
+                        this.hideLoading();
                     } else {
                         console.log('未檢測到登入狀態，導向登入頁面');
                         window.location.href = 'enter_login.html';
@@ -389,6 +407,7 @@
                     window.firebaseOnAuthStateChanged(window.firebaseAuth, (user) => {
                         if (user) {
                             console.log('認證狀態變化 - 已登入:', user.uid);
+                            this.showLoading('載入用戶資料', '正在更新用戶資訊...');
                             
                             // 先更新使用者基本資料（無論啟用狀態如何）
                             console.log('開始執行 updateUserProfile...');
@@ -405,6 +424,7 @@
                                 const userStatus = await this.checkUserStatus(user);
                                 if (!userStatus.isActive) {
                                     console.log('使用者尚未啟用:', user.email);
+                                    this.hideLoading();
                                     this.showInactiveUserMessage(user);
                                     return;
                                 }
@@ -416,7 +436,9 @@
                                 this.showUserInfo(user);
                                 
                                 // 載入記錄
-                                this.loadRecordsFromFirebase();
+                                this.showLoading('載入記帳資料', '正在從資料庫讀取記錄...');
+                                await this.loadRecordsFromFirebase();
+                                this.hideLoading();
                             });
                         } else {
                             console.log('認證狀態變化 - 已登出，導向登入頁面');
@@ -691,6 +713,18 @@ service cloud.firestore {
             }
 
             // 顯示未啟用使用者訊息
+            // 顯示載入動畫
+            showLoading(message = '載入中', submessage = '請稍候') {
+                if (this.loadingText) this.loadingText.textContent = message;
+                if (this.loadingSubtext) this.loadingSubtext.textContent = submessage;
+                if (this.loadingOverlay) this.loadingOverlay.style.display = 'flex';
+            }
+
+            // 隱藏載入動畫
+            hideLoading() {
+                if (this.loadingOverlay) this.loadingOverlay.style.display = 'none';
+            }
+
             showInactiveUserMessage(user) {
                 // 隱藏所有輸入表單
                 const mainContent = document.querySelector('main');

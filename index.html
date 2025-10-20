@@ -10,10 +10,83 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <style>
-    /* 預設先隱藏，避免尚未檢查登入時閃出畫面 */
+    /* 預設先隱藏主要內容，但保留載入動畫 */
     body { 
-      display: none; 
       font-family: 'Inter', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    
+    /* 隱藏主要內容，但保留載入動畫 */
+    .main-content {
+      display: none;
+    }
+    
+    /* 確保載入動畫始終可見 */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      backdrop-filter: blur(5px);
+    }
+
+    .loading-container {
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      max-width: 300px;
+      width: 90%;
+    }
+
+    .loading-spinner {
+      width: 60px;
+      height: 60px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      color: #333;
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .loading-subtext {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .loading-dots {
+      display: inline-block;
+      animation: dots 1.5s infinite;
+    }
+
+    @keyframes dots {
+      0%, 20% { content: ''; }
+      40% { content: '.'; }
+      60% { content: '..'; }
+      80%, 100% { content: '...'; }
+    }
+
+    .loading-dots::after {
+      content: '';
+      animation: dots 1.5s infinite;
     }
   </style>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -58,6 +131,7 @@
     window.signInWithPopup = signInWithPopup;
     window.signOut = signOut;
     window.onAuthStateChanged = onAuthStateChanged;
+    
 
   // === 認證檢查結束 ===
   </script>
@@ -288,7 +362,7 @@
     /* 強制右上角水平排列 */
     #userDisplayName {
       flex-direction: row !important;
-      display: flex !important;
+      display: flex;
       align-items: center !important;
       flex-wrap: nowrap !important;
     }
@@ -301,8 +375,19 @@
 </head>
 
 <body class="min-h-screen bg-slate-50 text-slate-800">
-  <!-- Header -->
-  <header class="bg-gradient-to-r from-brand-600 via-brand-700 to-brand-800 text-white shadow-lg sticky top-0 z-40">
+  <!-- 載入動畫 -->
+  <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+    <div class="loading-container">
+      <div class="loading-spinner"></div>
+      <div class="loading-text" id="loadingText">載入中</div>
+      <div class="loading-subtext" id="loadingSubtext">請稍候<span class="loading-dots"></span></div>
+    </div>
+  </div>
+
+  <!-- 主要內容容器 -->
+  <div class="main-content">
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-brand-600 via-brand-700 to-brand-800 text-white shadow-lg sticky top-0 z-40">
     <div class="max-w-7xl mx-auto px-4 md:px-6 py-3.5 md:py-4 flex items-center justify-between" style="min-width: 0; overflow: visible;">
       <div class="flex items-center gap-3">
         <div class="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-white/20 backdrop-blur-sm grid place-items-center font-bold text-base md:text-lg shadow-md">QA</div>
@@ -754,12 +839,39 @@
 	// Git Token
 	let GITLAB_TOKEN = null;
 	
+	// 載入動畫控制函數
+	function showLoading(message = '載入中', submessage = '請稍候') {
+		const loadingOverlay = document.getElementById('loadingOverlay');
+		const loadingText = document.getElementById('loadingText');
+		const loadingSubtext = document.getElementById('loadingSubtext');
+		
+		if (loadingText) loadingText.textContent = message;
+		if (loadingSubtext) loadingSubtext.textContent = submessage;
+		if (loadingOverlay) loadingOverlay.style.display = 'flex';
+	}
+
+	function hideLoading() {
+		const loadingOverlay = document.getElementById('loadingOverlay');
+		if (loadingOverlay) loadingOverlay.style.display = 'none';
+	}
+	
+	// 顯示初始載入動畫
+	document.addEventListener('DOMContentLoaded', () => {
+		showLoading('初始化系統', '正在連接 Firebase...');
+	});
+
 	onAuthStateChanged(auth, (user) => {
 		if (user) {
-			document.body.style.display = 'block'; // 顯示 body 內容
+			showLoading('載入用戶資料', '正在更新用戶資訊...');
+			
+			// 顯示主要內容
+			const mainContent = document.querySelector('.main-content');
+			if (mainContent) mainContent.style.display = 'block';
+			
 			userDisplayName.classList.remove('hidden');
 			const displayName = user.displayName || user.email;
 			userEmail.textContent = displayName;
+			
 			// ★ 登入後：記錄/更新使用者基本資料（最小幅度）
 			setDoc(doc(db, 'users', user.uid), {
 			  uid: user.uid,
@@ -768,9 +880,24 @@
 			  photoURL: user.photoURL ?? null,
 			  providerId: user.providerData?.[0]?.providerId ?? null,
 			  lastLoginAt: serverTimestamp()
-			}, { merge: true }).catch(console.error);
-			reload();
-			loadGitlabToken().catch(console.error); // 預抓 token（快取在記憶體）
+			}, { merge: true }).then(async () => {
+				console.log('✅ 用戶資料更新成功');
+				showLoading('載入系統資料', '正在載入 Issues 和設定...');
+				
+				// 載入資料
+				try {
+					await reload();
+					await loadGitlabToken(); // 預抓 token（快取在記憶體）
+					console.log('✅ 系統資料載入完成');
+					hideLoading();
+				} catch (error) {
+					console.error('❌ 系統資料載入失敗:', error);
+					hideLoading();
+				}
+			}).catch((error) => {
+				console.error('❌ 用戶資料更新失敗:', error);
+				hideLoading();
+			});
 		} else {
 			// 已經登出 → 直接導向統一登入入口
 			location.href = "enter_login.html";
@@ -897,7 +1024,7 @@
       const payload = buildPayload();
       const u = auth.currentUser;
       try{
-        showLoading(true);
+        showTableLoading(true);
         if(editingId){
           await updateDoc(doc(db, 'records', editingId), { ...payload, updated_by_uid: u?.uid ?? null, updated_at: serverTimestamp() });
           showMsg('已更新');
@@ -915,7 +1042,7 @@
         console.error(err);
         showMsg('錯誤: ' + err.message, true);
       } finally{
-        showLoading(false);
+        showTableLoading(false);
       }
     });
 
@@ -1003,7 +1130,7 @@
 	let _cacheRows = [];   // 全部查回後、已排序的全集資料
 	let _pageIndex = 0;    // 目前頁碼（0-based）
 
-    function showLoading(show){
+    function showTableLoading(show){
       if(show){
         loadingOverlay.classList.remove('hidden');
         tableWrap.classList.add('invisible');
@@ -1027,7 +1154,7 @@
 
 
 	async function fetchPage(forward = true) {
-	  showLoading(true);
+	  showTableLoading(true);
 	  try {
 		// 1) 蒐集查詢條件（不使用 orderBy、不用游標）
 		const constraints = [ limit(10000) ]; // 視資料量調整
@@ -1088,7 +1215,7 @@
 		renderRows([]);
 		pageInfo.textContent = '共 0 筆';
 	  } finally {
-		showLoading(false);
+		showTableLoading(false);
 	  }
 	}
 
@@ -1846,5 +1973,6 @@
 	}
 	document.getElementById('btnBulkUpdate').addEventListener('click', bulkUpdateCurrentCache);
   </script>
+  </div> <!-- 關閉主要內容容器 -->
 </body>
 </html>
