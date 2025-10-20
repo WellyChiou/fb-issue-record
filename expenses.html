@@ -2443,6 +2443,92 @@ service cloud.firestore {
                 }
             }
 
+            // 更新所有股票資料
+            async updateAllStockPrices() {
+                const stockAssets = this.assets.filter(asset => 
+                    asset.type === '股票' && asset.stockCode
+                );
+                
+                if (stockAssets.length === 0) {
+                    alert('沒有找到可更新的股票資料');
+                    return;
+                }
+                
+                const updateBtn = document.getElementById('updateAllStocksBtn');
+                let originalButtonContent = '';
+                if (updateBtn) {
+                    originalButtonContent = updateBtn.innerHTML;
+                    updateBtn.disabled = true;
+                    updateBtn.innerHTML = '🔄 更新中...';
+                    updateBtn.style.opacity = '0.6';
+                    updateBtn.style.cursor = 'not-allowed';
+                }
+                
+                let successCount = 0;
+                let failCount = 0;
+                const results = [];
+                
+                try {
+                    console.log(`🔄 開始批量更新 ${stockAssets.length} 支股票...`);
+                    
+                    for (let i = 0; i < stockAssets.length; i++) {
+                        const asset = stockAssets[i];
+                        
+                        // 更新按鈕顯示進度
+                        if (updateBtn) {
+                            updateBtn.innerHTML = `🔄 更新中... (${i + 1}/${stockAssets.length})`;
+                        }
+                        
+                        try {
+                            console.log(`🔄 正在更新 ${asset.stockCode} (${asset.name})...`);
+                            
+                            // 根據股票代碼取得最新價格
+                            const stockData = await this.getStockPrice(asset.stockCode);
+                            
+                            const assetRef = window.firebaseDoc(window.firebaseDb, 'assets', asset.id);
+                            await window.firebaseUpdateDoc(assetRef, {
+                                currentPrice: stockData.price,
+                                currency: stockData.currency,
+                                updatedAt: window.firebaseServerTimestamp()
+                            });
+                            
+                            successCount++;
+                            results.push(`✅ ${asset.stockCode} (${asset.name}): ${stockData.price.toFixed(2)} ${stockData.currency}`);
+                            console.log(`✅ 更新 ${asset.stockCode} 成功`);
+                            
+                        } catch (error) {
+                            failCount++;
+                            results.push(`❌ ${asset.stockCode} (${asset.name}): ${error.message}`);
+                            console.error(`❌ 更新 ${asset.stockCode} 失敗:`, error.message);
+                        }
+                        
+                        // 添加小延遲避免 API 限制
+                        if (i < stockAssets.length - 1) {
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                        }
+                    }
+                    
+                    // 重新載入資產
+                    await this.loadAssets();
+                    
+                    // 顯示結果
+                    const resultMessage = `更新完成！\n成功: ${successCount} 支\n失敗: ${failCount} 支\n\n詳細結果:\n${results.join('\n')}`;
+                    alert(resultMessage);
+                    
+                } catch (error) {
+                    console.error('❌ 批量更新失敗:', error);
+                    alert(`批量更新失敗: ${error.message}`);
+                } finally {
+                    // 恢復按鈕狀態
+                    if (updateBtn) {
+                        updateBtn.disabled = false;
+                        updateBtn.innerHTML = originalButtonContent;
+                        updateBtn.style.opacity = '1';
+                        updateBtn.style.cursor = 'pointer';
+                    }
+                }
+            }
+
             // ========== 資料轉移功能 ==========
             
             showDataMigration() {
