@@ -1842,7 +1842,7 @@ service cloud.firestore {
                                 <div class="btn-group">
                                     <button onclick="expenseTracker.editAsset('${asset.id}')" class="btn-edit" title="編輯">✏️</button>
                                     ${asset.type === '股票' && asset.stockCode ? 
-                                        `<button onclick="expenseTracker.updateCurrentPrice('${asset.id}')" class="btn-update" title="更新價格">📈</button>` : 
+                                        `<button onclick="expenseTracker.updateCurrentPrice('${asset.id}')" class="btn-update" title="取得最新價格" data-update-price="${asset.id}">📈 取得最新價格</button>` : 
                                         ''
                                     }
                                     <button onclick="expenseTracker.deleteAsset('${asset.id}')" class="btn-delete" title="刪除">🗑️</button>
@@ -2294,7 +2294,22 @@ service cloud.firestore {
                     return;
                 }
                 
+                // 找到對應的按鈕並顯示 loading 狀態
+                const updateBtn = document.querySelector(`[data-update-price="${assetId}"]`);
+                let originalButtonContent = '';
+                if (updateBtn) {
+                    originalButtonContent = updateBtn.innerHTML;
+                    updateBtn.disabled = true;
+                    updateBtn.innerHTML = '🔄 取得中...';
+                    updateBtn.style.opacity = '0.6';
+                    updateBtn.style.cursor = 'not-allowed';
+                    updateBtn.style.backgroundColor = '#f0f0f0';
+                    updateBtn.style.color = '#999';
+                }
+                
                 try {
+                    console.log(`🔄 開始更新 ${asset.stockCode} (${asset.name}) 的價格...`);
+                    
                     // 根據股票代碼取得最新價格
                     const stockData = await this.getStockPrice(asset.stockCode);
                     
@@ -2305,15 +2320,25 @@ service cloud.firestore {
                         updatedAt: window.firebaseServerTimestamp()
                     });
                     
-                    console.log(`更新 ${asset.stockCode} (${asset.name}) 價格: ${stockData.price.toFixed(2)} ${stockData.currency}`);
+                    console.log(`✅ 更新 ${asset.stockCode} (${asset.name}) 價格: ${stockData.price.toFixed(2)} ${stockData.currency}`);
                     alert(`${asset.stockCode} (${asset.name}) 價格已更新為 ${stockData.price.toFixed(2)} ${stockData.currency}`);
                     
                     // 重新載入資產
                     await this.loadAssets();
                     
                 } catch (error) {
-                    console.error('更新價格失敗:', error);
-                    alert('更新價格失敗');
+                    console.error('❌ 更新價格失敗:', error);
+                    alert(`更新價格失敗: ${error.message}`);
+                } finally {
+                    // 恢復按鈕狀態
+                    if (updateBtn) {
+                        updateBtn.disabled = false;
+                        updateBtn.innerHTML = originalButtonContent;
+                        updateBtn.style.opacity = '1';
+                        updateBtn.style.cursor = 'pointer';
+                        updateBtn.style.backgroundColor = '';
+                        updateBtn.style.color = '';
+                    }
                 }
             }
 
