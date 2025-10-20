@@ -65,7 +65,7 @@
     <div class="container">
         <header>
             <div class="header-top">
-                <h1>家庭記帳系統</h1>
+            <h1>家庭記帳系統</h1>
                 <div id="userInfo" class="user-info" style="display: none; background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(15px); padding: 10px 18px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.3); box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);">
                     <div class="user-details">
                         <svg class="user-icon" fill="currentColor" viewBox="0 0 20 20">
@@ -89,7 +89,7 @@
                     <span class="label">本月淨收入</span>
                     <span class="amount net-income" id="monthlyNetIncome">$0</span>
                 </div>
-            </div>
+                </div>
             
             <!-- 資產管理按鈕 -->
             <div class="asset-management-section" style="margin: 20px 0; text-align: center;">
@@ -2507,13 +2507,19 @@ service cloud.firestore {
                         this.updateProgress(progress, `正在更新 ${asset.name} (${asset.stockCode})...`);
                         
                         // 更新股票狀態為「更新中」
-                        this.updateStockStatus(asset.id, 'updating', `第 ${i + 1} 支股票`);
+                        this.updateStockStatus(asset.id, 'updating', `正在取得價格...`);
                         
                         try {
                             console.log(`🔄 正在更新 ${asset.stockCode} (${asset.name})...`);
                             
+                            // 更新狀態為正在嘗試
+                            this.updateStockStatus(asset.id, 'updating', `嘗試取得價格...`);
+                            
                             // 根據股票代碼取得最新價格
-                            const stockData = await this.getStockPrice(asset.stockCode);
+                            const stockData = await this.getStockPriceWithProgress(asset.stockCode, asset.id);
+                            
+                            // 更新狀態為正在儲存
+                            this.updateStockStatus(asset.id, 'updating', `正在儲存資料...`);
                             
                             const assetRef = window.firebaseDoc(window.firebaseDb, 'assets', asset.id);
                             await window.firebaseUpdateDoc(assetRef, {
@@ -2548,6 +2554,57 @@ service cloud.firestore {
                 } catch (error) {
                     console.error('❌ 批量更新失敗:', error);
                     this.updateProgress(0, '更新失敗');
+                }
+            }
+
+            // 帶進度顯示的股票價格取得
+            async getStockPriceWithProgress(stockCode, assetId) {
+                try {
+                    // 嘗試取得真實股票價格
+                    const realPrice = await this.fetchRealStockPriceWithProgress(stockCode, assetId);
+                    if (realPrice) {
+                        console.log(`取得 ${stockCode} 真實價格: ${realPrice.price.toFixed(2)} ${realPrice.currency}`);
+                        return realPrice;
+                    }
+                } catch (error) {
+                    console.warn(`取得 ${stockCode} 真實價格失敗:`, error.message);
+                }
+                
+                // 如果真實 API 失敗，拋出錯誤而不是使用固定價格
+                throw new Error(`無法取得 ${stockCode} 的價格資料，請手動輸入當前價格`);
+            }
+
+            // 帶進度顯示的真實股票價格取得
+            async fetchRealStockPriceWithProgress(stockCode, assetId) {
+                console.log(`🔍 開始查詢 ${stockCode} 的價格...`);
+                
+                // 嘗試多個 API
+                const apis = [
+                    () => this.tryYahooFinance(stockCode),
+                    () => this.tryFinancialModelingPrep(stockCode),
+                    () => this.tryMarketStack(stockCode),
+                    () => this.tryAlphaVantage(stockCode),
+                    () => this.tryIEXCloud(stockCode)
+                ];
+                
+                for (let i = 0; i < apis.length; i++) {
+                    try {
+                        // 更新狀態顯示嘗試次數
+                        this.updateStockStatus(assetId, 'updating', `第 ${i + 1} 次嘗試 (API ${i + 1}/${apis.length})`);
+                        
+                        console.log(`嘗試 API ${i + 1}/${apis.length}`);
+                        const result = await apis[i]();
+                        if (result) {
+                            console.log(`✅ API ${i + 1} 成功: ${stockCode} = ${result.price} ${result.currency}`);
+                            return result;
+                        }
+                    } catch (error) {
+                        console.warn(`❌ API ${i + 1} 失敗:`, error.message);
+                        if (i === apis.length - 1) {
+                            throw new Error(`所有 API 都失敗: ${error.message}`);
+                        }
+                        continue;
+                    }
                 }
             }
 
