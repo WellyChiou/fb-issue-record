@@ -9,7 +9,7 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
         import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, setDoc, query, orderBy, where, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
         
         // Firebase 配置
@@ -45,6 +45,7 @@
         window.firebaseServerTimestamp = serverTimestamp;
         window.firebaseSignInAnonymously = signInAnonymously;
         window.firebaseOnAuthStateChanged = onAuthStateChanged;
+        window.firebaseSignOut = signOut;
         
         // 標記 Firebase 已載入
         window.firebaseLoaded = true;
@@ -54,7 +55,18 @@
 <body>
     <div class="container">
         <header>
-            <h1>家庭記帳系統</h1>
+            <div class="header-top">
+                <h1>家庭記帳系統</h1>
+                <div id="userInfo" class="user-info" style="display: none;">
+                    <div class="user-details">
+                        <svg class="user-icon" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+                        </svg>
+                        <span id="userEmail" class="user-email"></span>
+                    </div>
+                    <button id="btnSignOut" class="logout-btn">登出</button>
+                </div>
+            </div>
             <div class="summary">
                 <div class="summary-item">
                     <span class="label">總收入</span>
@@ -381,6 +393,9 @@
                                 this.currentUser = user;
                                 this.isFirebaseReady = true;
                                 
+                                // 顯示用戶資訊
+                                this.showUserInfo(user);
+                                
                                 // 記錄/更新使用者基本資料
                                 this.updateUserProfile(user);
                                 
@@ -606,6 +621,32 @@ service cloud.firestore {
                             </div>
                         </div>
                     `;
+                }
+            }
+
+            // 顯示用戶資訊和登出按鈕
+            showUserInfo(user) {
+                const userInfo = document.getElementById('userInfo');
+                const userEmail = document.getElementById('userEmail');
+                const btnSignOut = document.getElementById('btnSignOut');
+                
+                if (userInfo && userEmail && btnSignOut) {
+                    // 顯示用戶資訊
+                    userInfo.style.display = 'flex';
+                    userEmail.textContent = user.displayName || user.email;
+                    
+                    // 綁定登出按鈕事件
+                    btnSignOut.onclick = async () => {
+                        try {
+                            console.log('開始登出...');
+                            await window.firebaseSignOut(window.firebaseAuth);
+                            console.log('登出成功');
+                            window.location.href = 'enter_login.html';
+                        } catch (error) {
+                            console.error('登出失敗:', error);
+                            alert('登出失敗，請重試');
+                        }
+                    };
                 }
             }
 
