@@ -2554,8 +2554,8 @@ service cloud.firestore {
                         this.assets = [];
                     }
                     
-                    this.renderAssetsTable();
-                    this.updatePortfolioSummary();
+                    await this.renderAssetsTable();
+                    await this.updatePortfolioSummary();
                     
                 } catch (error) {
                     console.error('載入資產失敗:', error);
@@ -2716,7 +2716,7 @@ service cloud.firestore {
                 }
             }
             
-            renderAssetsTable() {
+            async renderAssetsTable() {
                 const tbody = document.getElementById('assetsTableBody');
                 if (!tbody) return;
                 
@@ -2725,7 +2725,7 @@ service cloud.firestore {
                     return;
                 }
                 
-                const tableHTML = this.assets.map(asset => {
+                const tableHTML = await Promise.all(this.assets.map(async asset => {
                     const purchasePrice = asset.purchasePrice || asset.unitPrice || 1;
                     const currentPrice = asset.currentPrice || purchasePrice;
                     const quantity = asset.quantity;
@@ -2738,8 +2738,8 @@ service cloud.firestore {
                     
                     // 轉換為台幣（使用購買日期的匯率）
                     const purchaseDate = asset.purchaseDate ? new Date(asset.purchaseDate) : null;
-                    const costBasisTWD = this.convertToTWD(costBasis, asset.currency, 1, purchaseDate);
-                    const currentValueTWD = this.convertToTWD(currentValue, asset.currency);
+                    const costBasisTWD = await this.convertToTWD(costBasis, asset.currency, 1, purchaseDate);
+                    const currentValueTWD = await this.convertToTWD(currentValue, asset.currency);
                     const profitLossTWD = currentValueTWD - costBasisTWD;
                     
                     // 損益顏色
@@ -2772,19 +2772,19 @@ service cloud.firestore {
                             </td>
                         </tr>
                     `;
-                }).join('');
+                }));
                 
-                tbody.innerHTML = tableHTML;
+                tbody.innerHTML = tableHTML.join('');
                 
                 // 重新初始化拖拉功能
                 this.initDragAndDrop();
             }
             
-            updatePortfolioSummary() {
+            async updatePortfolioSummary() {
                 let totalValue = 0;
                 let totalCost = 0;
                 
-                this.assets.forEach(asset => {
+                for (const asset of this.assets) {
                     const quantity = parseFloat(asset.quantity) || 0;
                     const purchasePrice = parseFloat(asset.purchasePrice) || parseFloat(asset.unitPrice) || 0;
                     const currentPrice = parseFloat(asset.currentPrice) || purchasePrice;
@@ -2792,14 +2792,14 @@ service cloud.firestore {
                     // 計算成本（台幣，使用購買日期的匯率）
                     const cost = quantity * purchasePrice;
                     const purchaseDate = asset.purchaseDate ? new Date(asset.purchaseDate) : null;
-                    const costTWD = this.convertToTWD(cost, asset.currency, 1, purchaseDate);
+                    const costTWD = await this.convertToTWD(cost, asset.currency, 1, purchaseDate);
                     totalCost += costTWD;
                     
                     // 計算當前價值（台幣，使用當前匯率）
                     const currentValue = quantity * currentPrice;
-                    const currentValueTWD = this.convertToTWD(currentValue, asset.currency);
+                    const currentValueTWD = await this.convertToTWD(currentValue, asset.currency);
                     totalValue += currentValueTWD;
-                });
+                }
                 
                 // 計算總損益
                 const totalProfitLoss = totalValue - totalCost;
@@ -2823,7 +2823,7 @@ service cloud.firestore {
                 }
             }
             
-            convertToTWD(quantity, currency, unitPrice = 1, date = null) {
+            async convertToTWD(quantity, currency, unitPrice = 1, date = null) {
                 if (currency === 'TWD') {
                     return quantity * unitPrice;
                 }
@@ -2834,8 +2834,9 @@ service cloud.firestore {
                     return quantity * unitPrice * rate;
                 }
                 
-                // 使用指定日期的匯率（異步處理）
-                this.getExchangeRateForDate(currency, date).then(rate => {
+                // 使用指定日期的匯率
+                try {
+                    const rate = await this.getExchangeRateForDate(currency, date);
                     if (rate !== null) {
                         return quantity * unitPrice * rate;
                     } else {
@@ -2843,15 +2844,11 @@ service cloud.firestore {
                         console.log(`使用當前匯率作為備用: ${this.exchangeRates[currency]}`);
                         return quantity * unitPrice * (this.exchangeRates[currency] || 1);
                     }
-                }).catch(error => {
+                } catch (error) {
                     console.error('獲取歷史匯率失敗，使用當前匯率:', error);
                     const rate = this.exchangeRates[currency] || 1;
                     return quantity * unitPrice * rate;
-                });
-                
-                // 暫時使用當前匯率，避免阻塞
-                const rate = this.exchangeRates[currency] || 1;
-                return quantity * unitPrice * rate;
+                }
             }
             
             showAddAssetForm() {
