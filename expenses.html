@@ -379,7 +379,7 @@
                         <div class="form-group">
                             <label for="historyDate">查詢日期</label>
                             <input type="date" id="historyDate">
-                        </div>
+            </div>
                         <button class="btn btn-outline" onclick="expenseTracker.loadHistoryRates()">
                             📅 載入歷史匯率
                         </button>
@@ -1416,8 +1416,22 @@ service cloud.firestore {
                 // 獲取所有可能的篩選選項（使用所有記錄，不是篩選後的記錄）
                 const allMembers = [...new Set(this.records.map(r => r.member))];
                 const allTypes = [...new Set(this.records.map(r => r.type))];
-                const allMainCategories = [...new Set(this.records.map(r => r.mainCategory))];
-                const allSubCategories = [...new Set(this.records.map(r => r.subCategory))];
+                
+                // 根據已選擇的類型過濾類別
+                let filteredMainCategories = [...new Set(this.records.map(r => r.mainCategory))];
+                if (currentFilters.type && currentFilters.type.length > 0) {
+                    filteredMainCategories = [...new Set(this.records
+                        .filter(r => currentFilters.type.includes(r.type))
+                        .map(r => r.mainCategory))];
+                }
+                
+                // 根據已選擇的類別過濾細項
+                let filteredSubCategories = [...new Set(this.records.map(r => r.subCategory))];
+                if (currentFilters.mainCategory && currentFilters.mainCategory.length > 0) {
+                    filteredSubCategories = [...new Set(this.records
+                        .filter(r => currentFilters.mainCategory.includes(r.mainCategory))
+                        .map(r => r.subCategory))];
+                }
                 const allYears = [...new Set(this.records.map(r => r.date.split('-')[0]))].sort((a, b) => b - a);
                 const allMonths = [...new Set(this.records.map(r => r.date.split('-')[1]))].sort((a, b) => a - b);
 
@@ -1447,18 +1461,18 @@ service cloud.firestore {
                             </select>
                             
                             <label for="tableFilterType">類型：</label>
-                            <select id="tableFilterType" onchange="expenseTracker.handleTableFilterChange()" multiple style="min-height: 60px;" onmousedown="expenseTracker.toggleOption(event)">
+                            <select id="tableFilterType" onchange="expenseTracker.handleTableFilterChange(event)" multiple style="min-height: 60px;" onmousedown="expenseTracker.toggleOption(event)">
                                 ${allTypes.map(type => `<option value="${type}" ${currentFilters.type && currentFilters.type.includes(type) ? 'selected' : ''}>${type}</option>`).join('')}
                             </select>
                             
                             <label for="tableFilterMainCategory">類別：</label>
-                            <select id="tableFilterMainCategory" onchange="expenseTracker.handleTableFilterChange()" multiple style="min-height: 100px;" onmousedown="expenseTracker.toggleOption(event)">
-                                ${allMainCategories.map(cat => `<option value="${cat}" ${currentFilters.mainCategory && currentFilters.mainCategory.includes(cat) ? 'selected' : ''}>${cat}</option>`).join('')}
+                            <select id="tableFilterMainCategory" onchange="expenseTracker.handleTableFilterChange(event)" multiple style="min-height: 100px;" onmousedown="expenseTracker.toggleOption(event)">
+                                ${filteredMainCategories.map(cat => `<option value="${cat}" ${currentFilters.mainCategory && currentFilters.mainCategory.includes(cat) ? 'selected' : ''}>${cat}</option>`).join('')}
                             </select>
                             
                             <label for="tableFilterSubCategory">細項：</label>
-                            <select id="tableFilterSubCategory" onchange="expenseTracker.handleTableFilterChange()" multiple style="min-height: 120px;" onmousedown="expenseTracker.toggleOption(event)">
-                                ${allSubCategories.map(sub => `<option value="${sub}" ${currentFilters.subCategory && currentFilters.subCategory.includes(sub) ? 'selected' : ''}>${sub}</option>`).join('')}
+                            <select id="tableFilterSubCategory" onchange="expenseTracker.handleTableFilterChange(event)" multiple style="min-height: 120px;" onmousedown="expenseTracker.toggleOption(event)">
+                                ${filteredSubCategories.map(sub => `<option value="${sub}" ${currentFilters.subCategory && currentFilters.subCategory.includes(sub) ? 'selected' : ''}>${sub}</option>`).join('')}
                             </select>
                         </div>
                     </div>
@@ -1672,7 +1686,37 @@ service cloud.firestore {
             }
 
             // 包裝函數用於 HTML 事件處理
-            async handleTableFilterChange() {
+            async handleTableFilterChange(event) {
+                // 檢查是哪個篩選器改變了
+                const target = event ? event.target : null;
+                const mainCategorySelect = document.getElementById('tableFilterMainCategory');
+                const subCategorySelect = document.getElementById('tableFilterSubCategory');
+                
+                // 如果類型改變，清除類別和細項的選擇
+                if (target && target.id === 'tableFilterType') {
+                    // 清除類別選擇
+                    if (mainCategorySelect) {
+                        Array.from(mainCategorySelect.options).forEach(option => {
+                            option.selected = false;
+                        });
+                    }
+                    // 清除細項選擇
+                    if (subCategorySelect) {
+                        Array.from(subCategorySelect.options).forEach(option => {
+                            option.selected = false;
+                        });
+                    }
+                }
+                
+                // 如果類別改變，清除細項的選擇
+                if (target && target.id === 'tableFilterMainCategory') {
+                    if (subCategorySelect) {
+                        Array.from(subCategorySelect.options).forEach(option => {
+                            option.selected = false;
+                        });
+                    }
+                }
+                
                 await this.applyTableFilter(true);
             }
             
@@ -1683,7 +1727,7 @@ service cloud.firestore {
             async handleUpdateDisplay() {
                 await this.updateDisplay();
             }
-            
+
             // 應用表格篩選
             async applyTableFilter(resetPage = true) {
                 const filteredRecords = this.getCurrentFilteredRecords();
@@ -1730,7 +1774,7 @@ service cloud.firestore {
                 }
                 
                 // 重新應用篩選
-                await this.handleTableFilterChange();
+                await this.handleTableFilterChange(null);
             }
 
             // 更新分頁
@@ -2234,10 +2278,10 @@ service cloud.firestore {
                 
                 try {
                     // 保存當前匯率（向後兼容）
-                    const exchangeRateRef = window.firebaseDoc(window.firebaseDb, 'exchangeRates', 'current');
+                const exchangeRateRef = window.firebaseDoc(window.firebaseDb, 'exchangeRates', 'current');
                     await window.firebaseSetDoc(exchangeRateRef, {
-                        rates: this.exchangeRates,
-                        updatedAt: window.firebaseServerTimestamp()
+                    rates: this.exchangeRates,
+                    updatedAt: window.firebaseServerTimestamp()
                     });
                     
                     // 保存指定日期的匯率到每日匯率記錄
@@ -2339,29 +2383,6 @@ service cloud.firestore {
                 }
             }
             
-            // 調試函數：檢查 Firebase 中的每日匯率數據
-            async debugDailyExchangeRates() {
-                try {
-                    console.log('🔍 檢查 Firebase 中的每日匯率數據...');
-                    const dailyRatesRef = window.firebaseCollection(window.firebaseDb, 'dailyExchangeRates');
-                    const q = window.firebaseQuery(dailyRatesRef);
-                    const querySnapshot = await window.firebaseGetDocs(q);
-                    
-                    console.log(`📊 找到 ${querySnapshot.size} 筆每日匯率記錄:`);
-                    
-                    querySnapshot.forEach((doc) => {
-                        console.log(`📅 日期: ${doc.id}`);
-                        console.log(`📋 數據:`, doc.data());
-                    });
-                    
-                    if (querySnapshot.empty) {
-                        console.log('❌ Firebase 中沒有每日匯率記錄');
-                    }
-                } catch (error) {
-                    console.error('❌ 檢查每日匯率數據失敗:', error);
-                }
-            }
-            
             // 載入歷史匯率
             async loadHistoryRates() {
                 const dateInput = document.getElementById('historyDate');
@@ -2394,9 +2415,6 @@ service cloud.firestore {
                     const selectedDate = new Date(dateInput.value);
                     console.log(`🔍 載入歷史匯率 - 選擇的日期: ${dateInput.value}`);
                     console.log(`📅 轉換後的日期對象:`, selectedDate);
-                    
-                    // 先檢查 Firebase 中的數據
-                    await this.debugDailyExchangeRates();
                     
                     // 載入每個幣別的歷史匯率
                     for (const currency of currencies) {
@@ -4530,7 +4548,7 @@ service cloud.firestore {
                     pageSizeSelect.addEventListener('change', async (e) => {
                         this.recordsPerPage = parseInt(e.target.value);
                         this.currentPage = 1;
-                        await this.handleTableFilterChange();
+                        await this.handleTableFilterChange(null);
                     });
                 }
 
@@ -4540,7 +4558,7 @@ service cloud.firestore {
                     prevPageBtn.addEventListener('click', async () => {
                         if (this.currentPage > 1) {
                             this.currentPage--;
-                            await this.handleTableFilterChange();
+                            await this.handleTableFilterChange(null);
                         }
                     });
                 }
@@ -4553,7 +4571,7 @@ service cloud.firestore {
                         const totalPages = Math.ceil(filteredRecords.length / this.recordsPerPage);
                         if (this.currentPage < totalPages) {
                             this.currentPage++;
-                            await this.handleTableFilterChange();
+                            await this.handleTableFilterChange(null);
                         }
                     });
                 }
