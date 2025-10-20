@@ -377,9 +377,12 @@
             <div class="modal-body">
                 <div class="asset-portfolio-section">
                     <div class="portfolio-header">
-                        <h3>我的資產組合</h3>
+                        <h3>我的資產組合 <span id="assetCountDisplay" style="font-size: 0.8em; color: #666; font-weight: normal;">(0 項)</span></h3>
                         <button class="btn btn-primary" onclick="expenseTracker.showAddAssetForm()">
                             ➕ 新增資產
+                        </button>
+                        <button class="btn btn-primary" onclick="expenseTracker.updateAllStockPrices()" id="updateAllStocksBtn">
+                            📈 更新所有股票資料
                         </button>
                     </div>
                     
@@ -387,10 +390,6 @@
                         <div class="summary-item">
                             <span class="label">總資產價值 (台幣)</span>
                             <span class="amount" id="portfolioTotalValue">$0</span>
-                        </div>
-                        <div class="summary-item">
-                            <span class="label">資產項目數</span>
-                            <span class="amount" id="portfolioItemCount">0</span>
                         </div>
                     </div>
                     
@@ -1654,11 +1653,20 @@ service cloud.firestore {
             }
             
             loadExchangeRates() {
+                console.log('載入匯率資料:', this.exchangeRates);
+                
                 // 載入當前匯率到表單
-                document.getElementById('usdRate').value = this.exchangeRates.USD;
-                document.getElementById('eurRate').value = this.exchangeRates.EUR;
-                document.getElementById('jpyRate').value = this.exchangeRates.JPY;
-                document.getElementById('cnyRate').value = this.exchangeRates.CNY;
+                const usdRateInput = document.getElementById('usdRate');
+                const eurRateInput = document.getElementById('eurRate');
+                const jpyRateInput = document.getElementById('jpyRate');
+                const cnyRateInput = document.getElementById('cnyRate');
+                
+                if (usdRateInput) usdRateInput.value = this.exchangeRates.USD || 30.0;
+                if (eurRateInput) eurRateInput.value = this.exchangeRates.EUR || 32.0;
+                if (jpyRateInput) jpyRateInput.value = this.exchangeRates.JPY || 0.2;
+                if (cnyRateInput) cnyRateInput.value = this.exchangeRates.CNY || 4.2;
+                
+                console.log('匯率表單已更新');
             }
             
             updateExchangeRate(currency) {
@@ -1890,7 +1898,12 @@ service cloud.firestore {
                 }, 0);
                 
                 document.getElementById('portfolioTotalValue').textContent = '$' + this.formatNumber(totalValue);
-                document.getElementById('portfolioItemCount').textContent = this.assets.length;
+                
+                // 更新標題中的資產項目數
+                const assetCountDisplay = document.getElementById('assetCountDisplay');
+                if (assetCountDisplay) {
+                    assetCountDisplay.textContent = `(${this.assets.length} 項)`;
+                }
             }
             
             convertToTWD(quantity, currency, unitPrice = 1) {
