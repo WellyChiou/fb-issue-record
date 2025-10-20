@@ -91,17 +91,18 @@
                 </div>
                 </div>
             
-            <!-- 資產管理按鈕 -->
-            <div class="asset-management-section" style="margin: 20px 0; text-align: center;">
-                <button class="btn btn-primary" onclick="expenseTracker.showAssetPortfolio()" style="margin: 0 10px;">
+            <!-- 功能按鈕區域 -->
+            <div class="function-buttons-section">
+                <button class="btn btn-chart" onclick="expenseTracker.showChartsModal()">
+                    📊 圖表分析
+                </button>
+                <button class="btn btn-primary" onclick="expenseTracker.showAssetPortfolio()">
                     📊 資產組合管理
                 </button>
-                <button class="btn btn-secondary" onclick="expenseTracker.showExchangeRates()" style="margin: 0 10px;">
+                <button class="btn btn-secondary" onclick="expenseTracker.showExchangeRates()">
                     💱 匯率管理
                 </button>
             </div>
-            
-            <button class="charts-btn" onclick="expenseTracker.showChartsModal()">📊 圖表分析</button>
         </header>
 
         <main>

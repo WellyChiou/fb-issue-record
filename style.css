@@ -182,7 +182,14 @@ header h1 {
 .summary {
     display: flex;
     justify-content: center;
-    gap: 50px;
+    gap: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    padding: 25px 20px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    margin-bottom: 25px;
 }
 
 /* 資產組合摘要 - 平行顯示 */
@@ -203,32 +210,62 @@ header h1 {
     flex: 1 !important;
     min-width: 0 !important;
     display: block !important;
+    background: rgba(255, 255, 255, 0.15);
+    padding: 20px 15px;
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+    position: relative;
+    margin: 0 10px;
+}
+
+.summary-item:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
 .summary-item .label {
     display: block;
     font-size: 1.1em;
-    margin-bottom: 5px;
-    color: #666666;
-    font-weight: 500;
+    margin-bottom: 8px;
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 600;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    letter-spacing: 0.5px;
 }
 
 .summary-item .amount {
     display: block;
-    font-size: 2em;
+    font-size: 2.2em;
     font-weight: bold;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    letter-spacing: 1px;
 }
 
 .summary-item .amount.income {
-    color: #27ae60;
+    color: #2ecc71;
+    background: linear-gradient(135deg, #2ecc71, #27ae60);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .summary-item .amount.expense {
     color: #e74c3c;
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
-.summary-item .amount.balance {
+.summary-item .amount.net-income {
     color: #3498db;
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .summary-item .amount.asset {
@@ -916,33 +953,37 @@ button:hover {
 }
 
 .btn-primary, .btn-secondary {
-    padding: 10px 20px;
+    padding: 12px 24px;
     border: none;
-    border-radius: 6px;
-    font-size: 0.9em;
-    font-weight: bold;
+    border-radius: 12px;
+    font-size: 1em;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    letter-spacing: 0.5px;
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.8) 0%, rgba(255, 152, 0, 0.8) 100%);
     color: white;
 }
 
 .btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(255, 193, 7, 0.4);
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.9) 0%, rgba(255, 152, 0, 0.9) 100%);
 }
 
 .btn-secondary {
-    background: #6c757d;
+    background: linear-gradient(135deg, rgba(52, 152, 219, 0.8) 0%, rgba(41, 128, 185, 0.8) 100%);
     color: white;
 }
 
 .btn-secondary:hover {
-    background: #5a6268;
-    transform: translateY(-2px);
+    background: linear-gradient(135deg, rgba(52, 152, 219, 0.9) 0%, rgba(41, 128, 185, 0.9) 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(52, 152, 219, 0.4);
 }
 
 @media (max-width: 768px) {
@@ -1282,4 +1323,55 @@ button:hover {
 .draggable-row.drag-over {
     border-top: 2px solid #007bff !important;
     background-color: rgba(0, 123, 255, 0.1) !important;
+}
+
+/* 資產管理按鈕區域美化 */
+.asset-management-section {
+    margin: 25px 0 !important;
+    text-align: center !important;
+}
+
+/* 功能按鈕區域美化 */
+.function-buttons-section {
+    margin: 25px 0 !important;
+    text-align: center !important;
+    display: flex !important;
+    justify-content: center !important;
+    gap: 15px !important;
+    flex-wrap: wrap !important;
+}
+
+/* 圖表分析按鈕樣式 */
+.btn-chart {
+    background: linear-gradient(135deg, rgba(46, 204, 113, 0.8) 0%, rgba(39, 174, 96, 0.8) 100%) !important;
+    color: white !important;
+    border: none !important;
+    padding: 12px 24px !important;
+    border-radius: 12px !important;
+    font-size: 1em !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+    letter-spacing: 0.5px !important;
+}
+
+.btn-chart:hover {
+    transform: translateY(-3px) !important;
+    box-shadow: 0 8px 25px rgba(46, 204, 113, 0.4) !important;
+    background: linear-gradient(135deg, rgba(46, 204, 113, 0.9) 0%, rgba(39, 174, 96, 0.9) 100%) !important;
+}
+
+/* 功能按鈕響應式設計 */
+@media (max-width: 768px) {
+    .function-buttons-section {
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+    
+    .btn-chart, .btn-primary, .btn-secondary {
+        width: 100% !important;
+        max-width: 300px !important;
+        margin: 0 auto !important;
+    }
 }
