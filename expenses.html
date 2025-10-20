@@ -1885,7 +1885,7 @@ service cloud.firestore {
                         <tr>
                             <td class="operation-cell">
                                 ${asset.type === '股票' && asset.stockCode ? 
-                                    `<button onclick="expenseTracker.updateCurrentPrice('${asset.id}')" class="btn-update" title="取得最新價格" data-update-price="${asset.id}">📈 取得最新價格</button>` : 
+                                    `<button onclick="expenseTracker.updateCurrentPrice('${asset.id}')" class="btn-update" title="取得最新價格" data-update-price="${asset.id}">📈 更新股價</button>` : 
                                     '<span style="color: #999;">-</span>'
                                 }
                             </td>
