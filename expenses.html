@@ -2163,11 +2163,11 @@ service cloud.firestore {
                         return realPrice;
                     }
                 } catch (error) {
-                    console.warn(`取得 ${stockCode} 真實價格失敗，使用固定價格:`, error.message);
+                    console.warn(`取得 ${stockCode} 真實價格失敗:`, error.message);
                 }
                 
-                // 如果真實 API 失敗，使用固定價格作為備用
-                return this.getFixedPrice(stockCode);
+                // 如果真實 API 失敗，拋出錯誤而不是使用固定價格
+                throw new Error(`無法取得 ${stockCode} 的價格資料，請手動輸入當前價格`);
             }
             
             // 取得真實股票價格
