@@ -2400,16 +2400,16 @@ service cloud.firestore {
             async fetchRealStockPrice(stockCode) {
                 console.log(`🔍 開始查詢 ${stockCode} 的價格...`);
                 
-                // 優先使用 Google Finance API
+                // 優先使用 Yahoo Finance API
                 try {
-                    console.log(`嘗試 Google Finance API`);
-                    const result = await this.tryGoogleFinance(stockCode);
+                    console.log(`嘗試 Yahoo Finance API`);
+                    const result = await this.tryYahooFinance(stockCode);
                     if (result) {
-                        console.log(`✅ Google Finance 成功: ${stockCode} = ${result.price} ${result.currency}`);
+                        console.log(`✅ Yahoo Finance 成功: ${stockCode} = ${result.price} ${result.currency}`);
                         return result;
                     }
                 } catch (error) {
-                    console.warn(`❌ Google Finance 失敗:`, error.message);
+                    console.warn(`❌ Yahoo Finance 失敗:`, error.message);
                 }
                 
                 // 備用 API
@@ -2439,13 +2439,13 @@ service cloud.firestore {
                 }
             }
             
-            // Google Finance API
-            async tryGoogleFinance(stockCode) {
-                console.log(`📊 Google Finance: ${stockCode}`);
+            // Yahoo Finance API (透過 allorigins.win 代理)
+            async tryYahooFinance(stockCode) {
+                console.log(`📊 Yahoo Finance: ${stockCode}`);
                 
                 try {
                     // 根據股票代碼自動添加市場後綴
-                    let googleFinanceCode = stockCode;
+                    let yahooSymbol = stockCode;
                     
                     // 常見美國ETF列表
                     const usEtfSymbols = ["SPY", "VOO", "VTI", "IVV", "QQQ", "SCHD", "JEPI", "VT", "ARKK", "ARKQ", "ARKW", "ARKG", "ARKF", "XLF", "XLK", "XLE", "XLI", "XLV", "XLY", "XLP", "XLU", "XLRE", "XLB", "XLC", "XLNX"];
@@ -2453,47 +2453,31 @@ service cloud.firestore {
                     // 檢測股票代碼類型並添加相應的市場後綴
                     if (/^\d{4}[A-Za-z]?$/.test(stockCode)) {
                         // 台股：4位數字或4位數字+字母（如00692B）
-                        googleFinanceCode = `${stockCode}:TPE`;
-                        console.log(`台股代碼: ${stockCode} -> ${googleFinanceCode}`);
+                        yahooSymbol = `${stockCode}.TW`;
+                        console.log(`台股代碼: ${stockCode} -> ${yahooSymbol}`);
                     } else if (usEtfSymbols.includes(stockCode.toUpperCase())) {
-                        // 美國ETF：使用 NYSEARCA 交易所
-                        googleFinanceCode = `${stockCode}:NYSEARCA`;
-                        console.log(`美國ETF: ${stockCode} -> ${googleFinanceCode}`);
+                        // 美國ETF：直接使用代碼
+                        yahooSymbol = stockCode;
+                        console.log(`美國ETF: ${stockCode} -> ${yahooSymbol}`);
                     } else if (/^[A-Za-z]{1,5}$/.test(stockCode)) {
-                        // 美國股票：使用 NASDAQ 交易所（預設）
-                        googleFinanceCode = `${stockCode}:NASDAQ`;
-                        console.log(`美國股票: ${stockCode} -> ${googleFinanceCode}`);
+                        // 美國股票：直接使用代碼
+                        yahooSymbol = stockCode;
+                        console.log(`美國股票: ${stockCode} -> ${yahooSymbol}`);
                     } else if (/^\d{4}$/.test(stockCode)) {
                         // 4位純數字：可能是台股
-                        googleFinanceCode = `${stockCode}:TPE`;
-                        console.log(`4位數字台股: ${stockCode} -> ${googleFinanceCode}`);
-                    } else if (/^\d{5}$/.test(stockCode)) {
-                        // 5位數字：可能是港股
-                        googleFinanceCode = `${stockCode}:HKG`;
-                        console.log(`5位數字港股: ${stockCode} -> ${googleFinanceCode}`);
-                    } else if (/^\d{4}\.HK$/.test(stockCode)) {
-                        // 港股格式：如 0700.HK
-                        googleFinanceCode = `${stockCode.replace('.HK', '')}:HKG`;
-                        console.log(`港股格式: ${stockCode} -> ${googleFinanceCode}`);
-                    } else if (/^\d{4}\.T$/.test(stockCode)) {
-                        // 日股格式：如 6758.T
-                        googleFinanceCode = `${stockCode.replace('.T', '')}:TYO`;
-                        console.log(`日股格式: ${stockCode} -> ${googleFinanceCode}`);
-                    } else if (/^\d{4}\.L$/.test(stockCode)) {
-                        // 英股格式：如 0700.L
-                        googleFinanceCode = `${stockCode.replace('.L', '')}:LON`;
-                        console.log(`英股格式: ${stockCode} -> ${googleFinanceCode}`);
+                        yahooSymbol = `${stockCode}.TW`;
+                        console.log(`4位數字台股: ${stockCode} -> ${yahooSymbol}`);
                     } else {
-                        // 其他情況：預設為美股 NASDAQ
-                        googleFinanceCode = `${stockCode}:NASDAQ`;
-                        console.log(`預設美股: ${stockCode} -> ${googleFinanceCode}`);
+                        // 其他情況：預設為美股
+                        yahooSymbol = stockCode;
+                        console.log(`預設美股: ${stockCode} -> ${yahooSymbol}`);
                     }
                     
-                    const apiUrl = `https://www.google.com/finance/quote/${googleFinanceCode}`;
-                    console.log(`Google Finance API URL: ${apiUrl}`);
+                    const apiUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=1mo`;
+                    console.log(`Yahoo Finance API URL: ${apiUrl}`);
                     
-                    // 直接使用 CORS 代理，因為 Google Finance 有嚴格的 CORS 政策
-                    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(apiUrl)}`;
+                    // 使用 allorigins.win 的 raw 端點
+                    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`;
                     console.log(`CORS 代理 URL: ${proxyUrl}`);
                     
                     const response = await fetch(proxyUrl, {
@@ -2508,15 +2492,34 @@ service cloud.firestore {
                         throw new Error(`代理請求失敗: ${response.status} ${response.statusText}`);
                     }
                     
-                    const proxyData = await response.json();
-                    const html = proxyData.contents;
-                    console.log('CORS 代理回應長度:', html.length);
+                    const data = await response.json();
+                    console.log('Yahoo Finance 回應:', data);
                     
-                    // 使用統一的解析方法
-                    return this.parseGoogleFinanceResponse(html, stockCode);
+                    // 解析 Yahoo Finance 回應
+                    if (data.chart && data.chart.result && data.chart.result.length > 0) {
+                        const result = data.chart.result[0];
+                        const meta = result.meta;
+                        
+                        if (meta && meta.regularMarketPrice) {
+                            const price = meta.regularMarketPrice;
+                            const currency = meta.currency || 'USD';
+                            const symbol = meta.symbol || stockCode;
+                            
+                            console.log(`✅ Yahoo Finance 解析成功: ${price} ${currency}`);
+                            return {
+                                price: price,
+                                currency: currency,
+                                symbol: symbol
+                            };
+                        } else {
+                            throw new Error('無法從 Yahoo Finance 回應中提取價格數據');
+                        }
+                    } else {
+                        throw new Error('Yahoo Finance 回應格式異常');
+                    }
                     
                 } catch (error) {
-                    console.error(`Google Finance CORS 代理失敗:`, error);
+                    console.error(`Yahoo Finance 代理失敗:`, error);
                     throw error;
                 }
             }
@@ -2902,17 +2905,17 @@ service cloud.firestore {
             async fetchRealStockPriceWithProgress(stockCode, assetId) {
                 console.log(`🔍 開始查詢 ${stockCode} 的價格...`);
                 
-                // 優先使用 Google Finance API
+                // 優先使用 Yahoo Finance API
                 try {
-                    this.updateStockStatus(assetId, 'updating', '嘗試 Google Finance API');
-                    console.log(`嘗試 Google Finance API`);
-                    const result = await this.tryGoogleFinance(stockCode);
+                    this.updateStockStatus(assetId, 'updating', '嘗試 Yahoo Finance API');
+                    console.log(`嘗試 Yahoo Finance API`);
+                    const result = await this.tryYahooFinance(stockCode);
                     if (result) {
-                        console.log(`✅ Google Finance 成功: ${stockCode} = ${result.price} ${result.currency}`);
+                        console.log(`✅ Yahoo Finance 成功: ${stockCode} = ${result.price} ${result.currency}`);
                         return result;
                     }
                 } catch (error) {
-                    console.warn(`❌ Google Finance 失敗:`, error.message);
+                    console.warn(`❌ Yahoo Finance 失敗:`, error.message);
                 }
                 
                 // 備用 API
