@@ -371,7 +371,7 @@
     <div id="updateStocksLoadingModal" class="modal">
         <div class="modal-content" style="max-width: 800px;">
             <div class="modal-header">
-                <h2>📈 更新股票資料 <span id="updateResultBadge" style="font-size: 0.7em; color: #fff; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 12px; margin-left: 10px; display: none;"></span></h2>
+                <h2>📈 更新股票資料 <span id="updateProgressBadge" style="font-size: 0.7em; color: #fff; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 12px; margin-left: 10px; display: none;"></span> <span id="updateResultBadge" style="font-size: 0.7em; color: #fff; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 12px; margin-left: 10px; display: none;"></span></h2>
                 <span class="close" onclick="expenseTracker.hideUpdateStocksLoading()">&times;</span>
             </div>
             <div class="modal-body">
@@ -2524,6 +2524,9 @@ service cloud.firestore {
                             console.error(`❌ 更新 ${asset.stockCode} 失敗:`, error.message);
                         }
                         
+                        // 更新進度標籤
+                        this.updateProgressBadge(successCount + failCount, stockAssets.length);
+                        
                         // 添加小延遲避免 API 限制
                         if (i < stockAssets.length - 1) {
                             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -2602,7 +2605,11 @@ service cloud.firestore {
                 // 重置狀態
                 document.getElementById('updateProgressFill').style.width = '0%';
                 document.getElementById('updateProgressText').textContent = '準備中...';
+                document.getElementById('updateProgressBadge').style.display = 'none';
                 document.getElementById('updateResultBadge').style.display = 'none';
+                
+                // 初始化進度標籤
+                this.updateProgressBadge(0, stockAssets.length);
                 
                 // 生成股票列表
                 const stocksList = document.getElementById('stocksUpdateList');
@@ -2656,6 +2663,27 @@ service cloud.firestore {
                 if (statusElement) {
                     statusElement.textContent = message;
                     statusElement.className = `update-status status-${status}`;
+                }
+            }
+
+            // 更新進度標籤
+            updateProgressBadge(current, total) {
+                const progressBadge = document.getElementById('updateProgressBadge');
+                if (progressBadge) {
+                    progressBadge.style.display = 'inline-block';
+                    progressBadge.innerHTML = `${current}/${total}`;
+                    
+                    // 根據進度設置不同的背景色
+                    const percentage = (current / total) * 100;
+                    if (percentage === 0) {
+                        progressBadge.style.background = 'rgba(255,255,255,0.2)'; // 初始狀態
+                    } else if (percentage < 50) {
+                        progressBadge.style.background = 'rgba(255, 193, 7, 0.8)'; // 黃色
+                    } else if (percentage < 100) {
+                        progressBadge.style.background = 'rgba(0, 123, 255, 0.8)'; // 藍色
+                    } else {
+                        progressBadge.style.background = 'rgba(40, 167, 69, 0.8)'; // 綠色
+                    }
                 }
             }
 
