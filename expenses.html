@@ -2507,7 +2507,7 @@ service cloud.firestore {
                         this.updateProgress(progress, `正在更新 ${asset.name} (${asset.stockCode})...`);
                         
                         // 更新股票狀態為「更新中」
-                        this.updateStockStatus(asset.id, 'updating', `第 ${i + 1} 次嘗試...`);
+                        this.updateStockStatus(asset.id, 'updating', `第 ${i + 1} 支股票`);
                         
                         try {
                             console.log(`🔄 正在更新 ${asset.stockCode} (${asset.name})...`);
