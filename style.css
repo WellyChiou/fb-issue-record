@@ -1082,6 +1082,50 @@ button:hover {
     margin-top: 25px;
 }
 
+.history-rate-controls {
+    display: flex;
+    gap: 15px;
+    align-items: end;
+    margin-bottom: 20px;
+}
+
+.rate-date-controls {
+    display: flex;
+    gap: 15px;
+    align-items: end;
+    margin-bottom: 20px;
+}
+
+.history-rate-controls .form-group {
+    margin-bottom: 0;
+}
+
+.rate-date-controls .form-group {
+    margin-bottom: 0;
+}
+
+.history-rates-display {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+}
+
+.history-rates-display h4 {
+    margin-bottom: 15px;
+    color: #495057;
+    font-size: 16px;
+}
+
+.history-rates-display .exchange-rate-item span {
+    padding: 8px 12px;
+    background: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #495057;
+}
+
 
 .modal-footer {
     background: #f8f9fa;
