@@ -367,6 +367,12 @@
                         <button class="btn btn-secondary" onclick="expenseTracker.saveExchangeRates()">
                             💾 儲存匯率
                         </button>
+                        <button class="btn btn-warning" onclick="expenseTracker.importHistoricalRates()">
+                            📥 匯入歷史匯率
+                        </button>
+                        <button class="btn btn-info" onclick="expenseTracker.autoFillMissingRates()">
+                            🔧 補足缺少匯率
+                        </button>
                     </div>
                 </div>
                 
@@ -2248,6 +2254,179 @@ service cloud.firestore {
                 } catch (error) {
                     console.error('儲存匯率失敗:', error);
                     this.showNotification('儲存匯率失敗', 'error');
+                }
+            }
+            
+            // 一次性匯入歷史匯率（2019-01-01 到現在）
+            async importHistoricalRates() {
+                if (!this.isFirebaseReady) {
+                    this.showNotification('系統尚未準備就緒', 'error');
+                    return;
+                }
+                
+                if (!confirm('確定要匯入 2019-01-01 到現在的歷史匯率嗎？這可能需要幾分鐘時間。')) {
+                    return;
+                }
+                
+                const startDate = new Date('2019-01-01');
+                const endDate = new Date();
+                const currencies = ['USD', 'EUR', 'JPY', 'CNY'];
+                
+                console.log('🚀 開始匯入歷史匯率...');
+                console.log(`📅 日期範圍: ${startDate.toISOString().split('T')[0]} 到 ${endDate.toISOString().split('T')[0]}`);
+                
+                let successCount = 0;
+                let errorCount = 0;
+                let totalDays = 0;
+                
+                // 計算總天數
+                const currentDate = new Date(startDate);
+                while (currentDate <= endDate) {
+                    totalDays++;
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+                
+                this.showNotification(`開始匯入 ${totalDays} 天的匯率資料...`, 'info');
+                
+                try {
+                    // 逐日匯入匯率
+                    const currentDate = new Date(startDate);
+                    while (currentDate <= endDate) {
+                        const dateStr = this.formatDateForFirebase(currentDate);
+                        
+                        try {
+                            // 檢查是否已存在該日期的匯率
+                            const existingRateRef = window.firebaseDoc(window.firebaseDb, 'dailyExchangeRates', dateStr);
+                            const existingDoc = await window.firebaseGetDoc(existingRateRef);
+                            
+                            if (existingDoc.exists()) {
+                                console.log(`⏭️ ${dateStr} 已存在，跳過`);
+                                currentDate.setDate(currentDate.getDate() + 1);
+                                continue;
+                            }
+                            
+                            // 獲取該日期的匯率
+                            const rates = {};
+                            for (const currency of currencies) {
+                                try {
+                                    const rate = await this.fetchExchangeRateFromAPI(currency);
+                                    rates[currency] = rate;
+                                    console.log(`✅ ${dateStr} ${currency}: ${rate}`);
+                                } catch (error) {
+                                    console.log(`❌ ${dateStr} ${currency}: 獲取失敗，使用預設值`);
+                                    rates[currency] = this.exchangeRates[currency] || 1;
+                                }
+                            }
+                            
+                            // 保存到 Firebase
+                            await this.saveDailyExchangeRates(rates, currentDate);
+                            successCount++;
+                            
+                            // 顯示進度
+                            const progress = Math.round((successCount + errorCount) / totalDays * 100);
+                            console.log(`📊 進度: ${progress}% (${successCount + errorCount}/${totalDays})`);
+                            
+                        } catch (error) {
+                            console.error(`❌ ${dateStr} 匯入失敗:`, error);
+                            errorCount++;
+                        }
+                        
+                        currentDate.setDate(currentDate.getDate() + 1);
+                        
+                        // 避免過於頻繁的 API 調用
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    }
+                    
+                    this.showNotification(`匯入完成！成功: ${successCount} 天，失敗: ${errorCount} 天`, 'success');
+                    
+                } catch (error) {
+                    console.error('❌ 匯入歷史匯率失敗:', error);
+                    this.showNotification('匯入歷史匯率失敗', 'error');
+                }
+            }
+            
+            // 自動補足缺少的匯率
+            async autoFillMissingRates() {
+                if (!this.isFirebaseReady) {
+                    this.showNotification('系統尚未準備就緒', 'error');
+                    return;
+                }
+                
+                try {
+                    console.log('🔍 查詢最大日期...');
+                    
+                    // 查詢 Firebase 中的最大日期
+                    const dailyRatesRef = window.firebaseCollection(window.firebaseDb, 'dailyExchangeRates');
+                    const q = window.firebaseQuery(dailyRatesRef);
+                    const querySnapshot = await window.firebaseGetDocs(q);
+                    
+                    let maxDate = null;
+                    querySnapshot.forEach((doc) => {
+                        const dateStr = doc.id;
+                        const date = new Date(dateStr);
+                        if (!maxDate || date > maxDate) {
+                            maxDate = date;
+                        }
+                    });
+                    
+                    if (!maxDate) {
+                        this.showNotification('沒有找到任何匯率記錄', 'warning');
+                        return;
+                    }
+                    
+                    console.log(`📅 最大日期: ${this.formatDateForFirebase(maxDate)}`);
+                    
+                    // 從最大日期的下一天開始補足到今天
+                    const startDate = new Date(maxDate);
+                    startDate.setDate(startDate.getDate() + 1);
+                    const endDate = new Date();
+                    
+                    if (startDate > endDate) {
+                        this.showNotification('匯率資料已是最新', 'info');
+                        return;
+                    }
+                    
+                    const currencies = ['USD', 'EUR', 'JPY', 'CNY'];
+                    let successCount = 0;
+                    let errorCount = 0;
+                    
+                    console.log(`🚀 開始補足 ${this.formatDateForFirebase(startDate)} 到 ${this.formatDateForFirebase(endDate)} 的匯率...`);
+                    
+                    const currentDate = new Date(startDate);
+                    while (currentDate <= endDate) {
+                        const dateStr = this.formatDateForFirebase(currentDate);
+                        
+                        try {
+                            // 獲取該日期的匯率
+                            const rates = {};
+                            for (const currency of currencies) {
+                                try {
+                                    const rate = await this.fetchExchangeRateFromAPI(currency);
+                                    rates[currency] = rate;
+                                } catch (error) {
+                                    rates[currency] = this.exchangeRates[currency] || 1;
+                                }
+                            }
+                            
+                            // 保存到 Firebase
+                            await this.saveDailyExchangeRates(rates, currentDate);
+                            successCount++;
+                            console.log(`✅ ${dateStr} 匯率已補足`);
+                            
+                        } catch (error) {
+                            console.error(`❌ ${dateStr} 補足失敗:`, error);
+                            errorCount++;
+                        }
+                        
+                        currentDate.setDate(currentDate.getDate() + 1);
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    }
+                    
+                    this.showNotification(`補足完成！成功: ${successCount} 天，失敗: ${errorCount} 天`, 'success');
+                    
+                } catch (error) {
+                    console.error('❌ 補足匯率失敗:', error);
+                    this.showNotification('補足匯率失敗', 'error');
                 }
             }
             

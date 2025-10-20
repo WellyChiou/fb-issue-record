@@ -1174,6 +1174,50 @@ button:hover {
     border-color: rgba(255, 255, 255, 0.5);
 }
 
+.btn-warning {
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.8) 0%, rgba(255, 152, 0, 0.8) 100%);
+    color: #212529;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 15px;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+    padding: 12px 24px;
+}
+
+.btn-warning:hover {
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.9) 0%, rgba(255, 152, 0, 0.9) 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(255, 193, 7, 0.4);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.btn-info {
+    background: linear-gradient(135deg, rgba(23, 162, 184, 0.8) 0%, rgba(17, 122, 139, 0.8) 100%);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 15px;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+    padding: 12px 24px;
+}
+
+.btn-info:hover {
+    background: linear-gradient(135deg, rgba(23, 162, 184, 0.9) 0%, rgba(17, 122, 139, 0.9) 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(23, 162, 184, 0.4);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
 @media (max-width: 768px) {
     .inactive-user-card {
         padding: 20px;
@@ -1560,7 +1604,7 @@ button:hover {
         gap: 10px !important;
     }
     
-    .btn-chart, .btn-primary, .btn-secondary {
+    .btn-chart, .btn-primary, .btn-secondary, .btn-warning, .btn-info {
         width: 100% !important;
         max-width: 300px !important;
         margin: 0 auto !important;
