@@ -337,22 +337,18 @@
                         <div class="exchange-rate-item">
                             <label>美元 (USD)</label>
                             <input type="number" id="usdRate" step="0.0001" placeholder="30.0000">
-                            <button onclick="expenseTracker.updateExchangeRate('USD')">更新</button>
                         </div>
                         <div class="exchange-rate-item">
                             <label>歐元 (EUR)</label>
                             <input type="number" id="eurRate" step="0.0001" placeholder="32.0000">
-                            <button onclick="expenseTracker.updateExchangeRate('EUR')">更新</button>
                         </div>
                         <div class="exchange-rate-item">
                             <label>日圓 (JPY)</label>
                             <input type="number" id="jpyRate" step="0.0001" placeholder="0.2000">
-                            <button onclick="expenseTracker.updateExchangeRate('JPY')">更新</button>
                         </div>
                         <div class="exchange-rate-item">
                             <label>人民幣 (CNY)</label>
                             <input type="number" id="cnyRate" step="0.0001" placeholder="4.2000">
-                            <button onclick="expenseTracker.updateExchangeRate('CNY')">更新</button>
                         </div>
                     </div>
                     <div class="exchange-rate-actions">
@@ -868,6 +864,15 @@
                         // 載入記錄
                         this.showLoading('載入記帳資料', '正在從資料庫讀取記錄...');
                         await this.loadRecordsFromFirebase();
+                        
+                        // 載入匯率
+                        try {
+                            await this.loadExchangeRatesFromFirebase();
+                            console.log('匯率載入完成');
+                        } catch (error) {
+                            console.error('匯率載入失敗:', error);
+                        }
+                        
                         this.hideLoading();
                     } else {
                         console.log('未檢測到登入狀態，導向登入頁面');
@@ -909,6 +914,15 @@
                                 // 載入記錄
                                 this.showLoading('載入記帳資料', '正在從資料庫讀取記錄...');
                                 await this.loadRecordsFromFirebase();
+                                
+                                // 載入匯率
+                                try {
+                                    await this.loadExchangeRatesFromFirebase();
+                                    console.log('匯率載入完成');
+                                } catch (error) {
+                                    console.error('匯率載入失敗:', error);
+                                }
+                                
                                 this.hideLoading();
                             });
                         } else {
@@ -1177,7 +1191,7 @@ service cloud.firestore {
                             window.location.href = 'enter_login.html';
                         } catch (error) {
                             console.error('登出失敗:', error);
-                            alert('登出失敗，請重試');
+                            this.showNotification('登出失敗，請重試', 'error');
                         }
                     };
                 }
@@ -1297,7 +1311,8 @@ service cloud.firestore {
                             subCategory: data.subCategory,
                             amount: data.amount,
                             description: data.description,
-                            date: data.date
+                            date: data.date,
+                            currency: data.currency
                         });
                     });
                     
@@ -1346,10 +1361,10 @@ service cloud.firestore {
                 const currentFilters = {
                     year: document.getElementById('tableFilterYear')?.value || defaultYear,
                     month: document.getElementById('tableFilterMonth')?.value || defaultMonth,
-                    member: document.getElementById('tableFilterMember')?.value || '',
-                    type: document.getElementById('tableFilterType')?.value || '',
-                    mainCategory: document.getElementById('tableFilterMainCategory')?.value || '',
-                    subCategory: document.getElementById('tableFilterSubCategory')?.value || ''
+                    member: Array.from(document.getElementById('tableFilterMember')?.selectedOptions || []).map(option => option.value),
+                    type: Array.from(document.getElementById('tableFilterType')?.selectedOptions || []).map(option => option.value),
+                    mainCategory: Array.from(document.getElementById('tableFilterMainCategory')?.selectedOptions || []).map(option => option.value),
+                    subCategory: Array.from(document.getElementById('tableFilterSubCategory')?.selectedOptions || []).map(option => option.value)
                 };
 
                 // 獲取所有可能的篩選選項（使用所有記錄，不是篩選後的記錄）
@@ -1371,44 +1386,62 @@ service cloud.firestore {
                         </div>
                         <div class="filter-group">
                             <label for="tableFilterYear">年份：</label>
-                            <select id="tableFilterYear" onchange="expenseTracker.applyTableFilter(true)">
+                            <select id="tableFilterYear" onchange="expenseTracker.applyTableFilter(true)" style="height: auto; min-height: auto;">
                                 ${allYears.map(year => `<option value="${year}" ${currentFilters.year === year ? 'selected' : ''}>${year}</option>`).join('')}
                             </select>
                             
                             <label for="tableFilterMonth">月份：</label>
-                            <select id="tableFilterMonth" onchange="expenseTracker.applyTableFilter(true)">
+                            <select id="tableFilterMonth" onchange="expenseTracker.applyTableFilter(true)" style="height: auto; min-height: auto;">
                                 ${allMonths.map(month => `<option value="${month}" ${currentFilters.month === month ? 'selected' : ''}>${month}月</option>`).join('')}
                             </select>
                             
                             <label for="tableFilterMember">家庭成員：</label>
-                            <select id="tableFilterMember" onchange="expenseTracker.applyTableFilter(true)">
-                                <option value="">全部成員</option>
-                                ${allMembers.map(member => `<option value="${member}" ${currentFilters.member === member ? 'selected' : ''}>${member}</option>`).join('')}
+                            <select id="tableFilterMember" onchange="expenseTracker.applyTableFilter(true)" multiple style="min-height: 80px;" onmousedown="expenseTracker.toggleOption(event)">
+                                ${allMembers.map(member => `<option value="${member}" ${currentFilters.member && currentFilters.member.includes(member) ? 'selected' : ''}>${member}</option>`).join('')}
                             </select>
                             
                             <label for="tableFilterType">類型：</label>
-                            <select id="tableFilterType" onchange="expenseTracker.applyTableFilter(true)">
-                                <option value="">全部類型</option>
-                                ${allTypes.map(type => `<option value="${type}" ${currentFilters.type === type ? 'selected' : ''}>${type}</option>`).join('')}
+                            <select id="tableFilterType" onchange="expenseTracker.applyTableFilter(true)" multiple style="min-height: 60px;" onmousedown="expenseTracker.toggleOption(event)">
+                                ${allTypes.map(type => `<option value="${type}" ${currentFilters.type && currentFilters.type.includes(type) ? 'selected' : ''}>${type}</option>`).join('')}
                             </select>
                             
                             <label for="tableFilterMainCategory">類別：</label>
-                            <select id="tableFilterMainCategory" onchange="expenseTracker.applyTableFilter(true)">
-                                <option value="">全部類別</option>
-                                ${allMainCategories.map(cat => `<option value="${cat}" ${currentFilters.mainCategory === cat ? 'selected' : ''}>${cat}</option>`).join('')}
+                            <select id="tableFilterMainCategory" onchange="expenseTracker.applyTableFilter(true)" multiple style="min-height: 100px;" onmousedown="expenseTracker.toggleOption(event)">
+                                ${allMainCategories.map(cat => `<option value="${cat}" ${currentFilters.mainCategory && currentFilters.mainCategory.includes(cat) ? 'selected' : ''}>${cat}</option>`).join('')}
                             </select>
                             
                             <label for="tableFilterSubCategory">細項：</label>
-                            <select id="tableFilterSubCategory" onchange="expenseTracker.applyTableFilter(true)">
-                                <option value="">全部細項</option>
-                                ${allSubCategories.map(sub => `<option value="${sub}" ${currentFilters.subCategory === sub ? 'selected' : ''}>${sub}</option>`).join('')}
+                            <select id="tableFilterSubCategory" onchange="expenseTracker.applyTableFilter(true)" multiple style="min-height: 120px;" onmousedown="expenseTracker.toggleOption(event)">
+                                ${allSubCategories.map(sub => `<option value="${sub}" ${currentFilters.subCategory && currentFilters.subCategory.includes(sub) ? 'selected' : ''}>${sub}</option>`).join('')}
                             </select>
                         </div>
                     </div>
                 `;
                 
                 if (records.length === 0) {
-                    recordsList.innerHTML = filterHTML + '<div class="empty-state" style="padding: 40px; text-align: center; color: #999;">暫無記錄</div>';
+                    // 生成空表格HTML（保留標題）
+                    const emptyTableHTML = `
+                        <table class="records-table">
+                            <thead>
+                                <tr>
+                                    <th>日期</th>
+                                    <th>家庭成員</th>
+                                    <th>類型</th>
+                                    <th>類別</th>
+                                    <th>細項</th>
+                                    <th>金額</th>
+                                    <th>描述</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="8" style="padding: 40px; text-align: center; color: #999;">暫無記錄</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    `;
+                    recordsList.innerHTML = filterHTML + emptyTableHTML;
                     this.updatePagination(0);
                     return;
                 }
@@ -1469,6 +1502,47 @@ service cloud.firestore {
                 this.updatePagination(records.length);
             }
 
+            // 切換多選選項
+            toggleOption(event) {
+                event.preventDefault();
+                const option = event.target;
+                if (option.tagName === 'OPTION') {
+                    option.selected = !option.selected;
+                    // 觸發篩選更新
+                    this.applyTableFilter(true);
+                }
+            }
+
+            // 顯示通知
+            showNotification(message, type = 'success', duration = 3000) {
+                const container = document.getElementById('notificationContainer');
+                const notification = document.createElement('div');
+                notification.className = `notification ${type}`;
+                notification.innerHTML = `
+                    ${message}
+                    <button class="close-btn" onclick="this.parentElement.remove()">×</button>
+                `;
+                
+                container.appendChild(notification);
+                
+                // 觸發動畫
+                setTimeout(() => {
+                    notification.classList.add('show');
+                }, 100);
+                
+                // 自動移除
+                setTimeout(() => {
+                    if (notification.parentElement) {
+                        notification.classList.remove('show');
+                        setTimeout(() => {
+                            if (notification.parentElement) {
+                                notification.remove();
+                            }
+                        }, 300);
+                    }
+                }, duration);
+            }
+
             // 更新摘要
             updateSummary(filteredRecords) {
                 // 按照幣別轉換為TWD金額進行統計計算
@@ -1503,10 +1577,17 @@ service cloud.firestore {
                 
                 const yearFilter = document.getElementById('tableFilterYear')?.value || defaultYear;
                 const monthFilter = document.getElementById('tableFilterMonth')?.value || defaultMonth;
-                const memberFilter = document.getElementById('tableFilterMember')?.value || '';
-                const typeFilter = document.getElementById('tableFilterType')?.value || '';
-                const mainCategoryFilter = document.getElementById('tableFilterMainCategory')?.value || '';
-                const subCategoryFilter = document.getElementById('tableFilterSubCategory')?.value || '';
+                
+                // 獲取多選的值
+                const memberSelect = document.getElementById('tableFilterMember');
+                const typeSelect = document.getElementById('tableFilterType');
+                const mainCategorySelect = document.getElementById('tableFilterMainCategory');
+                const subCategorySelect = document.getElementById('tableFilterSubCategory');
+                
+                const selectedMembers = Array.from(memberSelect?.selectedOptions || []).map(option => option.value);
+                const selectedTypes = Array.from(typeSelect?.selectedOptions || []).map(option => option.value);
+                const selectedMainCategories = Array.from(mainCategorySelect?.selectedOptions || []).map(option => option.value);
+                const selectedSubCategories = Array.from(subCategorySelect?.selectedOptions || []).map(option => option.value);
 
                 // 篩選記錄
                 return this.records.filter(record => {
@@ -1515,10 +1596,10 @@ service cloud.firestore {
                     
                     return (recordYear === yearFilter) &&
                            (recordMonth === monthFilter) &&
-                           (!memberFilter || record.member === memberFilter) &&
-                           (!typeFilter || record.type === typeFilter) &&
-                           (!mainCategoryFilter || record.mainCategory === mainCategoryFilter) &&
-                           (!subCategoryFilter || record.subCategory === subCategoryFilter);
+                           (selectedMembers.length === 0 || selectedMembers.includes(record.member)) &&
+                           (selectedTypes.length === 0 || selectedTypes.includes(record.type)) &&
+                           (selectedMainCategories.length === 0 || selectedMainCategories.includes(record.mainCategory)) &&
+                           (selectedSubCategories.length === 0 || selectedSubCategories.includes(record.subCategory));
                 });
             }
 
@@ -1552,10 +1633,20 @@ service cloud.firestore {
                 
                 if (yearElement) yearElement.value = defaultYear;
                 if (monthElement) monthElement.value = defaultMonth;
-                if (memberElement) memberElement.value = '';
-                if (typeElement) typeElement.value = '';
-                if (mainCategoryElement) mainCategoryElement.value = '';
-                if (subCategoryElement) subCategoryElement.value = '';
+                
+                // 重置多選欄位（清除所有選項）
+                if (memberElement) {
+                    Array.from(memberElement.options).forEach(option => option.selected = false);
+                }
+                if (typeElement) {
+                    Array.from(typeElement.options).forEach(option => option.selected = false);
+                }
+                if (mainCategoryElement) {
+                    Array.from(mainCategoryElement.options).forEach(option => option.selected = false);
+                }
+                if (subCategoryElement) {
+                    Array.from(subCategoryElement.options).forEach(option => option.selected = false);
+                }
                 
                 // 重新應用篩選
                 this.applyTableFilter(true);
@@ -1683,7 +1774,7 @@ service cloud.firestore {
                 const refreshBtn = document.getElementById('refreshRateBtn');
                 
                 if (currency === 'TWD') {
-                    alert('台幣不需要匯率轉換');
+                    this.showNotification('台幣不需要匯率轉換', 'info');
                     return;
                 }
                 
@@ -1694,20 +1785,20 @@ service cloud.firestore {
                 
                 try {
                     const rate = await this.fetchExchangeRateFromAPI(currency);
-                    exchangeRateInput.value = rate;
+                    exchangeRateInput.value = rate.toFixed(4);
                     exchangeRateInput.placeholder = '匯率已更新';
                     
                     // 更新本地匯率快取
                     this.exchangeRates[currency] = rate;
                     
                     console.log(`已更新 ${currency} 匯率: ${rate}`);
-                    alert(`${currency} 匯率已更新為 ${rate}`);
+                    this.showNotification(`${currency} 匯率已更新為 ${rate}`, 'success');
                     
                 } catch (error) {
                     console.error('更新匯率失敗:', error);
                     exchangeRateInput.value = this.exchangeRates[currency] || 1;
                     exchangeRateInput.placeholder = '使用快取匯率';
-                    alert(`無法取得 ${currency} 最新匯率，已使用快取數據`);
+                    this.showNotification(`無法取得 ${currency} 最新匯率，已使用快取數據`, 'warning');
                 } finally {
                     refreshBtn.disabled = false;
                     refreshBtn.textContent = '🔄 更新匯率';
@@ -1731,8 +1822,54 @@ service cloud.firestore {
                 }
             }
             
-            loadExchangeRates() {
+            // 從Firebase載入匯率
+            async loadExchangeRatesFromFirebase() {
+                try {
+                    console.log('從Firebase載入匯率...');
+                    const exchangeRatesRef = window.firebaseCollection(window.firebaseDb, 'exchangeRates');
+                    const q = window.firebaseQuery(exchangeRatesRef);
+                    const querySnapshot = await window.firebaseGetDocs(q);
+                    
+                    if (!querySnapshot.empty) {
+                        querySnapshot.forEach((doc) => {
+                            const data = doc.data();
+                            if (data.rates) {
+                                // 如果資料是包裝在 rates 物件中
+                                this.exchangeRates = {
+                                    'USD': data.rates.USD || 30.0,
+                                    'EUR': data.rates.EUR || 32.0,
+                                    'JPY': data.rates.JPY || 0.2,
+                                    'CNY': data.rates.CNY || 4.2
+                                };
+                            } else {
+                                // 如果資料是直接存儲
+                                this.exchangeRates = {
+                                    'USD': data.USD || 30.0,
+                                    'EUR': data.EUR || 32.0,
+                                    'JPY': data.JPY || 0.2,
+                                    'CNY': data.CNY || 4.2
+                                };
+                            }
+                        });
+                        console.log('從Firebase載入匯率成功:', this.exchangeRates);
+                    } else {
+                        console.log('Firebase中沒有匯率資料，使用預設值');
+                    }
+                } catch (error) {
+                    console.error('從Firebase載入匯率失敗:', error);
+                    throw error;
+                }
+            }
+
+            async loadExchangeRates() {
                 console.log('載入匯率資料:', this.exchangeRates);
+                
+                try {
+                    // 從Firebase載入匯率
+                    await this.loadExchangeRatesFromFirebase();
+                } catch (error) {
+                    console.error('從Firebase載入匯率失敗:', error);
+                }
                 
                 // 載入當前匯率到表單
                 const usdRateInput = document.getElementById('usdRate');
@@ -1753,59 +1890,104 @@ service cloud.firestore {
                 const newRate = parseFloat(rateInput.value);
                 
                 if (isNaN(newRate) || newRate <= 0) {
-                    alert('請輸入有效的匯率');
+                    this.showNotification('請輸入有效的匯率', 'error');
                     return;
                 }
                 
                 this.exchangeRates[currency] = newRate;
                 console.log(`更新 ${currency} 匯率: ${newRate}`);
-                alert(`${currency} 匯率已更新為 ${newRate}`);
+                this.showNotification(`${currency} 匯率已更新為 ${newRate}`, 'success');
             }
             
-            async fetchLatestRates() {
+            async fetchLatestRates(event) {
+                let button = null;
+                let originalText = '🔄 自動更新匯率';
+                
                 try {
-                    // 這裡可以整合真實的匯率 API
-                    // 目前使用模擬數據
                     console.log('正在獲取最新匯率...');
                     
-                    // 模擬 API 回應
-                    const mockRates = {
-                        'USD': 30.5,
-                        'EUR': 32.8,
-                        'JPY': 0.21,
-                        'CNY': 4.3
-                    };
+                    // 顯示載入狀態
+                    button = event ? event.target : document.querySelector('button[onclick*="fetchLatestRates"]');
+                    originalText = button ? button.textContent : '🔄 自動更新匯率';
+                    if (button) {
+                        button.disabled = true;
+                        button.textContent = '🔄 更新中...';
+                    }
+                    
+                    // 獲取所有幣別的最新匯率
+                    const currencies = ['USD', 'EUR', 'JPY', 'CNY'];
+                    const updatedRates = {};
+                    
+                    for (const currency of currencies) {
+                        try {
+                            const rate = await this.fetchExchangeRateFromAPI(currency);
+                            updatedRates[currency] = rate;
+                            console.log(`已獲取 ${currency} 匯率: ${rate}`);
+                        } catch (error) {
+                            console.error(`獲取 ${currency} 匯率失敗:`, error);
+                            // 如果API失敗，保持現有匯率
+                            updatedRates[currency] = this.exchangeRates[currency];
+                        }
+                    }
                     
                     // 更新匯率
-                    Object.keys(mockRates).forEach(currency => {
-                        this.exchangeRates[currency] = mockRates[currency];
-                        document.getElementById(`${currency.toLowerCase()}Rate`).value = mockRates[currency];
+                    Object.keys(updatedRates).forEach(currency => {
+                        this.exchangeRates[currency] = updatedRates[currency];
+                        const input = document.getElementById(`${currency.toLowerCase()}Rate`);
+                        if (input) {
+                            input.value = updatedRates[currency];
+                        }
                     });
                     
-                    alert('匯率已更新為最新數據');
+                    this.showNotification('匯率已更新為最新數據', 'success');
+                    
                 } catch (error) {
                     console.error('獲取匯率失敗:', error);
-                    alert('獲取匯率失敗，請稍後再試');
+                    this.showNotification('獲取匯率失敗，請稍後再試', 'error');
+                } finally {
+                    // 恢復按鈕狀態
+                    if (button) {
+                        button.disabled = false;
+                        button.textContent = originalText;
+                    }
                 }
             }
             
             saveExchangeRates() {
                 // 儲存匯率到 Firebase
                 if (!this.isFirebaseReady) {
-                    alert('系統尚未準備就緒');
+                    this.showNotification('系統尚未準備就緒', 'error');
                     return;
                 }
+                
+                // 從表單中讀取最新的匯率值
+                const usdRate = parseFloat(document.getElementById('usdRate').value) || 30.0;
+                const eurRate = parseFloat(document.getElementById('eurRate').value) || 32.0;
+                const jpyRate = parseFloat(document.getElementById('jpyRate').value) || 0.2;
+                const cnyRate = parseFloat(document.getElementById('cnyRate').value) || 4.2;
+                
+                // 更新本地匯率資料
+                this.exchangeRates = {
+                    'USD': usdRate,
+                    'EUR': eurRate,
+                    'JPY': jpyRate,
+                    'CNY': cnyRate
+                };
+                
+                console.log('準備儲存匯率:', this.exchangeRates);
                 
                 const exchangeRateRef = window.firebaseDoc(window.firebaseDb, 'exchangeRates', 'current');
                 window.firebaseSetDoc(exchangeRateRef, {
                     rates: this.exchangeRates,
                     updatedAt: window.firebaseServerTimestamp()
                 }).then(() => {
-                    console.log('匯率已儲存');
-                    alert('匯率已儲存');
+                    console.log('匯率已儲存到Firebase:', this.exchangeRates);
+                    this.showNotification('匯率已儲存', 'success');
+                    // 儲存成功後關閉視窗
+                    this.hideExchangeRates();
                 }).catch(error => {
                     console.error('儲存匯率失敗:', error);
-                    alert('儲存匯率失敗');
+                    this.showNotification('儲存匯率失敗', 'error');
                 });
             }
             
@@ -1853,12 +2035,12 @@ service cloud.firestore {
                 console.log('當前使用者:', this.currentUser);
                 
                 if (!this.isFirebaseReady) {
-                    alert('系統尚未準備就緒');
+                    this.showNotification('系統尚未準備就緒', 'error');
                     return;
                 }
                 
                 if (!this.currentUser) {
-                    alert('請先登入');
+                    this.showNotification('請先登入', 'error');
                     return;
                 }
                 
@@ -1915,7 +2097,7 @@ service cloud.firestore {
                         errorMessage = `載入資產失敗: ${error.message}`;
                     }
                     
-                    alert(errorMessage);
+                    this.showNotification(errorMessage, 'error');
                 }
             }
             
@@ -2052,7 +2234,7 @@ service cloud.firestore {
                     
                 } catch (error) {
                     console.error('❌ 更新資產順序失敗:', error);
-                    alert('更新順序失敗，請重試');
+                    this.showNotification('更新順序失敗，請重試', 'error');
                 }
             }
             
@@ -2244,7 +2426,7 @@ service cloud.firestore {
                 
                 // 驗證必要欄位
                 if (!quantity || quantity <= 0 || !cost || cost <= 0 || !unitPrice || unitPrice <= 0) {
-                    alert('請確認股數、總成本和購買平均成本價都已正確填寫且大於0');
+                    this.showNotification('請確認股數、總成本和購買平均成本價都已正確填寫且大於0', 'error');
                     return;
                 }
                 
@@ -2269,7 +2451,7 @@ service cloud.firestore {
                         await window.firebaseUpdateDoc(assetRef, formData);
                         
                         console.log('資產更新成功');
-                        alert('資產更新成功');
+                        this.showNotification('資產更新成功', 'success');
                         
                         // 清除編輯模式
                         this.editingAssetId = null;
@@ -2281,7 +2463,7 @@ service cloud.firestore {
                         await window.firebaseAddDoc(assetsRef, formData);
                         
                         console.log('資產新增成功');
-                        alert('資產新增成功');
+                        this.showNotification('資產新增成功', 'success');
                     }
                     
                     // 重新載入資產列表
@@ -2292,7 +2474,7 @@ service cloud.firestore {
                     
                 } catch (error) {
                     console.error('資產操作失敗:', error);
-                    alert('資產操作失敗');
+                    this.showNotification('資產操作失敗', 'error');
                 }
             }
             
@@ -2304,7 +2486,7 @@ service cloud.firestore {
                 console.log('找到的資產:', asset);
                 
                 if (!asset) {
-                    alert('找不到要編輯的資產');
+                    this.showNotification('找不到要編輯的資產', 'error');
                     return;
                 }
                 
@@ -2364,12 +2546,12 @@ service cloud.firestore {
                     await window.firebaseDeleteDoc(assetRef);
                     
                     console.log('資產刪除成功');
-                    alert('資產刪除成功');
+                    this.showNotification('資產刪除成功', 'success');
                     
                     this.loadAssets();
                 } catch (error) {
                     console.error('刪除資產失敗:', error);
-                    alert('刪除資產失敗');
+                    this.showNotification('刪除資產失敗', 'error');
                 }
             }
 
@@ -2384,17 +2566,17 @@ service cloud.firestore {
                 const fetchBtn = document.getElementById('fetchCurrentPriceBtn');
                 
                 if (assetType !== '股票') {
-                    alert('此功能僅適用於股票');
+                    this.showNotification('此功能僅適用於股票', 'warning');
                     return;
                 }
                 
                 if (!assetName) {
-                    alert('請先輸入股票名稱');
+                    this.showNotification('請先輸入股票名稱', 'error');
                     return;
                 }
                 
                 if (!stockCode) {
-                    alert('請先輸入股票代碼');
+                    this.showNotification('請先輸入股票代碼', 'error');
                     return;
                 }
                 
@@ -2416,11 +2598,11 @@ service cloud.firestore {
                     currencySelect.dispatchEvent(currencyEvent);
                     
                     console.log(`取得 ${stockCode} (${assetName}) 最新價格: ${stockData.price.toFixed(2)} ${stockData.currency}`);
-                    alert(`${stockCode} (${assetName}) 最新價格: ${stockData.price.toFixed(2)} ${stockData.currency}`);
+                    this.showNotification(`${stockCode} (${assetName}) 最新價格: ${stockData.price.toFixed(2)} ${stockData.currency}`, 'success');
                     
                 } catch (error) {
                     console.error('取得股票價格失敗:', error);
-                    alert(`取得 ${stockCode} 價格失敗，請手動輸入`);
+                    this.showNotification(`取得 ${stockCode} 價格失敗，請手動輸入`, 'error');
                 } finally {
                     fetchBtn.disabled = false;
                     fetchBtn.textContent = '📈 取得最新價格';
@@ -2794,12 +2976,12 @@ service cloud.firestore {
                 if (!asset) return;
                 
                 if (asset.type !== '股票') {
-                    alert('此功能僅適用於股票');
+                    this.showNotification('此功能僅適用於股票', 'warning');
                     return;
                 }
                 
                 if (!asset.stockCode) {
-                    alert('此股票沒有股票代碼，無法自動更新價格');
+                    this.showNotification('此股票沒有股票代碼，無法自動更新價格', 'warning');
                     return;
                 }
                 
@@ -2830,14 +3012,14 @@ service cloud.firestore {
                     });
                     
                     console.log(`✅ 更新 ${asset.stockCode} (${asset.name}) 價格: ${stockData.price.toFixed(2)} ${stockData.currency}`);
-                    alert(`${asset.stockCode} (${asset.name}) 價格已更新為 ${stockData.price.toFixed(2)} ${stockData.currency}`);
+                    this.showNotification(`${asset.stockCode} (${asset.name}) 價格已更新為 ${stockData.price.toFixed(2)} ${stockData.currency}`, 'success');
                     
                     // 重新載入資產
                     await this.loadAssets();
                     
                 } catch (error) {
                     console.error('❌ 更新價格失敗:', error);
-                    alert(`更新價格失敗: ${error.message}`);
+                    this.showNotification(`更新價格失敗: ${error.message}`, 'error');
                 } finally {
                     // 恢復按鈕狀態
                     if (updateBtn) {
@@ -2858,7 +3040,7 @@ service cloud.firestore {
                 );
                 
                 if (stockAssets.length === 0) {
-                    alert('沒有找到可更新的股票');
+                    this.showNotification('沒有找到可更新的股票', 'warning');
                     return;
                 }
                 
@@ -3226,7 +3408,7 @@ service cloud.firestore {
                 const mergeDuplicates = document.getElementById('mergeDuplicates').checked;
                 
                 if (assetRecords.length === 0) {
-                    alert('沒有可轉移的資產記錄');
+                    this.showNotification('沒有可轉移的資產記錄', 'warning');
                     return;
                 }
                 
@@ -3282,7 +3464,7 @@ service cloud.firestore {
                     }
                     
                     // 顯示結果
-                    alert(`轉移完成！\n成功: ${successCount} 筆\n失敗: ${errorCount} 筆`);
+                    this.showNotification(`轉移完成！\n成功: ${successCount} 筆\n失敗: ${errorCount} 筆`, 'success');
                     
                     // 重新載入資產
                     await this.loadAssets();
@@ -3292,7 +3474,7 @@ service cloud.firestore {
                     
                 } catch (error) {
                     console.error('轉移過程發生錯誤:', error);
-                    alert('轉移過程發生錯誤，請稍後再試');
+                    this.showNotification('轉移過程發生錯誤，請稍後再試', 'error');
                 }
             }
 
@@ -3812,7 +3994,7 @@ service cloud.firestore {
                             console.error('取得匯率失敗:', error);
                             exchangeRateInput.value = this.exchangeRates[currency] || 1;
                             exchangeRateInput.placeholder = '使用快取匯率';
-                            alert(`無法取得 ${currency} 最新匯率，已使用快取數據`);
+                            this.showNotification(`無法取得 ${currency} 最新匯率，已使用快取數據`, 'warning');
                         } finally {
                             refreshBtn.disabled = false;
                             refreshBtn.textContent = '🔄 更新匯率';
@@ -3985,7 +4167,7 @@ service cloud.firestore {
                     this.updateDisplay();
                 } catch (error) {
                     console.error('儲存記錄失敗:', error);
-                    alert('儲存失敗，請重試');
+                    this.showNotification('儲存失敗，請重試', 'error');
                 }
             }
 
@@ -4014,6 +4196,7 @@ service cloud.firestore {
                 });
                 
                 console.log('記錄已新增到 Firebase:', docRef.id);
+                this.showNotification('記錄已成功新增！', 'success');
             }
 
             // 更新 Firebase 記錄
@@ -4031,6 +4214,7 @@ service cloud.firestore {
                 }
                 
                 console.log('記錄已更新到 Firebase:', recordId);
+                this.showNotification('記錄已成功修改！', 'success');
             }
 
             // 編輯記錄
@@ -4050,6 +4234,7 @@ service cloud.firestore {
                 document.getElementById('amount').value = record.amount;
                 document.getElementById('description').value = record.description;
                 document.getElementById('date').value = record.date;
+                document.getElementById('currency').value = record.currency || 'TWD';
                 
                 // 更新細項選項
                 this.updateSubCategoryOptions();
@@ -4092,13 +4277,14 @@ service cloud.firestore {
                     this.records = this.records.filter(record => record.id !== recordId);
                     
                     console.log('記錄已刪除:', recordId);
+                    this.showNotification('記錄已成功刪除！', 'success');
                     
                     // 更新顯示
                     this.updateDisplay();
                     
                 } catch (error) {
                     console.error('刪除記錄失敗:', error);
-                    alert('刪除失敗，請重試');
+                    this.showNotification('刪除失敗，請重試', 'error');
                 }
             }
 
@@ -4111,6 +4297,7 @@ service cloud.firestore {
                 document.getElementById('subCategory').innerHTML = '<option value="">請先選擇類別</option>';
                 document.getElementById('amount').value = '';
                 document.getElementById('description').value = '';
+                document.getElementById('currency').value = 'TWD';
                 
                 // 設定今天的日期為預設值
                 document.getElementById('date').value = new Date().toISOString().split('T')[0];
@@ -4150,5 +4337,8 @@ service cloud.firestore {
         // 創建 ExpenseTracker 實例
         const expenseTracker = new ExpenseTracker();
     </script>
+
+    <!-- 通知容器 -->
+    <div id="notificationContainer" style="position: fixed; bottom: 20px; left: 20px; z-index: 10000; max-width: 300px;"></div>
 </body>
 </html>
