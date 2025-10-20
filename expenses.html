@@ -2011,76 +2011,135 @@ service cloud.firestore {
             // 根據股票代碼取得價格
             async getStockPrice(stockCode) {
                 try {
-                    // 這裡可以整合真實的股票 API
-                    // 目前使用模擬數據，使用固定基準價格 + 小幅波動
+                    // 嘗試取得真實股票價格
+                    const realPrice = await this.fetchRealStockPrice(stockCode);
+                    if (realPrice) {
+                        console.log(`取得 ${stockCode} 真實價格: ${realPrice.price.toFixed(2)} ${realPrice.currency}`);
+                        return realPrice;
+                    }
+                } catch (error) {
+                    console.warn(`取得 ${stockCode} 真實價格失敗，使用固定價格:`, error.message);
+                }
+                
+                // 如果真實 API 失敗，使用固定價格作為備用
+                return this.getFixedPrice(stockCode);
+            }
+            
+            // 取得真實股票價格
+            async fetchRealStockPrice(stockCode) {
+                try {
+                    // 使用 Yahoo Finance API (免費，無需 API Key)
+                    const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${stockCode}`);
                     
-                    const basePrices = {
-                        // 美股 (USD) - 基準價格
-                        'AAPL': { basePrice: 160, currency: 'USD' },      // Apple: $160
-                        'TSLA': { basePrice: 220, currency: 'USD' },     // Tesla: $220
-                        'MSFT': { basePrice: 315, currency: 'USD' },     // Microsoft: $315
-                        'GOOGL': { basePrice: 110, currency: 'USD' },    // Google: $110
-                        'NVDA': { basePrice: 425, currency: 'USD' },     // NVIDIA: $425
-                        
-                        // 台股 (TWD) - 基準價格
-                        '2330': { basePrice: 525, currency: 'TWD' },     // 台積電: NT$525
-                        '2317': { basePrice: 110, currency: 'TWD' },     // 鴻海: NT$110
-                        '2454': { basePrice: 215, currency: 'TWD' },     // 聯發科: NT$215
-                        '2881': { basePrice: 22, currency: 'TWD' },      // 富邦金: NT$22
-                        
-                        // 港股 (HKD) - 基準價格
-                        '0700': { basePrice: 325, currency: 'HKD' },     // 騰訊: HK$325
-                        '9988': { basePrice: 90, currency: 'HKD' },      // 阿里巴巴: HK$90
-                        '0941': { basePrice: 55, currency: 'HKD' },     // 中國移動: HK$55
-                        
-                        // 日股 (JPY) - 基準價格
-                        '6758': { basePrice: 3250, currency: 'JPY' },    // Sony: ¥3250
-                        '7203': { basePrice: 2150, currency: 'JPY' },    // Toyota: ¥2150
-                    };
-                    
-                    if (basePrices[stockCode]) {
-                        const stockData = basePrices[stockCode];
-                        // 產生小幅波動 (±2%)
-                        const volatility = 0.02;
-                        const randomFactor = 1 + (Math.random() - 0.5) * volatility;
-                        const currentPrice = stockData.basePrice * randomFactor;
-                        
-                        const result = {
-                            price: currentPrice,
-                            currency: stockData.currency
-                        };
-                        
-                        console.log(`取得 ${stockCode} 價格: ${result.price.toFixed(2)} ${result.currency} (基準: ${stockData.basePrice})`);
-                        return result;
-                    } else {
-                        // 如果沒有預設價格，根據代碼格式判斷市場
-                        let basePrice, currency;
-                        
-                        if (/^\d{4}$/.test(stockCode)) {
-                            // 4位數字，可能是台股
-                            basePrice = 100;
-                            currency = 'TWD';
-                        } else if (/^\d{4}$/.test(stockCode) && stockCode.startsWith('0')) {
-                            // 港股
-                            basePrice = 100;
-                            currency = 'HKD';
-                        } else {
-                            // 預設為美股
-                            basePrice = 150;
-                            currency = 'USD';
-                        }
-                        
-                        // 產生小幅波動
-                        const volatility = 0.02;
-                        const randomFactor = 1 + (Math.random() - 0.5) * volatility;
-                        const currentPrice = basePrice * randomFactor;
-                        
-                        return { price: currentPrice, currency };
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                     }
                     
+                    const data = await response.json();
+                    
+                    if (!data.chart || !data.chart.result || data.chart.result.length === 0) {
+                        throw new Error('無效的股票代碼或資料格式');
+                    }
+                    
+                    const result = data.chart.result[0];
+                    const meta = result.meta;
+                    const quote = result.indicators.quote[0];
+                    
+                    // 取得當前價格
+                    const currentPrice = meta.regularMarketPrice || quote.close[quote.close.length - 1];
+                    const currency = meta.currency || this.getCurrencyByMarket(stockCode);
+                    
+                    if (!currentPrice || currentPrice <= 0) {
+                        throw new Error('無法取得有效價格');
+                    }
+                    
+                    return {
+                        price: currentPrice,
+                        currency: currency
+                    };
+                    
                 } catch (error) {
-                    console.error('API 取得股票價格失敗:', error);
+                    console.error(`Yahoo Finance API 錯誤 (${stockCode}):`, error.message);
                     throw error;
+                }
+            }
+            
+            // 根據股票代碼判斷幣別
+            getCurrencyByMarket(stockCode) {
+                // 台股 (4位數字)
+                if (/^\d{4}$/.test(stockCode)) {
+                    return 'TWD';
+                }
+                // 港股 (4位數字，以0開頭)
+                else if (/^0\d{3}$/.test(stockCode)) {
+                    return 'HKD';
+                }
+                // 日股 (4位數字)
+                else if (/^\d{4}$/.test(stockCode) && parseInt(stockCode) >= 1000) {
+                    return 'JPY';
+                }
+                // 美股 (字母)
+                else {
+                    return 'USD';
+                }
+            }
+            
+            // 固定價格備用方案
+            getFixedPrice(stockCode) {
+                const fixedPrices = {
+                    // 美股 (USD) - 固定價格
+                    'AAPL': { price: 160.00, currency: 'USD' },      // Apple: $160.00
+                    'TSLA': { price: 220.00, currency: 'USD' },       // Tesla: $220.00
+                    'MSFT': { price: 315.00, currency: 'USD' },       // Microsoft: $315.00
+                    'GOOGL': { price: 110.00, currency: 'USD' },      // Google: $110.00
+                    'NVDA': { price: 425.00, currency: 'USD' },       // NVIDIA: $425.00
+                    'AMZN': { price: 135.00, currency: 'USD' },       // Amazon: $135.00
+                    'META': { price: 280.00, currency: 'USD' },       // Meta: $280.00
+                    
+                    // 台股 (TWD) - 固定價格
+                    '2330': { price: 525.00, currency: 'TWD' },       // 台積電: NT$525.00
+                    '2317': { price: 110.00, currency: 'TWD' },       // 鴻海: NT$110.00
+                    '2454': { price: 215.00, currency: 'TWD' },       // 聯發科: NT$215.00
+                    '2881': { price: 22.00, currency: 'TWD' },        // 富邦金: NT$22.00
+                    '0050': { price: 85.00, currency: 'TWD' },        // 元大台灣50: NT$85.00
+                    '1101': { price: 35.00, currency: 'TWD' },        // 台泥: NT$35.00
+                    
+                    // 港股 (HKD) - 固定價格
+                    '0700': { price: 325.00, currency: 'HKD' },       // 騰訊: HK$325.00
+                    '9988': { price: 90.00, currency: 'HKD' },        // 阿里巴巴: HK$90.00
+                    '0941': { price: 55.00, currency: 'HKD' },        // 中國移動: HK$55.00
+                    '1299': { price: 45.00, currency: 'HKD' },        // 友邦保險: HK$45.00
+                    
+                    // 日股 (JPY) - 固定價格
+                    '6758': { price: 3250.00, currency: 'JPY' },      // Sony: ¥3250.00
+                    '7203': { price: 2150.00, currency: 'JPY' },       // Toyota: ¥2150.00
+                    '7974': { price: 8500.00, currency: 'JPY' },      // Nintendo: ¥8500.00
+                };
+                
+                if (fixedPrices[stockCode]) {
+                    const result = fixedPrices[stockCode];
+                    console.log(`使用 ${stockCode} 固定價格: ${result.price.toFixed(2)} ${result.currency}`);
+                    return result;
+                } else {
+                    // 如果沒有預設價格，根據代碼格式判斷市場並使用固定價格
+                    let price, currency;
+                    
+                    if (/^\d{4}$/.test(stockCode)) {
+                        // 4位數字，可能是台股
+                        price = 100.00;
+                        currency = 'TWD';
+                    } else if (/^\d{4}$/.test(stockCode) && stockCode.startsWith('0')) {
+                        // 港股
+                        price = 100.00;
+                        currency = 'HKD';
+                    } else {
+                        // 預設為美股
+                        price = 150.00;
+                        currency = 'USD';
+                    }
+                    
+                    console.log(`使用 ${stockCode} 預設固定價格: ${price.toFixed(2)} ${currency}`);
+                    return { price, currency };
                 }
             }
             
