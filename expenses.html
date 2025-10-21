@@ -818,6 +818,10 @@
                 this.assets = [];
                 this.editingAssetId = null;
                 
+                // 匯率自動更新標記
+                this.isExchangeRateChecked = false;
+                this.hasShownStartNotification = false;
+                
                 this.categoryStructure = {
                     '食': ['外食', '食材', '飲料', '零食', '其他'],
                     '衣': ['服飾', '鞋子', '配件', '美容', '其他'],
@@ -907,6 +911,16 @@
                         }
                         
                         this.hideLoading();
+                        
+                        // 畫面載入完成後，延遲執行自動更新匯率
+                        setTimeout(async () => {
+                            try {
+                                console.log('🔄 畫面載入完成，開始自動檢查匯率...');
+                                await this.checkAndAutoFillTodayRates();
+                            } catch (error) {
+                                console.error('自動更新匯率失敗:', error);
+                            }
+                        }, 2000); // 延遲 2 秒執行
                     } else {
                         console.log('未檢測到登入狀態，導向登入頁面');
                         window.location.href = 'enter_login.html';
@@ -957,6 +971,16 @@
                                 }
                                 
                                 this.hideLoading();
+                                
+                                // 畫面載入完成後，延遲執行自動更新匯率
+                                setTimeout(async () => {
+                                    try {
+                                        console.log('🔄 畫面載入完成，開始自動檢查匯率...');
+                                        await this.checkAndAutoFillTodayRates();
+                                    } catch (error) {
+                                        console.error('自動更新匯率失敗:', error);
+                                    }
+                                }, 2000); // 延遲 2 秒執行
                             });
                         } else {
                             console.log('認證狀態變化 - 已登出，導向登入頁面');
@@ -2131,8 +2155,233 @@ service cloud.firestore {
                     } else {
                         console.log('Firebase中沒有匯率資料，使用預設值');
                     }
+                    
+                    
                 } catch (error) {
                     console.error('從Firebase載入匯率失敗:', error);
+                    throw error;
+                }
+            }
+
+            // 檢查並自動補足當日匯率
+            async checkAndAutoFillTodayRates() {
+                // 防止重複執行
+                if (this.isExchangeRateChecked) {
+                    console.log('⏭️ 匯率檢查已執行過，跳過重複執行');
+                    return;
+                }
+                
+                this.isExchangeRateChecked = true;
+                
+                try {
+                    console.log('🔍 檢查是否需要補足當日匯率...');
+                    
+                    // 檢查最近幾天是否有匯率資料
+                    const missingDates = await this.checkMissingDates();
+                    
+                    if (missingDates.length > 0) {
+                        console.log(`⚠️ 發現 ${missingDates.length} 個日期缺少匯率資料:`, missingDates);
+                        
+                        // 顯示進度通知
+                        this.showExchangeRateProgress(0, missingDates.length);
+                        
+                        // 自動補足所有缺少的日期
+                        await this.fillMissingDatesWithProgress(missingDates);
+                        
+                        console.log(`✅ 所有日期匯率補足完成`);
+                        this.showExchangeRateProgress(missingDates.length, missingDates.length, true);
+                    } else {
+                        console.log('✅ 所有日期匯率資料已存在，無需補足');
+                        // 顯示無需更新的狀態
+                        this.showExchangeRateProgress(0, 0, true);
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ 檢查當日匯率失敗:', error);
+                    // 不顯示錯誤通知，避免干擾用戶體驗
+                }
+            }
+            
+            // 檢查當日匯率是否存在
+            async checkTodayRatesExist(dateStr) {
+                try {
+                    // 先嘗試用文檔 ID 查詢（舊格式）
+                    const rateRef = window.firebaseDoc(window.firebaseDb, 'dailyExchangeRates', dateStr);
+                    console.log(`🔍 查詢 Firebase 文檔: dailyExchangeRates/${dateStr}`);
+                    
+                    const rateDoc = await window.firebaseGetDoc(rateRef);
+                    
+                    if (rateDoc.exists()) {
+                        const data = rateDoc.data();
+                        console.log(`📄 文檔存在，內容:`, data);
+                        
+                        const currencies = ['USD', 'EUR', 'JPY', 'CNY'];
+                        
+                        // 檢查是否所有幣別都有匯率
+                        for (const currency of currencies) {
+                            if (!data.rates || !data.rates[currency]) {
+                                console.log(`❌ ${currency} 匯率缺失`);
+                                return false;
+                            }
+                        }
+                        
+                        console.log('✅ 當日所有匯率都存在');
+                        return true;
+                    } else {
+                        console.log('❌ 當日匯率文檔不存在');
+                        return false;
+                    }
+                } catch (error) {
+                    console.error('檢查當日匯率存在性失敗:', error);
+                    return false;
+                }
+            }
+
+            // 檢查最近幾天缺少匯率的日期
+            async checkMissingDates() {
+                const missingDates = [];
+                const today = new Date();
+                
+                console.log(`📅 今天日期: ${today.toISOString()}`);
+                console.log(`📅 今天格式化: ${this.formatDateForFirebase(today)}`);
+                
+                // 檢查最近 7 天（只檢查過去日期，不檢查未來日期）
+                for (let i = 0; i < 7; i++) {
+                    const checkDate = new Date(today);
+                    checkDate.setDate(today.getDate() - i);
+                    const dateStr = this.formatDateForFirebase(checkDate);
+                    
+                    console.log(`🔍 檢查日期 ${i}: ${dateStr}`);
+                    
+                    const hasRates = await this.checkTodayRatesExist(dateStr);
+                    console.log(`📊 ${dateStr} 匯率狀態: ${hasRates ? '存在' : '缺失'}`);
+                    
+                    if (!hasRates) {
+                        missingDates.push(dateStr);
+                    }
+                }
+                
+                console.log(`📋 缺少匯率的日期:`, missingDates);
+                return missingDates;
+            }
+            
+            // 顯示匯率補足進度
+            showExchangeRateProgress(current, total, completed = false) {
+                const progressText = completed ? '✅' : `${current}/${total}`;
+                console.log(`📊 匯率補足進度: ${progressText}`);
+                
+                // 更新匯率管理按鈕的文字
+                const exchangeRateBtn = document.querySelector('button[onclick="expenseTracker.showExchangeRates()"]');
+                if (exchangeRateBtn) {
+                    const originalText = exchangeRateBtn.textContent.replace(/\s*\(\d+\/\d+\)|\s*\(✅\)/, '');
+                    exchangeRateBtn.textContent = `${originalText} (${progressText})`;
+                }
+                
+                // 使用現有的通知系統
+                if (completed) {
+                    // 重置通知標記
+                    this.hasShownStartNotification = false;
+                    
+                    if (total === 0) {
+                        this.showNotification(`✅ 匯率資料已是最新，無需更新`, 'success');
+                    } else {
+                        this.showNotification(`✅ 同步 ${total} 筆匯率完成`, 'success');
+                    }
+                } else if (total > 0 && current === 0) {
+                    // 防止重複通知：檢查是否已經顯示過開始通知
+                    if (!this.hasShownStartNotification) {
+                        this.showNotification(`🔄 匯率有 ${total} 筆資料需要同步`, 'info');
+                        this.hasShownStartNotification = true;
+                    }
+                }
+            }
+            
+            // 帶進度顯示的日期補足
+            async fillMissingDatesWithProgress(missingDates) {
+                for (let i = 0; i < missingDates.length; i++) {
+                    const dateStr = missingDates[i];
+                    console.log(`🔄 正在補足第 ${i + 1} 筆日期: ${dateStr}`);
+                    
+                    // 更新進度顯示
+                    this.showExchangeRateProgress(i, missingDates.length);
+                    
+                    // 補足該日期的所有匯率
+                    await this.fillDateRates(dateStr);
+                    
+                    console.log(`✅ 第 ${i + 1} 筆日期補足完成: ${dateStr}`);
+                }
+            }
+            
+            // 補足指定日期的所有匯率
+            async fillDateRates(dateStr) {
+                const currencies = ['USD', 'EUR', 'JPY', 'CNY'];
+                const date = new Date(dateStr);
+                const ratesData = {};
+                
+                console.log(`🔄 開始補足 ${dateStr} 的匯率...`);
+                
+                // 先獲取所有幣別的匯率
+                for (const currency of currencies) {
+                    try {
+                        // 嘗試從外部 API 獲取匯率
+                        const externalRate = await this.fetchExchangeRateFromAPI(currency);
+                        
+                        if (externalRate !== null) {
+                            ratesData[currency] = externalRate;
+                            console.log(`✅ ${currency} 匯率獲取成功: ${externalRate}`);
+                        } else {
+                            console.log(`❌ ${currency} 匯率獲取失敗`);
+                            // 使用現有匯率作為備用
+                            ratesData[currency] = this.exchangeRates[currency] || 1;
+                        }
+                    } catch (error) {
+                        console.error(`❌ ${currency} 匯率處理失敗:`, error);
+                        // 使用現有匯率作為備用
+                        ratesData[currency] = this.exchangeRates[currency] || 1;
+                    }
+                }
+                
+                // 一次性儲存所有匯率
+                try {
+                    const rateRef = window.firebaseDoc(window.firebaseDb, 'dailyExchangeRates', dateStr);
+                    await window.firebaseSetDoc(rateRef, {
+                        rates: ratesData,
+                        date: dateStr,
+                        updatedAt: window.firebaseServerTimestamp()
+                    });
+                    
+                    console.log(`✅ ${dateStr} 所有匯率儲存成功:`, ratesData);
+                } catch (error) {
+                    console.error(`❌ ${dateStr} 匯率儲存失敗:`, error);
+                }
+            }
+
+            // 儲存指定日期的匯率到 Firebase
+            async saveExchangeRateForDate(currency, date, rate) {
+                try {
+                    const dateStr = this.formatDateForFirebase(date);
+                    console.log(`💾 儲存 ${currency} 在 ${dateStr} 的匯率: ${rate}`);
+                    
+                    const rateRef = window.firebaseDoc(window.firebaseDb, 'dailyExchangeRates', dateStr);
+                    const rateDoc = await window.firebaseGetDoc(rateRef);
+                    
+                    let ratesData = {};
+                    if (rateDoc.exists()) {
+                        ratesData = rateDoc.data().rates || {};
+                    }
+                    
+                    ratesData[currency] = rate;
+                    
+                    await window.firebaseSetDoc(rateRef, {
+                        rates: ratesData,
+                        date: dateStr,
+                        updatedAt: window.firebaseServerTimestamp()
+                    }, { merge: true });
+                    
+                    console.log(`✅ ${currency} 匯率儲存成功`);
+                    
+                } catch (error) {
+                    console.error(`❌ 儲存 ${currency} 匯率失敗:`, error);
                     throw error;
                 }
             }
