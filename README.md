@@ -123,7 +123,7 @@ service cloud.firestore {
 
 #### 4. 上傳檔案
 ```
-1. 將 index.html 和 login.html 上傳到網頁伺服器
+1. 將 tracker.html 和 login.html 上傳到網頁伺服器
 2. 或使用 Firebase Hosting 部署：
    - npm install -g firebase-tools
    - firebase init hosting
@@ -133,7 +133,7 @@ service cloud.firestore {
 ## 📖 使用說明
 
 ### 登入
-1. 開啟 `enter_login.html`（統一登入入口）
+1. 開啟 `index.html`（統一登入入口）
 2. 選擇要使用的系統（QA Tracker 或家庭記帳）
 3. 點擊「使用 Google 登入」
 4. 選擇您的 Google 帳號

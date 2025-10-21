@@ -27,7 +27,7 @@ const SYSTEM_INFO = {
         name: "QA Tracker",
         description: "工作記錄與問題追蹤系統",
         features: ["任務管理", "問題追蹤", "進度分析"],
-        redirectUrl: "index.html"
+        redirectUrl: "tracker.html"
     },
     expenses: {
         name: "家庭記帳系統",

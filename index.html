@@ -1,2017 +1,472 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>QA Tracker</title>
-
-  <!-- Tailwind CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
-  <style>
-    /* 預設先隱藏主要內容，但保留載入動畫 */
-    body { 
-      font-family: 'Inter', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
-    }
-    
-    /* 隱藏主要內容，但保留載入動畫 */
-    .main-content {
-      display: none;
-    }
-    
-    /* 確保載入動畫始終可見 */
-    .loading-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.7);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 9999;
-      backdrop-filter: blur(5px);
-    }
-
-    .loading-container {
-      background: white;
-      border-radius: 20px;
-      padding: 40px;
-      text-align: center;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-      max-width: 300px;
-      width: 90%;
-    }
-
-    .loading-spinner {
-      width: 60px;
-      height: 60px;
-      border: 4px solid #f3f3f3;
-      border-top: 4px solid #667eea;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 20px;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    .loading-text {
-      color: #333;
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 10px;
-    }
-
-    .loading-subtext {
-      color: #666;
-      font-size: 14px;
-    }
-
-    .loading-dots {
-      display: inline-block;
-      animation: dots 1.5s infinite;
-    }
-
-    @keyframes dots {
-      0%, 20% { content: ''; }
-      40% { content: '.'; }
-      60% { content: '..'; }
-      80%, 100% { content: '...'; }
-    }
-
-    .loading-dots::after {
-      content: '';
-      animation: dots 1.5s infinite;
-    }
-  </style>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            brand: { 600: '#4f46e5', 700: '#4338ca', 800: '#3730a3' }
-          },
-          boxShadow: { 
-            soft: '0 2px 10px rgba(0,0,0,.06)',
-            'soft-lg': '0 10px 25px rgba(0,0,0,.08)'
-          }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系統登入入口</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
         }
-      }
-    }
-  </script>
-
-  <!-- Firebase SDKs (Modular v10) -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-    // Replace with your own if needed
-    const firebaseConfig = {
-      apiKey: "AIzaSyCuTlQfSUTlgig_NF7bKV448v35UEuB0aA",
-      authDomain: "fb-issue-record.firebaseapp.com",
-      projectId: "fb-issue-record",
-      storageBucket: "fb-issue-record.firebasestorage.app",
-      messagingSenderId: "892738349977",
-      appId: "1:892738349977:web:004b30f804e2937692c108"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    window.db = getFirestore(app);
-    window.auth = getAuth(app);
-    window.GoogleAuthProvider = GoogleAuthProvider;
-    window.signInWithPopup = signInWithPopup;
-    window.signOut = signOut;
-    window.onAuthStateChanged = onAuthStateChanged;
-    
-
-  // === 認證檢查結束 ===
-  </script>
-
-  <style>
-    /* === 基礎按鈕樣式 === */
-    .btn {
-      padding: .75rem 1.25rem;
-      border-radius: .75rem;
-      font-weight: 600;
-      font-size: .875rem;
-      transition: all 0.2s ease;
-      border: none;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: .5rem;
-      white-space: nowrap;
-      min-height: 2.5rem;
-    }
-    .btn:hover { transform: translateY(-1px); }
-    .btn:active { transform: translateY(0); }
-    
-    /* 按鈕色系 */
-    .btn-primary { 
-      background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
-    }
-    .btn-primary:hover { box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4); }
-    
-    .btn-success { 
-      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
-    }
-    .btn-success:hover { box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); }
-    
-    .btn-info { 
-      background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3);
-    }
-    .btn-info:hover { box-shadow: 0 4px 12px rgba(14, 165, 233, 0.4); }
-    
-    .btn-warning { 
-      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
-    }
-    .btn-warning:hover { box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4); }
-    
-    .btn-danger { 
-      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
-    }
-    .btn-danger:hover { box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); }
-    
-    .btn-secondary { 
-      padding: .75rem 1.25rem !important;
-      border-radius: .75rem;
-      border: 1.5px solid #cbd5e1;
-      background: #fff;
-      color: #475569;
-      font-weight: 600;
-      font-size: .875rem;
-      transition: all 0.2s ease;
-      cursor: pointer;
-      min-height: 2.5rem !important;
-      width: auto !important;
-      height: auto !important;
-      flex-shrink: 0;
-    }
-    .btn-secondary:hover { 
-      background: #f8fafc;
-      border-color: #94a3b8;
-      transform: translateY(-1px);
-    }
-    
-    /* 分頁按鈕特殊樣式 */
-    #btnPrev, #btnNext {
-      padding: .75rem 1.25rem !important;
-      min-height: 2.5rem !important;
-      font-size: .875rem !important;
-      font-weight: 600 !important;
-      white-space: nowrap !important;
-      flex-shrink: 0 !important;
-    }
-    
-    .btn-outline { 
-      border: 1.5px solid #cbd5e1;
-      background: #fff;
-      color: #334155;
-      padding: .5rem 1rem;
-      border-radius: .75rem;
-      font-weight: 600;
-      transition: all 0.2s ease;
-    }
-    .btn-outline:hover { background: #f8fafc; border-color: #94a3b8; }
-    
-    .btn-outline-red { 
-      border: 1.5px solid #fecaca;
-      color: #991b1b;
-      background: #fff;
-      padding: .5rem 1rem;
-      border-radius: .75rem;
-      font-weight: 600;
-    }
-    .btn-outline-red:hover { background: #fef2f2; }
-
-    /* === 輸入框樣式 === */
-    .inp {
-      width: 100%;
-      padding: .625rem .875rem;
-      border-radius: .75rem;
-      border: 1.5px solid #cbd5e1;
-      outline: none;
-      background: #fff;
-      transition: all 0.2s ease;
-      font-size: .875rem;
-    }
-    .inp:focus {
-      box-shadow: 0 0 0 3px rgba(79, 70, 229, .15);
-      border-color: #818cf8;
-    }
-    .inp:hover:not(:focus) {
-      border-color: #94a3b8;
-    }
-
-    /* === 標籤樣式 === */
-    .chip {
-      display: inline-flex;
-      align-items: center;
-      gap: .35rem;
-      padding: .25rem .625rem;
-      border-radius: 9999px;
-      font-size: .75rem;
-      font-weight: 600;
-    }
-    .chip-green { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
-    .chip-gray { background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; }
-    .chip-red { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
-    .chip-indigo { background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe; }
-    .chip-amber { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
-
-    /* === 表格樣式 === */
-    #tableWrap table {
-      table-layout: fixed;
-    }
-    .table-head th {
-      position: sticky;
-      top: 0;
-      background: #f8fafc;
-      white-space: nowrap;
-      font-weight: 600;
-      z-index: 10;
-    }
-    #tableWrap tbody td {
-      white-space: normal;
-      word-break: break-word;
-    }
-    .row {
-      border-bottom: 1px solid #e2e8f0;
-      transition: background-color 0.15s ease;
-    }
-    .row:hover {
-      background-color: #f8fafc !important;
-    }
-    
-    /* === 載入動畫 === */
-    .overlay {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(255, 255, 255, .9);
-      backdrop-filter: saturate(180%) blur(4px);
-      z-index: 50;
-    }
-
-    /* === 響應式調整 === */
-    @media (max-width: 768px) {
-      .btn {
-        padding: .5rem .75rem;
-        font-size: .8rem;
-      }
-      .chip {
-        font-size: .7rem;
-        padding: .2rem .5rem;
-      }
-    }
-    
-    /* === 強制按鈕樣式 === */
-    button.btn-secondary {
-      padding: .75rem 1.25rem !important;
-      min-height: 2.5rem !important;
-      font-size: .875rem !important;
-      font-weight: 600 !important;
-      white-space: nowrap !important;
-      flex-shrink: 0 !important;
-      width: auto !important;
-      height: auto !important;
-      max-width: none !important;
-      max-height: none !important;
-    }
-    
-    /* 分頁按鈕特殊處理 */
-    #btnPrev, #btnNext {
-      padding: .75rem 1.25rem !important;
-      min-height: 2.5rem !important;
-      font-size: .875rem !important;
-      font-weight: 600 !important;
-      white-space: nowrap !important;
-      flex-shrink: 0 !important;
-      width: auto !important;
-      height: auto !important;
-      max-width: none !important;
-      max-height: none !important;
-      display: inline-flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      gap: .5rem !important;
-    }
-    
-    /* 強制右上角水平排列 */
-    #userDisplayName {
-      flex-direction: row !important;
-      display: flex;
-      align-items: center !important;
-      flex-wrap: nowrap !important;
-    }
-    
-    #userDisplayName > * {
-      flex-shrink: 0 !important;
-      white-space: nowrap !important;
-    }
-  </style>
+        .login-container {
+            background-color: white;
+            padding: 3rem 2.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .system-card {
+            border: 2px solid #e5e7eb;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        .system-card:hover {
+            border-color: #3b82f6;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.1);
+        }
+        .system-card.selected {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+        .system-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: white;
+        }
+        .qa-icon {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+        }
+        .expenses-icon {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        }
+        .login-btn {
+            width: 100%;
+            padding: 0.875rem;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            font-weight: 600;
+            border-radius: 0.75rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
+            margin-top: 1.5rem;
+        }
+        .login-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px -1px rgba(59, 130, 246, 0.4);
+        }
+        .login-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #ffffff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .status-message {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            min-height: 20px;
+        }
+        .status-success {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+        .status-error {
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+        .status-info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
+        }
+    </style>
 </head>
-
-<body class="min-h-screen bg-slate-50 text-slate-800">
-  <!-- 載入動畫 -->
-  <div id="loadingOverlay" class="loading-overlay" style="display: none;">
-    <div class="loading-container">
-      <div class="loading-spinner"></div>
-      <div class="loading-text" id="loadingText">載入中</div>
-      <div class="loading-subtext" id="loadingSubtext">請稍候<span class="loading-dots"></span></div>
-    </div>
-  </div>
-
-  <!-- 主要內容容器 -->
-  <div class="main-content">
-    <!-- Header -->
-    <header class="bg-gradient-to-r from-brand-600 via-brand-700 to-brand-800 text-white shadow-lg sticky top-0 z-40">
-    <div class="max-w-7xl mx-auto px-4 md:px-6 py-3.5 md:py-4 flex items-center justify-between" style="min-width: 0; overflow: visible;">
-      <div class="flex items-center gap-3">
-        <div class="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-white/20 backdrop-blur-sm grid place-items-center font-bold text-base md:text-lg shadow-md">QA</div>
-        <div>
-          <h1 class="text-lg md:text-2xl font-bold tracking-tight">QA Tracker</h1>
-          <p class="text-xs text-white/80 hidden md:block">工作記錄追蹤系統</p>
-        </div>
-      </div>
-      <div id="authArea" class="flex items-center gap-2 md:gap-3">
-        <div id="userDisplayName" class="hidden flex items-center gap-2 md:gap-3" style="flex-direction: row !important; display: flex !important;">
-          <!-- 使用者資訊卡片 -->
-          <div class="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-2 md:px-3 py-1.5 md:py-2 rounded-lg" style="flex-shrink: 0;">
-            <svg class="w-3 h-3 md:w-4 md:h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
-            </svg>
-            <span id="userEmail" class="text-xs md:text-sm font-medium"></span>
-          </div>
-          
-          <!-- 登出按鈕 -->
-          <button id="btnSignOut" class="btn-secondary text-xs md:text-sm" style="padding: 0.5rem 0.75rem; min-height: 2rem; flex-shrink: 0;">登出</button>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <main class="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
-  
-	<!-- Modal：建立 / 編輯資料 -->
-	<div id="recordModal" class="fixed inset-0 z-[100] hidden" aria-hidden="true">
-	  <!-- 背景 -->
-	  <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
-
-	  <!-- 面板 -->
-	  <div class="relative w-full h-full grid place-items-center p-4 overflow-y-auto">
-		<div data-modal-panel
-			 class="w-full max-w-4xl bg-white rounded-2xl shadow-soft-lg border border-slate-200 my-8">
-		  <!-- Header -->
-		  <div class="flex items-center justify-between px-5 md:px-6 py-4 border-b bg-gradient-to-r from-slate-50 to-white rounded-t-2xl">
-			<div>
-			  <h2 id="modalTitle" class="text-xl md:text-2xl font-bold text-slate-800">建立 / 編輯資料</h2>
-			  <div class="text-xs text-slate-500 mt-1">* Issue Number 為必填，其餘欄位皆為選填</div>
-			</div>
-			<button id="btnModalClose" class="btn-secondary text-sm">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-              關閉
-            </button>
-		  </div>
-
-		  <!-- Body（沿用你的 form 與欄位） -->
-		  <div class="p-5 md:p-6">
-			<form id="recordForm" class="grid md:grid-cols-4 gap-4">
-			  <!-- === 以下保留你的原欄位區塊即可 === -->
-			  <!-- Row 1 -->
-			  <div>
-				<label class="block text-sm text-slate-600 mb-1">狀態</label>
-				<select id="status" class="inp">
-				  <option value="1" selected>執行中</option>
-				  <option value="0">執行中止</option>
-				  <option value="2">完成</option>
-				</select>
-			  </div>
-			  <div>
-				<label class="block text-sm text-slate-600 mb-1">完成日期</label>
-				<input id="completed_at" type="date" class="inp" />
-			  </div>
-			  <div>
-				<label class="block text-sm text-slate-600 mb-1">Issue Number</label>
-				<input id="issue_number" type="number" class="inp" placeholder="例如 1234" />
-			  </div>
-			  <div>
-				<label class="block text-sm text-slate-600 mb-1">Test Plan</label>
-				<select id="test_plan" class="inp">
-				  <option value="0" selected>否</option>
-				  <option value="1">是</option>
-				</select>
-			  </div>
-
-			  <!-- Row 2 -->
-			  <div>
-				<label class="block text-sm text-slate-600 mb-1">類型</label>
-				<select id="category" class="inp">
-				  <option value="1" selected>BUG</option>
-				  <option value="2">改善</option>
-				  <option value="3">優化</option>
-				  <option value="4">模組</option>
-				  <option value="5">QA</option>
-				</select>
-			  </div>
-			  <div class="md:col-span-3">
-				<label class="block text-sm text-slate-600 mb-1">功能</label>
-				<input id="feature" type="text" class="inp" placeholder="文字描述" />
-			  </div>
-
-			  <!-- Row 3 -->
-			  <div class="md:col-span-4">
-				<label class="block text-sm text-slate-600 mb-1">Memo</label>
-				<textarea id="memo" class="inp" rows="2" placeholder="備註（非必填）"></textarea>
-			  </div>
-
-			  <!-- Row 4 -->
-			  <div class="md:col-span-2">
-				<label class="block text-sm text-slate-600 mb-1">開始測試日期</label>
-				<input id="test_start_date" type="date" class="inp" />
-			  </div>
-			  <div class="md:col-span-2">
-				<label class="block text-sm text-slate-600 mb-1">預計交付日期</label>
-				<input id="eta_date" type="date" class="inp" />
-			  </div>
-
-			  <!-- Row 5 -->
-			  <div>
-				<label class="block text-sm text-slate-600 mb-1">驗證失敗</label>
-				<select id="verify_failed" class="inp">
-				  <option value="0" selected>否</option>
-				  <option value="1">是</option>
-				</select>
-			  </div>
-			  <div>
-				<label class="block text-sm text-slate-600 mb-1">測試案例</label>
-				<input id="test_cases" type="number" class="inp" value="0" />
-			  </div>
-			  <div>
-				<label class="block text-sm text-slate-600 mb-1">檔案數量</label>
-				<input id="file_count" type="number" class="inp" value="0" />
-			  </div>
-			  <div class="md:col-span-1"></div>
-
-			  <!-- Row 6 -->
-			  <div>
-				<label class="block text-sm text-slate-600 mb-1">發現 BUG</label>
-				<select id="bug_found" class="inp">
-				  <option value="0" selected>否</option>
-				  <option value="1">是</option>
-				</select>
-			  </div>
-			  <div>
-				<label class="block text-sm text-slate-600 mb-1">可優化項目</label>
-				<input id="optimization_points" type="number" class="inp" placeholder="數字；僅在 發現BUG=1 時可填" min="0" step="1" disabled />
-			  </div>
-			  <div class="md:col-span-2"></div>
-
-			  <!-- Row 7 -->
-			  <div class="md:col-span-4 flex flex-wrap gap-3 items-end">
-				<button id="btnSave" class="btn" type="submit">儲存</button>
-				<button id="btnReset" class="btn-secondary" type="button">重設</button>
-				<span id="saveMsg" class="ml-2 text-sm text-green-600"></span>
-				<a id="issue_link_preview" class="text-brand-700 font-semibold underline hidden"
-				   href="#" target="_blank" rel="noopener">打開 Issue</a>
-			  </div>
-			</form>
-		  </div>
-		</div>
-	  </div>
-	</div>
-
-  
-  
-    <!-- List Card -->
-    <section id="listSection" class="relative bg-white rounded-2xl shadow-soft-lg p-4 md:p-6 border border-slate-200">
-      <!-- Title row -->
-      <div class="mb-4 pb-3 border-b border-slate-200">
-        <div class="flex items-center gap-2">
-          <svg class="w-6 h-6 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-          </svg>
-          <h2 class="text-xl md:text-2xl font-bold text-slate-800">資料列表</h2>
-        </div>
-      </div>
-
-	<!-- Filters block -->
-	<div class="bg-slate-50 rounded-xl p-4 md:p-5 mb-4 border border-slate-200">
-      <div class="flex items-center gap-2 mb-3">
-        <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
-        </svg>
-        <h3 class="font-semibold text-slate-700">篩選條件</h3>
-      </div>
-      
-      <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
-	  <!-- 關鍵字 -->
-        <div class="flex flex-col md:col-span-3 lg:col-span-2">
-          <label for="q_keyword" class="text-sm text-slate-600 font-medium mb-1.5">關鍵字搜尋</label>
-          <input id="q_keyword" type="text" class="inp" placeholder="搜尋功能、備註或 Issue 編號..."/>
-	  </div>
-
-	  <!-- 狀態 -->
-	  <div class="flex flex-col">
-          <label for="q_status" class="text-sm text-slate-600 font-medium mb-1.5">狀態</label>
-		<select id="q_status" class="inp">
-		  <option value="" selected>全部</option>
-		  <option value="1">執行中</option>
-		  <option value="0">執行中止</option>
-		  <option value="2">完成</option>
-		</select>
-	  </div>
-
-	  <!-- 類型 -->
-	  <div class="flex flex-col">
-          <label for="q_category" class="text-sm text-slate-600 font-medium mb-1.5">類型</label>
-		<select id="q_category" class="inp">
-		  <option value="" selected>全部</option>
-		  <option value="1">BUG</option>
-		  <option value="2">改善</option>
-		  <option value="3">優化</option>
-		  <option value="4">模組</option>
-		  <option value="5">QA</option>
-		</select>
-	  </div>
-
-	  <!-- Test Plan -->
-	  <div class="flex flex-col">
-          <label for="q_test_plan" class="text-sm text-slate-600 font-medium mb-1.5">Test Plan</label>
-		<select id="q_test_plan" class="inp">
-		  <option value="" selected>全部</option>
-		  <option value="1">是</option>
-		  <option value="0">否</option>
-		</select>
-	  </div>
-
-	  <!-- 發現BUG -->
-	  <div class="flex flex-col">
-          <label for="q_bug_found" class="text-sm text-slate-600 font-medium mb-1.5">發現BUG</label>
-		<select id="q_bug_found" class="inp">
-		  <option value="" selected>全部</option>
-		  <option value="1">是</option>
-		  <option value="0">否</option>
-		</select>
-	  </div>
-      </div>
-	</div>
-
-
-      <!-- Buttons row -->
-	<div class="flex flex-col md:flex-row md:justify-between items-stretch md:items-center gap-3 mb-4">
-      <!-- 左側：主要操作 -->
-      <div class="flex flex-wrap gap-2">
-        <button id="btnCreate" class="btn btn-primary flex-1 md:flex-initial">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-          </svg>
-          新增 Issue
-        </button>
-        <button id="btnSearch" class="btn btn-info flex-1 md:flex-initial">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-          </svg>
-          搜尋
-        </button>
-        <button id="btnStatusInProgress" class="btn btn-warning flex-1 md:flex-initial">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          <span id="inProgressCount">載入中...</span>
-        </button>
-        <button id="btnClear" class="btn btn-secondary flex-1 md:flex-initial">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-          </svg>
-          清空
-        </button>
-      </div>
-      
-      <!-- 右側：次要操作 -->
-      <div class="flex flex-wrap gap-2">
-        <button id="btnExportExcel" class="btn btn-success flex-1 md:flex-initial">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-          </svg>
-          匯出 Excel
-        </button>
-        <button id="btnGitlabIssues" class="btn btn-warning flex-1 md:flex-initial">
-          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M23.546 10.93L13.067.452c-.604-.603-1.582-.603-2.188 0L.452 10.93c-.6.605-.6 1.584 0 2.189l10.48 10.477c.604.604 1.582.604 2.186 0l10.428-10.477c.603-.603.603-1.582 0-2.189z"/>
-          </svg>
-          GitLab Issues
-        </button>
-	  <button id="btnBulkUpdate" class="btn btn-warning" hidden>更新現有資料</button>
-      </div>
-	</div>
-
-
-      <!-- Overlay (center big) -->
-      <div id="loadingOverlay" class="overlay hidden">
-        <div class="flex flex-col items-center gap-3 bg-white/80 rounded-2xl px-6 py-6 shadow-soft border border-slate-200">
-          <svg class="animate-spin h-8 w-8 text-brand-700" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-          </svg>
-          <div class="text-slate-700 font-medium">查詢中，請稍候…</div>
-        </div>
-      </div>
-
-      <div id="tableWrap" class="overflow-x-auto border rounded-2xl">
-        <table class="table-fixed min-w-[1600px] text-sm">
-			    <!-- ✅ 把 colgroup 放在這裡（thead 前面） -->
-				<colgroup>
-				  <col style="width:70px" />  <!-- 操作 -->
-				  <col style="width:60px" />  <!-- 序號 -->
-				  <col style="width:50px" />  <!-- Issue# -->
-				  <col style="width:70px" />  <!-- 狀態 -->
-				  <col style="width:70px" />  <!-- 類型 -->
-				  <col style="width:120px" />  <!-- 功能 -->
-				  <col style="width:120px" />  <!-- 開始測試日期 -->
-				  <col style="width:120px" />  <!-- 預計交付日期 -->
-				  <col style="width:120px" />  <!-- 完成日期 -->
-				  <col style="width:50px" />  <!-- 測試案例 -->
-				  <col style="width:400px" />  <!-- Memo -->
-				</colgroup>
-
-				<thead class="table-head text-slate-600 text-xs uppercase tracking-wide">
-					<tr>
-					  <th class="px-3 py-2 text-left">操作</th>
-					  <th class="px-3 py-2 text-left">#</th>
-					  <th class="px-3 py-2 text-left">Issue#</th>
-					  <th class="px-3 py-2 text-left">狀態</th>
-					  <th class="px-3 py-2 text-left">類型</th>
-					  <th class="px-3 py-2 text-left">功能</th>
-					  <th class="px-3 py-2 text-left">開始測試日期</th>
-					  <th class="px-3 py-2 text-left">預計交付日期</th>
-					  <th class="px-3 py-2 text-left">完成日期</th>
-					  <th class="px-3 py-2 text-left">測試案例</th>
-					  <th class="px-3 py-2 text-left">Memo</th>
-					</tr>
-				</thead>
-          <tbody id="recordsTbody"></tbody>
-        </table>
-      </div>
-
-		<div id="pager" class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-4 pt-3 border-t border-slate-200" style="min-width: 0; overflow: visible;">
-          <!-- 左側：每頁筆數 -->
-          <div class="flex items-center gap-2">
-            <label for="pageSize" class="text-sm font-medium text-slate-600">顯示筆數：</label>
-		  <select id="pageSize" class="inp w-24">
-			<option value="10" selected>10</option>
-			<option value="20">20</option>
-			<option value="50">50</option>
-			<option value="100">100</option>
-			<option value="all">全部</option>
-		  </select>
-            <span id="pageInfo" class="text-sm text-slate-600 ml-2"></span>
-          </div>
-          
-          <!-- 右側：分頁控制 -->
-          <div class="flex flex-wrap items-center gap-3" style="flex-shrink: 0; min-width: 0;">
-            <button id="btnPrev" class="btn-secondary text-sm font-medium" style="padding: 0.75rem 1.25rem; min-height: 2.5rem;">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-              </svg>
-              上一頁
-            </button>
-            
-            <!-- 跳頁 -->
-            <div class="flex items-center gap-2 px-4 py-2.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span class="text-sm font-medium text-slate-600">到第</span>
-              <input id="pageInput" type="number" min="1" step="1" class="inp w-20 !py-2 !px-2 text-center font-medium" placeholder="頁"/>
-              <span class="text-sm font-medium text-slate-600">頁</span>
-            </div>
-            
-            <button id="btnNext" class="btn-secondary text-sm font-medium" style="padding: 0.75rem 1.25rem; min-height: 2.5rem;">
-              下一頁
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-              </svg>
-            </button>
-          </div>
-		</div>
-
-    </section>
-	
-	<!-- 🟢 GitLab Issues Modal -->
-	<div id="gitlabModal" class="fixed inset-0 z-[120] hidden">
-	  <!-- 背景 -->
-	  <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
-
-	  <!-- 面板 -->
-	  <div class="relative w-full h-full grid place-items-center p-4 overflow-y-auto">
-		<div class="bg-white rounded-2xl shadow-soft-lg border border-slate-200 w-full max-w-4xl my-8">
-			<!-- GitLab Issues Modal Header -->
-			<div class="px-5 md:px-6 py-4 border-b bg-gradient-to-r from-orange-50 to-white rounded-t-2xl space-y-3">
-			  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-				<div class="flex items-center gap-3">
-                  <div class="w-10 h-10 rounded-xl bg-orange-100 grid place-items-center">
-                    <svg class="w-6 h-6 text-orange-600" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M23.546 10.93L13.067.452c-.604-.603-1.582-.603-2.188 0L.452 10.93c-.6.605-.6 1.584 0 2.189l10.48 10.477c.604.604 1.582.604 2.186 0l10.428-10.477c.603-.603.603-1.582 0-2.189z"/>
-                    </svg>
-				</div>
-                  <div>
-                    <h2 class="text-xl md:text-2xl font-bold text-slate-800">GitLab Issues</h2>
-                    <p class="text-xs text-slate-500">查詢並匯入 GitLab 專案的 Issues</p>
-			  </div>
-				</div>
-				<div class="flex flex-wrap items-center gap-2">
-				  <span id="gitlabSelectedCount" class="text-sm font-medium text-slate-600 px-3 py-1.5 bg-slate-100 rounded-lg">已選 0 筆</span>
-				  <button id="btnToggleSelectAll" class="btn-outline text-sm">全選</button>
-				  <button id="btnImportSelected" class="btn btn-primary text-sm">匯入選取</button>
-				  <button id="btnCloseGitlabModal" class="btn-secondary text-sm">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                    關閉
-                  </button>
-				</div>
-			  </div>
-			  <div class="bg-white rounded-xl p-4 border border-slate-200">
-			  <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-				<div>
-                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Assignee</label>
-				  <input id="glAssignee" class="inp" placeholder="例如：Welly.Chiu" />
-				</div>
-				<div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-slate-600 mb-1.5">Project 路徑</label>
-                    <input id="glProject" class="inp" placeholder="例如：kh/imp 或 gitlab.com/group/project" />
-				</div>
+<body>
+    <div class="login-container">
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">系統登入入口</h1>
+        <p class="text-gray-600 mb-6">請選擇您要登入的系統</p>
+        
+        <div class="space-y-4">
+            <!-- QA Tracker 系統 -->
+            <div class="system-card" data-system="qa" onclick="selectSystem('qa')">
+                <div class="system-icon qa-icon">QA</div>
+                <h3 class="text-xl font-semibold text-gray-800 mb-2">QA Tracker</h3>
+                <p class="text-gray-600 text-sm mb-3">工作記錄與問題追蹤系統</p>
+                <div class="text-xs text-gray-500">
+                    <div class="flex items-center justify-center gap-4">
+                        <span><i class="fas fa-tasks mr-1"></i>任務管理</span>
+                        <span><i class="fas fa-bug mr-1"></i>問題追蹤</span>
+                        <span><i class="fas fa-chart-line mr-1"></i>進度分析</span>
+                    </div>
                 </div>
-                <div class="mt-3 flex justify-end">
-                  <button id="btnSearchGitlab" class="btn btn-info">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                    </svg>
-                    查詢 Issues
-                  </button>
-				</div>
-			  </div>
-			</div>
+            </div>
 
+            <!-- 家庭記帳系統 -->
+            <div class="system-card" data-system="expenses" onclick="selectSystem('expenses')">
+                <div class="system-icon expenses-icon">💰</div>
+                <h3 class="text-xl font-semibold text-gray-800 mb-2">家庭記帳系統</h3>
+                <p class="text-gray-600 text-sm mb-3">個人與家庭財務管理系統</p>
+                <div class="text-xs text-gray-500">
+                    <div class="flex items-center justify-center gap-4">
+                        <span><i class="fas fa-wallet mr-1"></i>收支記錄</span>
+                        <span><i class="fas fa-users mr-1"></i>多成員管理</span>
+                        <span><i class="fas fa-chart-pie mr-1"></i>財務分析</span>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-			<div id="gitlabIssuesBody" class="p-5 md:p-6 max-h-[60vh] overflow-y-auto bg-slate-50">
-			  <div class="text-center py-12">
-                <svg class="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                </svg>
-                <p class="text-slate-500 text-sm">請輸入查詢條件並按「查詢 Issues」</p>
-			  </div>
-			</div>
-		</div>
-	  </div>
-	</div>
+        <button id="loginBtn" class="login-btn" disabled onclick="loginWithGoogle()">
+            <i class="fab fa-google mr-2"></i>
+            使用 Google 登入
+        </button>
 
-  </main>
+        <div id="statusMessage" class="status-message" style="display: none;"></div>
 
-  <!-- App logic -->
-  <script type="module">
-    import {
-      collection, addDoc, serverTimestamp, query, orderBy, limit, startAfter, getDocs,
-      updateDoc, doc, deleteDoc, getDoc, where, writeBatch, setDoc
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        <div class="mt-6 text-xs text-gray-500">
+            登入即表示您同意使用所選系統記錄相關資料
+        </div>
+    </div>
 
-	// Auth UI
-    const btnSignOut = document.getElementById('btnSignOut');
-    const userDisplayName = document.getElementById('userDisplayName');
-    const userEmail = document.getElementById('userEmail');
-	
-	// Git Token
-	let GITLAB_TOKEN = null;
-	
-	// 載入動畫控制函數
-	function showLoading(message = '載入中', submessage = '請稍候') {
-		const loadingOverlay = document.getElementById('loadingOverlay');
-		const loadingText = document.getElementById('loadingText');
-		const loadingSubtext = document.getElementById('loadingSubtext');
-		
-		if (loadingText) loadingText.textContent = message;
-		if (loadingSubtext) loadingSubtext.textContent = submessage;
-		if (loadingOverlay) loadingOverlay.style.display = 'flex';
-	}
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    
+    <!-- 統一 Firebase 配置 -->
+    <script src="firebase-config.js"></script>
 
-	function hideLoading() {
-		const loadingOverlay = document.getElementById('loadingOverlay');
-		if (loadingOverlay) loadingOverlay.style.display = 'none';
-	}
-	
-	// 顯示初始載入動畫
-	document.addEventListener('DOMContentLoaded', () => {
-		showLoading('初始化系統', '正在連接 Firebase...');
-	});
+    <script>
+        // 使用統一的 Firebase 配置
+        const firebaseConfigs = FIREBASE_CONFIGS;
 
-	onAuthStateChanged(auth, (user) => {
-		if (user) {
-			showLoading('載入用戶資料', '正在更新用戶資訊...');
-			
-			// 顯示主要內容
-			const mainContent = document.querySelector('.main-content');
-			if (mainContent) mainContent.style.display = 'block';
-			
-			userDisplayName.classList.remove('hidden');
-			const displayName = user.displayName || user.email;
-			userEmail.textContent = displayName;
-			
-			// ★ 登入後：記錄/更新使用者基本資料（最小幅度）
-			setDoc(doc(db, 'users', user.uid), {
-			  uid: user.uid,
-			  email: user.email ?? null,
-			  displayName: user.displayName ?? null,
-			  photoURL: user.photoURL ?? null,
-			  providerId: user.providerData?.[0]?.providerId ?? null,
-			  lastLoginAt: serverTimestamp()
-			}, { merge: true }).then(async () => {
-				console.log('✅ 用戶資料更新成功');
-				showLoading('載入系統資料', '正在載入 Issues 和設定...');
-				
-				// 載入資料
-				try {
-					await reload();
-					await loadGitlabToken(); // 預抓 token（快取在記憶體）
-					console.log('✅ 系統資料載入完成');
-					hideLoading();
-				} catch (error) {
-					console.error('❌ 系統資料載入失敗:', error);
-					hideLoading();
-				}
-			}).catch((error) => {
-				console.error('❌ 用戶資料更新失敗:', error);
-				hideLoading();
-			});
-		} else {
-			// 已經登出 → 直接導向統一登入入口
-			location.href = "enter_login.html";
-		}
-	});
+        let selectedSystem = null;
+        let auth = null;
+        let db = null;
+        let authStateListener = null;
+        let isInitializing = false;
 
-    btnSignOut.addEventListener('click', async ()=>{
-      await signOut(auth);
-    });
-	
-	async function loadGitlabToken() {
-	  if (GITLAB_TOKEN) return GITLAB_TOKEN; // 已載入就用快取
-	  // 讀 Firestore：config/gitlab 文件
-	  const ref = doc(db, 'config', 'gitlab');
-	  const snap = await getDoc(ref);
-	  if (!snap.exists()) throw new Error('Firestore 未找到 config/gitlab');
-	  const token = snap.data()?.token;
-	  if (!token) throw new Error('config/gitlab 無 token 欄位');
-	  GITLAB_TOKEN = token;
-	  return token;
-	}
-
-
-	// === Modal 控制 ===
-	const recordModal   = document.getElementById('recordModal');
-	const modalPanel    = recordModal.querySelector('[data-modal-panel]');
-	const btnModalClose = document.getElementById('btnModalClose');
-	const btnCreate     = document.getElementById('btnCreate');
-	const modalTitle    = document.getElementById('modalTitle');
-	
-	function openModal(mode = 'create') {
-	  modalTitle.textContent = (mode === 'edit') ? '編輯資料' : '新增 Issue';
-	  recordModal.classList.remove('hidden');
-	  document.body.classList.add('overflow-hidden');
-	  // 聚焦第一個欄位
-	  setTimeout(() => document.getElementById('issue_number')?.focus(), 0);
-	}
-	function closeModal() {
-	  recordModal.classList.add('hidden');
-	  document.body.classList.remove('overflow-hidden');
-	}
-
-	btnModalClose.addEventListener('click', closeModal);
-	recordModal.addEventListener('click', (e) => {
-	  if (!modalPanel.contains(e.target)) closeModal();
-	});
-	document.addEventListener('keydown', (e) => {
-	  if (e.key === 'Escape' && !recordModal.classList.contains('hidden')) closeModal();
-	});
-
-	// 新增 Issue：清表單 → 打開 Modal
-	btnCreate.addEventListener('click', () => {
-	  editingId = null;
-	  form.reset();
-	  setDefaultsIfEmpty();
-	  updateIssuePreview();
-	  openModal('create');
-	});
-	
-	
-	
-    // Form refs
-    const form = document.getElementById('recordForm');
-    const saveMsg = document.getElementById('saveMsg');
-    const previewLink = document.getElementById('issue_link_preview');
-
-    const fields = {
-      status: document.getElementById('status'),
-      completed_at: document.getElementById('completed_at'),
-      issue_number: document.getElementById('issue_number'),
-      test_plan: document.getElementById('test_plan'),
-      category: document.getElementById('category'),
-      feature: document.getElementById('feature'),
-      memo: document.getElementById('memo'),
-      test_start_date: document.getElementById('test_start_date'),
-      eta_date: document.getElementById('eta_date'),
-      bug_found: document.getElementById('bug_found'),
-      optimization_points: document.getElementById('optimization_points'),
-      verify_failed: document.getElementById('verify_failed'),
-      test_cases: document.getElementById('test_cases'),
-      file_count: document.getElementById('file_count')
-    };
-
-    // Conditional enable for optimization_points
-    fields.bug_found.addEventListener('change', ()=>{
-      const enabled = fields.bug_found.value === '1';
-      fields.optimization_points.disabled = !enabled;
-      if(!enabled) fields.optimization_points.value = '';
-    });
-
-    // Dynamic issue link preview
-    const ISSUE_BASE = "https://gitlab.fb-tek.com/kh/imp/-/issues/";
-    function updateIssuePreview(){
-      const n = fields.issue_number.value?.trim();
-      if(n){
-        previewLink.href = ISSUE_BASE + n;
-        previewLink.classList.remove('hidden');
-      }else{
-        previewLink.classList.add('hidden');
-      }
-    }
-    fields.issue_number.addEventListener('input', updateIssuePreview);
-	
-	// 狀態=完成(2) 時，自動帶入今天的日期（若尚未填）
-	fields.status.addEventListener('change', () => {
-	  if (String(fields.status.value) === '2' && !fields.completed_at.value) {
-		fields.completed_at.value = formatDateInput(new Date());
-	  }else{
-		fields.completed_at.value = '';
-	  }
-	});
-
-    // Save / Update logic
-    let editingId = null;
-
-    form.addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      // 驗證 issue_number 是否有填
-	  if (!fields.issue_number.value || fields.issue_number.value.trim() === '') {
-		showMsg('錯誤: 請填寫 Issue Number', true);
-		fields.issue_number.focus();
-		return; // 中斷，不進行儲存
-	  }
-      const payload = buildPayload();
-      const u = auth.currentUser;
-      try{
-        showTableLoading(true);
-        if(editingId){
-          await updateDoc(doc(db, 'records', editingId), { ...payload, updated_by_uid: u?.uid ?? null, updated_at: serverTimestamp() });
-          showMsg('已更新');
-        }else{
-          await addDoc(collection(db, 'records'), { ...payload, created_by_uid: u?.uid ?? null, created_at: serverTimestamp() });
-          showMsg('已儲存');
+        // 選擇系統
+        function selectSystem(system) {
+            // 如果正在初始化，不允許切換系統
+            if (isInitializing) {
+                console.log('系統正在初始化中，請稍候...');
+                showStatus('系統正在初始化中，請稍候...', 'info', 2000);
+                return;
+            }
+            
+            // 如果選擇的是同一個系統，不需要重新初始化
+            if (selectedSystem === system) {
+                console.log(`已選擇 ${system} 系統，無需重新初始化`);
+                return;
+            }
+            
+            selectedSystem = system;
+            isInitializing = true;
+            
+            // 更新視覺狀態
+            document.querySelectorAll('.system-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            document.querySelector(`[data-system="${system}"]`).classList.add('selected');
+            
+            // 禁用所有系統卡片和登入按鈕
+            document.querySelectorAll('.system-card').forEach(card => {
+                card.style.pointerEvents = 'none';
+                card.style.opacity = '0.6';
+            });
+            document.getElementById('loginBtn').disabled = true;
+            
+            showStatus('正在初始化系統...', 'info');
+            
+            // 初始化 Firebase
+            initializeFirebase(system);
         }
-        form.reset();
-        setDefaultsIfEmpty();
-        updateIssuePreview();
-        editingId = null;
-        closeModal(); // 成功就關閉 Modal
-        await reload();
-      }catch(err){
-        console.error(err);
-        showMsg('錯誤: ' + err.message, true);
-      } finally{
-        showTableLoading(false);
-      }
-    });
 
-    document.getElementById('btnReset').addEventListener('click', ()=>{
-      editingId = null;
-      form.reset();
-      setDefaultsIfEmpty();
-      updateIssuePreview();
-      fields.optimization_points.disabled = fields.bug_found.value !== '1';
-    });
-
-    function buildPayload(){
-      const toNum = (v)=> {
-        if (v === '' || v === null || v === undefined) return null;
-        const n = Number(v);
-        return Number.isFinite(n) ? n : null;
-      };
-      const toStr = (v)=> v?.trim() || null;
-      const toDate = (v)=> v ? new Date(v) : null;
-
-      if (!['0','1','2'].includes(String(fields.status.value))) {
-        fields.status.value = '1';
-      }
-      if (!['1','0'].includes(String(fields.test_plan.value))) {
-        fields.test_plan.value = '0';
-      }
-
-      const issue_number = toNum(fields.issue_number.value);
-      const issue_link = issue_number ? (ISSUE_BASE + issue_number) : null;
-
-      const bugFoundIsYes = String(fields.bug_found.value) === '1';
-      const optimization_points = bugFoundIsYes ? toNum(fields.optimization_points.value) : 0;
-
-      return {
-        status: toNum(fields.status.value),
-        completed_at: toDate(fields.completed_at.value),
-        issue_number,
-        test_plan: toStr(fields.test_plan.value),
-        category: toNum(fields.category.value),
-        feature: toStr(fields.feature.value),
-        issue_link,
-        memo: toStr(fields.memo.value),
-        test_start_date: toDate(fields.test_start_date.value),
-        eta_date: toDate(fields.eta_date.value),
-        bug_found: toNum(fields.bug_found.value) ?? 0,
-        optimization_points,
-        verify_failed: toNum(fields.verify_failed.value) ?? 0,
-        test_cases: toNum(fields.test_cases.value),
-        file_count: toNum(fields.file_count.value)
-      };
-    }
-
-    function showMsg(text, isErr=false){
-      saveMsg.textContent = text;
-      saveMsg.classList.toggle('text-red-600', !!isErr);
-      saveMsg.classList.toggle('text-green-600', !isErr);
-      setTimeout(()=>{ saveMsg.textContent=''; }, 5000);
-    }
-
-    // Table + pagination
-    const listSection = document.getElementById('listSection');
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    const tableWrap = document.getElementById('tableWrap');
-    const pager = document.getElementById('pager');
-    const tbody = document.getElementById('recordsTbody');
-    const btnPrev = document.getElementById('btnPrev');
-    const btnNext = document.getElementById('btnNext');
-    const pageInfo = document.getElementById('pageInfo');
-    const pageSizeSel = document.getElementById('pageSize'); 
-	const pageInput = document.getElementById('pageInput');
-
-    const qKeyword = document.getElementById('q_keyword');
-    const qStatus = document.getElementById('q_status');
-    const qCategory = document.getElementById('q_category');
-	const qTestPlan = document.getElementById('q_test_plan');
-	const qBugFound  = document.getElementById('q_bug_found');
-    const btnSearch = document.getElementById('btnSearch');
-	const btnClear = document.getElementById('btnClear');
-	const btnStatusInProgress = document.getElementById('btnStatusInProgress');
-	const inProgressCount = document.getElementById('inProgressCount');
-	const btnExportExcel = document.getElementById('btnExportExcel');
-
-    let pageSize = Number(pageSizeSel.value);  // 一開始就轉成 number
-    let lastVisible = null;
-    let firstVisible = null;
-    let prevStack = [];
-	let _cacheRows = [];   // 全部查回後、已排序的全集資料
-	let _pageIndex = 0;    // 目前頁碼（0-based）
-
-    function showTableLoading(show){
-      if(show){
-        loadingOverlay.classList.remove('hidden');
-        tableWrap.classList.add('invisible');
-        pager.classList.add('invisible');
-      }else{
-        loadingOverlay.classList.add('hidden');
-        tableWrap.classList.remove('invisible');
-        pager.classList.remove('invisible');
-      }
-    }
-	
-	// 小工具：安全取得 created_at 的毫秒值
-	function _toMillis(v){
-	  if (!v) return 0;
-	  if (typeof v.toMillis === 'function') return v.toMillis();
-	  if (typeof v.toDate === 'function') return v.toDate().getTime();
-	  if (v instanceof Date) return v.getTime();
-	  if (typeof v === 'number') return v;
-	  return 0;
-	}
-
-	// 計算執行中筆數
-	async function updateInProgressCount() {
-		try {
-			const constraints = [ where('status', '==', 1) ]; // 1 = 執行中
-			const q = query(collection(db, 'records'), ...constraints);
-			const querySnapshot = await getDocs(q);
-			const count = querySnapshot.size;
-			inProgressCount.textContent = `執行中 (${count})`;
-		} catch (error) {
-			console.error('計算執行中筆數失敗:', error);
-			inProgressCount.textContent = '執行中 (?)';
-		}
-	}
-
-	// 狀態=執行中按鈕點擊事件
-	btnStatusInProgress.addEventListener('click', async () => {
-		// 清空其他篩選欄位
-		qKeyword.value = '';
-		qCategory.value = '';
-		qTestPlan.value = '';
-		qBugFound.value = '';
-		
-		// 設定狀態為執行中
-		qStatus.value = '1';
-		
-		// 執行搜尋
-		btnSearch.click();
-	});
-
-
-	async function fetchPage(forward = true) {
-	  showTableLoading(true);
-	  try {
-		// 1) 蒐集查詢條件（不使用 orderBy、不用游標）
-		const constraints = [ limit(10000) ]; // 視資料量調整
-		if (qStatus.value !== '')   constraints.push(where('status', '==', Number(qStatus.value)));
-		if (qCategory.value !== '') constraints.push(where('category', '==', Number(qCategory.value)));
-		if (qTestPlan.value !== '') constraints.push(where('test_plan', '==', qTestPlan.value)); // test_plan 為 '0'/'1'（字串）
-		if (qBugFound.value !== '') constraints.push(where('bug_found', '==', Number(qBugFound.value))); // bug_found 為數字 0/1
-		
-		// 只能查到自己建立的資料
-		const u = auth.currentUser;
-		if (u?.uid) constraints.push(where('created_by_uid', '==', u.uid)); // ★ 新增這行
-		
-		const kw = (qKeyword?.value ?? '').trim();
-		const kwIsNumber = kw !== '' && !Number.isNaN(Number(kw));
-		const kwIsText   = kw !== '' && !kwIsNumber;
-
-		if (kwIsNumber) {
-		  constraints.push(where('issue_number', '==', Number(kw)));
-		} 
-
-		// 2) 一次撈回
-		const qBase = query(collection(db, 'records'), ...constraints);
-		const snap  = await getDocs(qBase);
-		let rows    = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-		// 3) （可選）文字關鍵字再做一次前端包含過濾，縮小結果
-		if (kwIsText) {
-		  const low = kw.toLowerCase();
-		  rows = rows.filter(r => {
-			const featureMatch = (r.feature || '').toLowerCase().includes(low);
-			const memoMatch    = (r.memo || '').toLowerCase().includes(low);
-			const issueMatch   = (r.issue_number ?? '').toString().toLowerCase().includes(low);
-			return featureMatch || memoMatch || issueMatch;
-		  });
-		}
-
-
-		// 4) 前端排序：issue_number ↓、status ↓、created_at ↓
-		rows.sort((a, b) => {
-		  const n1 = Number(a.issue_number ?? 0);
-		  const n2 = Number(b.issue_number ?? 0);
-		  if (n1 !== n2) return n2 - n1; // issue_number 大的在前
-
-		  const s1 = Number(a.status ?? 0);
-		  const s2 = Number(b.status ?? 0);
-		  if (s1 !== s2) return s2 - s1; // status 大的在前
-
-		  return _toMillis(b.created_at) - _toMillis(a.created_at); // 新的在前
-		});
-
-		// 5) 快取 + 顯示第一頁
-		_cacheRows = rows;
-		_pageIndex = 0;
-		renderPage();
-	  } catch (err) {
-		console.error('Query error:', err);
-		showMsg('查詢錯誤：' + (err?.message || err), true);
-		renderRows([]);
-		pageInfo.textContent = '共 0 筆';
-	  } finally {
-		showTableLoading(false);
-	  }
-	}
-
-    const statusChip = (v)=>{
-      if(v === 1) return '<span class="chip chip-green">執行中</span>';
-      if(v === 0) return '<span class="chip chip-gray">執行中止</span>';
-      if(v === 2) return '<span class="chip chip-amber">完成</span>';
-      return '';
-    };
-    const categoryChip = (v)=>{
-      const map = {
-        1: ['BUG','chip-red'],
-        2: ['改善','chip-indigo'],
-        3: ['優化','chip-indigo'],
-        4: ['模組','chip-gray'],
-        5: ['QA','chip-gray']
-      };
-      const item = map[v];
-      return item ? `<span class="chip ${item[1]}">${item[0]}</span>` : '';
-    };
-	
-	function renderPage() {
-	  const size = (pageSize === Number.MAX_SAFE_INTEGER) ? Number.MAX_SAFE_INTEGER : Number(pageSize);
-	  const total = _cacheRows.length;
-	  const totalPages = (size === Number.MAX_SAFE_INTEGER)
-		? 1
-		: Math.max(1, Math.ceil(total / size));
-
-	  const start = (size === Number.MAX_SAFE_INTEGER) ? 0 : _pageIndex * size;
-	  const end   = (size === Number.MAX_SAFE_INTEGER) ? total : start + size;
-
-	  // ★ 重要：把 start 傳下去，序號才會接續
-	  renderRows(_cacheRows.slice(start, end), start);
-  
-	  pageInfo.textContent = `共 ${total} 筆（第 ${Math.min(_pageIndex + 1, totalPages)} / ${totalPages} 頁）`;
-	}
-	
-	const toYN = (v) => (v === 1 || v === '1' || String(v).toUpperCase() === 'Y') ? 'Y' : 'N';
-	
-	function renderRows(rows, startIndex = 0){
-	  tbody.innerHTML = '';
-	  rows.forEach((r, i) => {
-		const tr = document.createElement('tr');
-		const seq = startIndex + i + 1; // ★ 連續序號（跨頁）
-
-		const isTP  = String(r.test_plan) === '1';
-		const isBug = String(r.bug_found) === '1';
-		const isVF  = String(r.verify_failed) === '1';
-
-		let rowColor = '';
-		if (qTestPlan.value === '1' && isTP) {
-		  rowColor = 'bg-purple-100';
-		} else if (isVF) {
-		  rowColor = 'bg-red-100';
-		} else if (isBug) {
-		  rowColor = 'bg-yellow-100';
-		} else if (isTP) {
-		  rowColor = 'bg-purple-100';
-		}
-		tr.className = `row ${rowColor}`;
-
-		const issueDisplay = r.issue_link
-		  ? `<a class="text-brand-700 underline font-medium" href="${r.issue_link}" target="_blank" rel="noopener">${r.issue_number ?? ''}</a>`
-		  : (r.issue_number ?? '');
-
-		tr.innerHTML = `
-		  <td class="px-3 py-2">
-			<div class="flex gap-2">
-				<button class="text-blue-600 hover:underline" data-edit="${r.id}">✏️</button>
-				<button class="text-red-500 hover:underline" data-del="${r.id}">🗑️</button>
-			</div>
-		  </td>
-		  <td class="px-3 py-2 text-slate-500">${seq}</td>
-		  <td class="px-3 py-2">${issueDisplay}</td>
-		  <td class="px-3 py-2">${statusChip(r.status)}</td>
-		  <td class="px-3 py-2">${categoryChip(r.category)}</td>
-		  <td class="px-3 py-2">${r.feature ?? ''}</td>
-		  <td class="px-3 py-2">${fmtDate(r.test_start_date)}</td>
-		  <td class="px-3 py-2">${fmtDate(r.eta_date)}</td>
-		  <td class="px-3 py-2">${fmtDate(r.completed_at)}</td>
-		  <td class="px-3 py-2">${r.test_cases ?? ''}</td>
-		  <td class="px-3 py-2 whitespace-pre-wrap break-words">${r.memo ?? ''}</td>
-		`;
-		tbody.appendChild(tr);
-	  });
-
-	  tbody.querySelectorAll('button[data-edit]').forEach(btn=>{
-		btn.addEventListener('click', async ()=>{
-		  const id = btn.getAttribute('data-edit');
-		  const ref = doc(db, 'records', id);
-		  const snap = await getDoc(ref);
-		  if(snap.exists()){
-			loadToForm(id, snap.data());
-			openModal('edit'); 
-		  }
-		});
-	  });
-
-	  tbody.querySelectorAll('button[data-del]').forEach(btn=>{
-		btn.addEventListener('click', async ()=>{
-		  const id = btn.getAttribute('data-del');
-		  if(confirm('確定刪除這筆資料？')){
-			await deleteDoc(doc(db, 'records', id));
-			await reload();
-		  }
-		});
-	  });
-	}
-
-    function fmtDate(v){
-      if(!v) return '';
-      try{
-        if(v.toDate) v = v.toDate();
-        const yyyy = v.getFullYear();
-        const mm = String(v.getMonth()+1).padStart(2,'0');
-        const dd = String(v.getDate()).padStart(2,'0');
-        return `${yyyy}-${mm}-${dd}`;
-      }catch(_){
-        return '';
-      }
-    }
-
-    function loadToForm(id, data){
-      editingId = id;
-      fields.status.value = data.status ?? '1';
-      fields.completed_at.value = data.completed_at ? fmtDate(data.completed_at) : '';
-      fields.issue_number.value = data.issue_number ?? '';
-      fields.test_plan.value = data.test_plan ?? '0';
-      fields.category.value = data.category ?? '';
-      fields.feature.value = data.feature ?? '';
-      fields.memo.value = data.memo ?? '';
-      fields.test_start_date.value = data.test_start_date ? fmtDate(data.test_start_date) : '';
-      fields.eta_date.value = data.eta_date ? fmtDate(data.eta_date) : '';
-      fields.bug_found.value = data.bug_found ?? 0;
-      fields.verify_failed.value = data.verify_failed ?? 0;
-      fields.test_cases.value = data.test_cases ?? '';
-      fields.file_count.value = data.file_count ?? '';
-      fields.optimization_points.disabled = String(fields.bug_found.value) !== '1';
-      fields.optimization_points.value = (data.optimization_points === 0 || data.optimization_points == null) ? '' : data.optimization_points;
-      updateIssuePreview();
-    }
-
-    // Pagination & search
-	
-	pageSizeSel.addEventListener('change', () => {
-	  const v = pageSizeSel.value;
-	  pageSize = (v === 'all') ? Number.MAX_SAFE_INTEGER : Number(v);
-	  _pageIndex = 0;     // 變更每頁筆數後回到第1頁
-	  renderPage();
-	});
-	
-	pageInput.addEventListener('keydown', (e) => {
-	  if (e.key === 'Enter'){
-		if (_cacheRows.length === 0) return;
-		  if (pageSize === Number.MAX_SAFE_INTEGER) return; // 全部模式不需跳頁
-		  const totalPages = Math.max(1, Math.ceil(_cacheRows.length / pageSize));
-		  const v = Number(pageInput.value);
-		  if (!Number.isInteger(v) || v < 1) return;
-		  _pageIndex = Math.min(v - 1, totalPages - 1);
-		  renderPage();
-	  }
-	});
-	
-	btnNext.addEventListener('click', () => {
-	  if (_cacheRows.length === 0) return;
-	  if (pageSize === Number.MAX_SAFE_INTEGER) return; // 顯示全部時不需要翻頁
-
-	  const totalPages = Math.max(1, Math.ceil(_cacheRows.length / pageSize));
-	  _pageIndex = Math.min(_pageIndex + 1, totalPages - 1);
-	  renderPage();
-	});
-
-	btnPrev.addEventListener('click', () => {
-	  if (_cacheRows.length === 0) return;
-	  if (pageSize === Number.MAX_SAFE_INTEGER) return;
-
-	  _pageIndex = Math.max(_pageIndex - 1, 0);
-	  renderPage();
-	});
-	
-	// 清空查詢條件
-	btnClear.addEventListener('click', () => {
-	  // 清空輸入框
-	  qKeyword.value = '';
-	  qStatus.value = '';
-	  qCategory.value = '';
-	  qTestPlan.value = '';
-	  qBugFound.value = '';
-
-	  // 重載查詢結果
-	  _pageIndex = 0;
-	  _cacheRows = [];
-	  reload();
-	});
-	
-	// 「搜尋」維持原本行為：重置並重新查詢
-	btnSearch.addEventListener('click', async () => {
-		_pageIndex = 0;
-		_cacheRows = [];
-		await reload(); // 內部會呼叫 fetchPage()，並重建快取
-	});
-
-    async function reload(forward=true){
-      await fetchPage(forward);
-      // 更新執行中筆數
-      updateInProgressCount();
-    }
-
-	// 關鍵字查詢綁定 Enter 按鍵
-	qKeyword.addEventListener('keydown', (e) => {
-	  if (e.key === 'Enter') {
-		e.preventDefault();
-		btnSearch.click();
-	  }
-	});
-
-    // Excel export (current table)
-	btnExportExcel.addEventListener('click', () => {
-	  // 1) 產生表頭（去掉第一個的「操作」）
-	  let headers = ['ISSUE#','狀態','類型','功能','Test Plan','BUG','驗證失敗','開始測試日期','預計交付日期','完成日期','測試案例','MEMO'];
-
-	  if (headers[0] === '操作') headers = headers.slice(1);
-
-	  // 2) 轉換工具（與原本一致）
-	  const statusText = (v) => {
-		const n = Number(v);
-		if (n === 1) return '執行中';
-		if (n === 0) return '執行中止';
-		if (n === 2) return '完成';
-		return '';
-	  };
-	  const categoryText = (v) => {
-		const map = {1:'BUG', 2:'改善', 3:'優化', 4:'模組', 5:'QA'};
-		return map[Number(v)] || '';
-	  };
-	  const toYN = (v) => (v === 1 || v === '1' || String(v).toUpperCase() === 'Y') ? 'Y' : 'N';
-	  const fmt = (v) => {
-		if (!v) return '';
-		try {
-		  if (typeof v.toDate === 'function') v = v.toDate();
-		  const yyyy = v.getFullYear();
-		  const mm = String(v.getMonth()+1).padStart(2,'0');
-		  const dd = String(v.getDate()).padStart(2,'0');
-		  return `${yyyy}-${mm}-${dd}`;
-		} catch { return ''; }
-	  };
-
-	  // 3) 取得用來判斷季度的日期（與摘要邏輯一致）
-	  const pickDate = (r) => {
-		let d = r?.test_start_date || r?.completed_at || r?.created_at;
-		if (!d) return null;
-		return (typeof d.toDate === 'function') ? d.toDate() : d;
-	  };
-	  const getQuarter = (d) => {
-		if (!(d instanceof Date) || isNaN(d)) return null;
-		const m = d.getMonth() + 1; // 1~12
-		if (m >= 1 && m <= 3)  return 'Q1';
-		if (m >= 4 && m <= 6)  return 'Q2';
-		if (m >= 7 && m <= 9)  return 'Q3';
-		if (m >= 10 && m <= 12) return 'Q4';
-		return null;
-	  };
-
-	  // 4) 把 rows 依季度分桶
-	  const buckets = { Q1: [], Q2: [], Q3: [], Q4: [] };
-	  for (const r of _cacheRows) {
-		const d = pickDate(r);
-		const q = getQuarter(d) || 'Q1'; // 沒日期就先歸 Q1，避免遺漏
-		const row = [
-		  r.issue_number ?? '',
-		  statusText(r.status),
-		  categoryText(r.category),
-		  r.feature ?? '',
-		  toYN(r.test_plan),
-		  toYN(r.bug_found),
-		  toYN(r.verify_failed),
-		  fmt(r.test_start_date),
-		  fmt(r.eta_date),
-		  fmt(r.completed_at),
-		  r.test_cases ?? '',
-		  (r.memo ?? '').toString().replaceAll('\n',' '),
-		  '' // 操作欄（匯出不需要）
-		];
-		buckets[q].push(row);
-	  }
-
-	  // 5) 產生四個季度的 sheet
-	  const wb = XLSX.utils.book_new();
-	  const wsQ1 = XLSX.utils.aoa_to_sheet([headers, ...buckets.Q1]);
-	  const wsQ2 = XLSX.utils.aoa_to_sheet([headers, ...buckets.Q2]);
-	  const wsQ3 = XLSX.utils.aoa_to_sheet([headers, ...buckets.Q3]);
-	  const wsQ4 = XLSX.utils.aoa_to_sheet([headers, ...buckets.Q4]);
-	  XLSX.utils.book_append_sheet(wb, wsQ1, 'Q1列表');
-	  XLSX.utils.book_append_sheet(wb, wsQ2, 'Q2列表');
-	  XLSX.utils.book_append_sheet(wb, wsQ3, 'Q3列表');
-	  XLSX.utils.book_append_sheet(wb, wsQ4, 'Q4列表');
-
-	  // === (原本的「摘要」sheet 邏輯保留) ===
-	  // 依開始測試日期分月 + 季度彙總，限定狀態=完成
-	  const monthly = new Map(); // key: 'YYYY-MM' -> {A..G}
-	  for (const r of _cacheRows) {
-		if (Number(r.status) !== 2) continue; // 僅統計完成
-
-		let d = r?.test_start_date || r?.completed_at || r?.created_at;
-		if (!d) continue;
-		d = (typeof d.toDate === 'function') ? d.toDate() : d;
-		if (!(d instanceof Date) || isNaN(d)) continue;
-
-		const y = d.getFullYear();
-		const m = d.getMonth() + 1;
-		const key = `${y}-${String(m).padStart(2,'0')}`;
-
-		if (!monthly.has(key)) monthly.set(key, { A:0, B:0, C:0, D:0, E:0, F:0, G:0 });
-		const acc = monthly.get(key);
-
-		const bug   = Number(r.bug_found ?? 0);
-		const tp    = (r.test_plan === 1 || r.test_plan === '1') ? 1 : 0;
-		const opt   = Number(r.optimization_points ?? 0);
-		const cases = Number(r.test_cases ?? 0);
-		const vf    = Number(r.verify_failed ?? 0);
-		const files = Number(r.file_count ?? 0);
-
-		if (bug === 1) acc.A += 1;                // A: 發現BUG=1 的筆數
-		acc.B += Number.isFinite(opt) ? opt : 0;  // B: 可優化項目數
-		if (tp === 1) acc.C += 1;                 // C: Test Plan=1 的筆數
-		if (bug === 0 && tp === 0) acc.D += 1;    // D: BUG=0 且 TP=0 的筆數
-		acc.E += Number.isFinite(cases) ? cases : 0; // E: 測試案例總數
-		if (vf === 1) acc.F += 1;                 // F: 驗證失敗=1 的筆數
-		acc.G += Number.isFinite(files) ? files : 0; // G: 檔案數總數
-	  }
-
-	  const lines = [['Monthly Summary']];
-	  const sortedMonths = Array.from(monthly.entries()).sort((a,b) => a[0].localeCompare(b[0]));
-	  for (const [key, v] of sortedMonths) {
-		const monthNum = Number(key.slice(5));
-		const text = `${monthNum}月 發現 ${v.B} 個可優化項目，開立 ${v.A} 張優化 issues｜ 產生 ${v.C} 份測試報告｜ ${v.D} 張驗證單，複驗 ${v.F} 張單｜ 建立 ${v.G} 個測試範本、${v.E} 項測試案例`;
-		lines.push([text]);
-	  }
-
-	  function quarterOf(month) { return Math.floor((month - 1) / 3) + 1; }
-	  const quarterly = new Map(); // key: 'YYYY-Qn' -> {A..G}
-	  for (const [ym, v] of sortedMonths) {
-		const y = ym.slice(0, 4);
-		const m = Number(ym.slice(5));
-		const qKey = `${y}-Q${quarterOf(m)}`;
-		if (!quarterly.has(qKey)) quarterly.set(qKey, { A:0, B:0, C:0, D:0, E:0, F:0, G:0 });
-		const acc = quarterly.get(qKey);
-		acc.A += v.A; acc.B += v.B; acc.C += v.C; acc.D += v.D; acc.E += v.E; acc.F += v.F; acc.G += v.G;
-	  }
-
-	  lines.push([''], ['Quarterly Summary']);
-	  const sortedQuarters = Array.from(quarterly.entries()).sort((a,b) => a[0].localeCompare(b[0]));
-	  for (const [qKey, v] of sortedQuarters) {
-		const [year, qLabel] = qKey.split('-');
-		const textQ = `${qLabel}: 發現 ${v.B} 個可優化項目，開立 ${v.A} 張優化 issues｜ 產生 ${v.C} 份測試報告｜ ${v.D} 張驗證單，複驗 ${v.F} 張單｜ 建立 ${v.G} 個測試範本、${v.E} 項測試案例`;
-		lines.push([`${year} ${textQ}`]);
-	  }
-
-	  const wsSummary = XLSX.utils.aoa_to_sheet(lines);
-	  XLSX.utils.book_append_sheet(wb, wsSummary, '摘要');
-
-	  // 6) 輸出
-	  XLSX.writeFile(wb, 'records.xlsx');
-	});
-
-
-    // ---------- Defaults on load ----------
-    function formatDateInput(d) {
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth()+1).padStart(2,'0');
-      const dd = String(d.getDate()).padStart(2,'0');
-      return `${yyyy}-${mm}-${dd}`;
-    }
-
-    function thisFriday(from = new Date()) {
-      const d = new Date(from);
-      const day = d.getDay();
-      const map = {0:7,1:1,2:2,3:3,4:4,5:5,6:6};
-      const dow = map[day];
-      const delta = 5 - dow;
-      d.setDate(d.getDate() + delta);
-      return d;
-    }
-
-    function toggleOptimizationPoints() {
-      const enabled = fields.bug_found.value === '1';
-      fields.optimization_points.disabled = !enabled;
-      if (!enabled) {
-        fields.optimization_points.value = '';
-      }
-
-	  // 發現 BUG = 是 時的自動欄位處理
-	  if (fields.bug_found.value === '1') {
-		// 清空開始測試日期、預計交付日期
-		fields.test_start_date.value = '';
-		fields.eta_date.value = '';
-
-		// 完成日期帶入今日
-		const today = new Date();
-		const yyyy = today.getFullYear();
-		const mm = String(today.getMonth() + 1).padStart(2, '0');
-		const dd = String(today.getDate()).padStart(2, '0');
-		fields.completed_at.value = `${yyyy}-${mm}-${dd}`;
-		// 預設完成
-		fields.status.value = '2';
-		
-	  }else{
-		const today = new Date();
-		fields.completed_at.value = '';
-	
-		if (!fields.test_start_date.value) {
-			fields.test_start_date.value = formatDateInput(today);
-		}
-		if (!fields.eta_date.value) {
-			fields.eta_date.value = formatDateInput(thisFriday(today));
-		}
-		// 執行中
-		fields.status.value = '1';
-		
-	  }
-    }
-
-	// === 🟢 GitLab Issues Integration ===
-	const btnGitlabIssues = document.getElementById('btnGitlabIssues');
-	const gitlabModal = document.getElementById('gitlabModal');
-	const btnCloseGitlabModal = document.getElementById('btnCloseGitlabModal');
-	const gitlabIssuesBody = document.getElementById('gitlabIssuesBody');
-	const glAssigneeInput = document.getElementById('glAssignee');
-	const glProjectInput  = document.getElementById('glProject');
-	const btnSearchGitlab = document.getElementById('btnSearchGitlab');
-	const GITLAB_BASE = "https://gitlab.fb-tek.com/api/v4";
-	
-	// 開窗：帶入常用預設（可自行調整）
-	btnGitlabIssues.addEventListener('click', async () => {
-	  gitlabModal.classList.remove('hidden');
-	  // 預設值（若空白時才填）
-	  if (!glAssigneeInput.value) glAssigneeInput.value = "Welly.Chiu";
-	  if (!glProjectInput.value)  glProjectInput.value  = "kh/imp";
-	  gitlabIssuesBody.innerHTML = `<p class="text-slate-500 text-sm">請按「查詢」載入資料</p>`;
-	  searchGitlabIssues();
-	});
-	// 關閉
-	btnCloseGitlabModal.addEventListener('click', () => {
-	  gitlabModal.classList.add('hidden');
-	});
-	gitlabModal.addEventListener('click', (e) => {
-	  if (e.target === gitlabModal) gitlabModal.classList.add('hidden');
-	});
-	
-	async function searchGitlabIssues() {
-	  gitlabIssuesBody.innerHTML = `<p class="text-slate-500 text-sm">讀取中...</p>`;
-	  try {
-		const TOKEN = await loadGitlabToken();                 // 從 Firestore 讀取、快取
-		const project = encodeURIComponent(glProjectInput.value.trim());
-		const assignee = glAssigneeInput.value.trim();
-
-		// 只有 project 是必填；assignee 可空（查全專案開啟中的 issue）
-		const params = new URLSearchParams({ state: "opened", per_page: "50" });
-		if (assignee) params.set("assignee_username", assignee);
-
-		const url = `${GITLAB_BASE}/projects/${project}/issues?${params.toString()}`;
-		const res = await fetch(url, {
-		  headers: { "PRIVATE-TOKEN": TOKEN, "Accept": "application/json" }
-		});
-		if (!res.ok) throw new Error("GitLab API 錯誤：" + res.status);
-
-		const issues = await res.json();
-		if (!Array.isArray(issues) || issues.length === 0) {
-		  gitlabIssuesBody.innerHTML = `<p class="text-slate-600 text-sm">沒有符合條件的 Issue。</p>`;
-		  return;
-		}
-
-		// 渲染（用第 2 步提供的樣板）
-		gitlabIssuesBody.innerHTML = `
-		  <ul class="divide-y divide-slate-200">
-			${issues.map(i => `
-			  <li class="py-3">
-				<div class="flex items-start gap-3">
-				  <input type="checkbox"
-						 class="gl-select mt-1"
-						 data-iid="${i.iid}"
-						 data-title="${i.title?.replace(/"/g, '&quot;') || ''}"
-						 data-url="${i.web_url}">
-				  <div class="flex-1">
-					<div class="flex items-start justify-between gap-3">
-					  <div>
-						<a href="${i.web_url}" target="_blank" class="text-brand-700 font-semibold underline">#${i.iid} ${i.title}</a>
-						<div class="text-xs text-slate-500 mt-1">
-						  專案：${i.references?.full || ''}<br>
-						  更新時間：${new Date(i.updated_at).toLocaleString()}
-						</div>
-					  </div>
-					  <button class="btn-secondary text-sm px-3 py-1.5 gl-detail-btn"
-							  data-iid="${i.iid}">詳細資訊</button>
-					</div>
-					<div class="gl-detail-panel mt-3 hidden" id="gl-detail-${i.iid}">
-					  <div class="text-slate-500 text-sm">讀取留言中…</div>
-					</div>
-				  </div>
-				</div>
-			  </li>
-			`).join('')}
-		  </ul>`;
-		updateSelectedCount();
-
-	  } catch (err) {
-		console.error(err);
-		gitlabIssuesBody.innerHTML = `<p class="text-red-600 text-sm">載入失敗：${err.message}</p>`;
-	  }
-	}
-
-	// 綁定查詢按鈕與 Enter
-	btnSearchGitlab.addEventListener('click', searchGitlabIssues);
-	glAssigneeInput.addEventListener('keydown', e => { if (e.key==='Enter') searchGitlabIssues(); });
-	glProjectInput.addEventListener('keydown',  e => { if (e.key==='Enter') searchGitlabIssues(); });
-
-	// 代理事件：點「詳細資訊」抓留言（notes）
-	gitlabIssuesBody.addEventListener('click', async (e) => {
-	  const btn = e.target.closest('.gl-detail-btn');
-	  if (!btn) return;
-
-	  const iid = btn.dataset.iid;
-	  const panel = document.getElementById(`gl-detail-${iid}`);
-
-	  // 折疊/展開
-	  if (!panel.classList.contains('hidden')) {
-		panel.classList.add('hidden');
-		return;
-	  }
-	  panel.classList.remove('hidden');
-	  panel.innerHTML = `<div class="text-slate-500 text-sm">讀取留言中…</div>`;
-
-	  try {
-		const TOKEN = await loadGitlabToken();
-		const project = encodeURIComponent(glProjectInput.value.trim());
-		const url = `${GITLAB_BASE}/projects/${project}/issues/${iid}/notes?per_page=100`;
-		const res = await fetch(url, {
-		  headers: { "PRIVATE-TOKEN": TOKEN, "Accept": "application/json" }
-		});
-		if (!res.ok) throw new Error(`讀取留言失敗：${res.status}`);
-
-		const notes = await res.json();
-		if (!Array.isArray(notes) || notes.length === 0) {
-		  panel.innerHTML = `<div class="text-slate-600 text-sm">沒有留言。</div>`;
-		  return;
-		}
-
-		// 簡單排除系統訊息（可選）
-		const humanNotes = notes.filter(n => !n.system);
-
-		panel.innerHTML = `
-		  <div class="border rounded-xl p-3 bg-slate-50">
-			${humanNotes.map(n => `
-			  <div class="mb-3">
-				<div class="text-sm font-medium text-slate-700">${n.author?.name || n.author?.username || '未知'}</div>
-				<div class="text-xs text-slate-500">${new Date(n.created_at).toLocaleString()}</div>
-				<div class="mt-1 whitespace-pre-wrap text-slate-800">${escapeHtml(n.body || '')}</div>
-			  </div>
-			`).join('')}
-		  </div>
-		`;
-	  } catch (err) {
-		console.error(err);
-		panel.innerHTML = `<div class="text-red-600 text-sm">讀取留言失敗：${err.message}</div>`;
-	  }
-	});
-
-	// 簡易 XSS 避免
-	function escapeHtml(s){
-	  return String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;', "'":'&#39;'}[c]));
-	}
-
-
-	btnCloseGitlabModal.addEventListener('click', () => {
-	  gitlabModal.classList.add('hidden');
-	});
-
-	gitlabModal.addEventListener('click', (e) => {
-	  if (e.target === gitlabModal) gitlabModal.classList.add('hidden');
-	});
-
-	// === 選取/計數 ===
-	const selectedCountEl = document.getElementById('gitlabSelectedCount');
-	const btnToggleSelectAll = document.getElementById('btnToggleSelectAll');
-	const btnImportSelected = document.getElementById('btnImportSelected');
-
-	function getAllCheckboxes() {
-	  return Array.from(gitlabIssuesBody.querySelectorAll('.gl-select'));
-	}
-	function getSelected() {
-	  return getAllCheckboxes().filter(cb => cb.checked);
-	}
-	function updateSelectedCount() {
-	  selectedCountEl.textContent = `已選 ${getSelected().length} 筆`;
-	}
-	gitlabIssuesBody.addEventListener('change', (e) => {
-	  if (e.target.classList.contains('gl-select')) updateSelectedCount();
-	});
-
-	let _allSelected = false;
-	btnToggleSelectAll.addEventListener('click', () => {
-	  _allSelected = !_allSelected;
-	  getAllCheckboxes().forEach(cb => cb.checked = _allSelected);
-	  btnToggleSelectAll.textContent = _allSelected ? '全不選' : '全選';
-	  updateSelectedCount();
-	});
-
-	// === 匯入至 records ===
-	// 規格（你提出的預設值）：
-	// 狀態 = 執行中(1)
-	// issue_number = GitLab 的 iid
-	// test_plan = '0'（字串，符合你現有欄位慣例）
-	// memo = GitLab 標題
-	// test_start_date = 今天、eta_date = 本週五
-	// verify_failed/test_cases/file_count/bug_found/optimization_points = 0
-	// feature = '透過系統匯入請手動調整'
-	// completed_at = null（空）
-	// issue_link = GitLab 的 web_url
-	btnImportSelected.addEventListener('click', async () => {
-	  const picks = getSelected();
-	  if (picks.length === 0) {
-		alert('請先勾選要匯入的資料');
-		return;
-	  }
-
-	  const u = auth.currentUser;
-	  if (!u) {
-		alert('請先登入再匯入');
-		return;
-	  }
-
-	  btnImportSelected.disabled = true;
-	  btnImportSelected.textContent = '匯入中...';
-
-	  try {
-		const today = new Date();
-		let successCount = 0;
-		let skippedCount = 0;
-		let failCount = 0;
-
-		// 逐筆檢查是否已存在（依 issue_number）
-		for (const cb of picks) {
-		  const iid = Number(cb.dataset.iid);
-		  const title = cb.dataset.title || '';
-		  const url = cb.dataset.url || '';
-
-		  // 查是否已有相同 issue_number 的紀錄
-		  const qExist = query(
-			collection(db, 'records'),
-			where('issue_number', '==', iid)
-		  );
-		  const snap = await getDocs(qExist);
-		  if (!snap.empty) {
-			console.log(`Issue ${iid} 已存在，略過匯入`);
-			skippedCount++;
-			continue; // 已存在就跳過
-		  }
-
-		  const payload = {
-			status: 1,
-			completed_at: null,
-			issue_number: iid,
-			test_plan: '0',
-			category: null,
-			feature: '透過系統匯入請手動調整',
-			memo: title,
-			test_start_date: today,
-			eta_date: thisFriday(today),
-			bug_found: 0,
-			optimization_points: 0,
-			verify_failed: 0,
-			test_cases: 0,
-			file_count: 0,
-			issue_link: url,
-			created_by_uid: u.uid,
-			created_at: serverTimestamp()
-		  };
-
-		  try {
-			await addDoc(collection(db, 'records'), payload);
-			successCount++;
-		  } catch (err) {
-			console.error(`匯入 Issue ${iid} 失敗：`, err);
-			failCount++;
-		  }
-		}
-
-		alert(`匯入完成：
-	成功 ${successCount} 筆
-	略過（已存在） ${skippedCount} 筆
-	失敗 ${failCount} 筆`);
-
-		gitlabModal.classList.add('hidden');
-		_allSelected = false;
-		btnToggleSelectAll.textContent = '全選';
-		await reload(); // 重新載入表格
-	  } catch (err) {
-		console.error(err);
-		alert('匯入發生錯誤：' + (err.message || err));
-	  } finally {
-		btnImportSelected.disabled = false;
-		btnImportSelected.textContent = '匯入選取';
-	  }
-	});
-
-
-
-
-    function setDefaultsIfEmpty() {
-      if (!['0','1','2'].includes(String(fields.status.value))) {
-        fields.status.value = '1';
-      }
-      if (!['1','0'].includes(String(fields.test_plan.value))) {
-        fields.test_plan.value = '0';
-      }
-      const today = new Date();
-      //if (!fields.completed_at.value) {
-       // fields.completed_at.value = formatDateInput(today);
-      //}
-      if (!fields.test_start_date.value) {
-        fields.test_start_date.value = formatDateInput(today);
-      }
-      if (!fields.eta_date.value) {
-        fields.eta_date.value = formatDateInput(thisFriday(today));
-      }
-      toggleOptimizationPoints();
-    }
-
-    // 初次載入：套預設 + 立刻查詢
-    setDefaultsIfEmpty();
-    fields.bug_found.addEventListener('change', toggleOptimizationPoints);
-	
-	
-	
-	
-	// 針對「目前查詢結果」逐筆更新
-	async function bulkUpdateCurrentCache() {
-	  const u = auth.currentUser;
-	  if (!u) throw new Error('未登入');
-	  if (!_cacheRows || _cacheRows.length === 0) return;
-
-	  // 500 筆一個批次
-	  for (let i = 0; i < _cacheRows.length; i += 500) {
-		const chunk = _cacheRows.slice(i, i + 500);
-		const batch = writeBatch(db);
-		chunk.forEach(row => {
-		  batch.update(doc(db, 'records', row.id), {
-			created_by_uid: u.uid,
-			created_at: serverTimestamp(),
-			updated_by_uid: u.uid,
-			updated_at: serverTimestamp(),
-		  });
-		});
-		await batch.commit();
-	  }
-	  await reload(); // 你原本的重查函式:contentReference[oaicite:2]{index=2}
-	}
-	document.getElementById('btnBulkUpdate').addEventListener('click', bulkUpdateCurrentCache);
-  </script>
-  </div> <!-- 關閉主要內容容器 -->
+        // 初始化 Firebase
+        function initializeFirebase(system) {
+            try {
+                const config = firebaseConfigs[system];
+                console.log(`開始初始化 ${system} 系統，當前 Firebase 應用數量:`, firebase.apps.length);
+                
+                // 如果已經初始化過，先刪除舊的應用
+                if (firebase.apps.length > 0) {
+                    console.log('檢測到現有 Firebase 應用，開始刪除...');
+                    showStatus('正在切換系統配置...', 'info');
+                    
+                    // 設置超時處理，避免刪除操作卡住
+                    const deleteTimeout = setTimeout(() => {
+                        console.warn('Firebase 刪除操作超時，強制初始化新應用');
+                        showStatus('正在重新初始化系統...', 'info');
+                        initializeNewApp(config, system);
+                    }, 3000); // 3秒超時
+                    
+                    // 等待刪除完成後再初始化
+                    firebase.app().delete().then(() => {
+                        clearTimeout(deleteTimeout);
+                        console.log('舊 Firebase 應用刪除成功，開始初始化新應用');
+                        initializeNewApp(config, system);
+                    }).catch((deleteError) => {
+                        clearTimeout(deleteTimeout);
+                        console.error('刪除舊應用時發生錯誤:', deleteError);
+                        console.log('嘗試直接初始化新應用...');
+                        showStatus('正在重新初始化系統...', 'info');
+                        initializeNewApp(config, system);
+                    });
+                } else {
+                    console.log('沒有現有 Firebase 應用，直接初始化');
+                    initializeNewApp(config, system);
+                }
+                
+            } catch (error) {
+                console.error(`${system} 系統 Firebase 初始化失敗：`, error);
+                
+                // 初始化失敗，重新啟用系統選擇
+                isInitializing = false;
+                document.querySelectorAll('.system-card').forEach(card => {
+                    card.style.pointerEvents = 'auto';
+                    card.style.opacity = '1';
+                });
+                
+                showStatus('Firebase 初始化失敗，請重新選擇系統', 'error');
+            }
+        }
+
+        // 初始化新的 Firebase 應用
+        function initializeNewApp(config, system) {
+            try {
+                console.log(`開始初始化 ${system} 系統的 Firebase 應用...`);
+                console.log('配置資訊:', {
+                    projectId: config.projectId,
+                    authDomain: config.authDomain
+                });
+                
+                // 嘗試初始化新的 Firebase 應用
+                let app;
+                try {
+                    app = firebase.initializeApp(config);
+                } catch (initError) {
+                    console.warn('標準初始化失敗，嘗試使用命名應用:', initError);
+                    // 如果標準初始化失敗，嘗試使用命名應用
+                    app = firebase.initializeApp(config, `app_${system}_${Date.now()}`);
+                }
+                
+                auth = firebase.auth(app);
+                db = firebase.firestore(app);
+                
+                console.log(`${system} 系統 Firebase 初始化成功！`);
+                console.log('Firebase 應用實例:', app);
+                console.log('Auth 實例:', auth);
+                console.log('Firestore 實例:', db);
+                
+                // Firebase 初始化完成，重新啟用所有互動元素
+                isInitializing = false;
+                document.getElementById('loginBtn').disabled = false;
+                
+                // 重新啟用系統卡片
+                document.querySelectorAll('.system-card').forEach(card => {
+                    card.style.pointerEvents = 'auto';
+                    card.style.opacity = '1';
+                });
+                
+                // 顯示準備就緒訊息，並設置較長的顯示時間
+                showStatus(`${system === 'qa' ? 'QA Tracker' : '家庭記帳'} 系統已準備就緒`, 'success', 5000);
+                
+                // 移除舊的監聽器（如果存在）
+                if (authStateListener) {
+                    authStateListener();
+                    authStateListener = null;
+                }
+                
+                // 檢查是否已經登入
+                authStateListener = auth.onAuthStateChanged(user => {
+                    if (user) {
+                        console.log(`用戶已登入 ${system} 系統：`, user.email);
+                        redirectToSystem(system);
+                    } else {
+                        console.log(`${system} 系統：用戶未登入`);
+                    }
+                });
+                
+            } catch (error) {
+                console.error(`${system} 系統 Firebase 應用初始化失敗：`, error);
+                console.error('錯誤詳情:', {
+                    message: error.message,
+                    code: error.code,
+                    stack: error.stack
+                });
+                
+                // 初始化失敗，重新啟用系統選擇
+                isInitializing = false;
+                document.querySelectorAll('.system-card').forEach(card => {
+                    card.style.pointerEvents = 'auto';
+                    card.style.opacity = '1';
+                });
+                
+                showStatus('Firebase 初始化失敗，請重新選擇系統', 'error');
+                // 初始化失敗時保持按鈕禁用狀態
+            }
+        }
+
+        // Google 登入
+        async function loginWithGoogle() {
+            if (!selectedSystem || !auth) {
+                showStatus('請先選擇要登入的系統', 'error');
+                return;
+            }
+
+            const loginBtn = document.getElementById('loginBtn');
+            const originalText = loginBtn.innerHTML;
+            
+            try {
+                // 顯示載入狀態
+                loginBtn.disabled = true;
+                loginBtn.innerHTML = '<div class="loading-spinner"></div>登入中...';
+                showStatus('正在使用 Google 登入...', 'info');
+
+                const provider = new firebase.auth.GoogleAuthProvider();
+                const result = await auth.signInWithPopup(provider);
+                
+                console.log(`${selectedSystem} 系統 Google 登入成功：`, result.user.email);
+                
+                // 如果是家庭記帳系統，需要更新使用者資料
+                if (selectedSystem === 'expenses') {
+                    await updateUserProfile(result.user);
+                }
+                
+                showStatus('登入成功！正在跳轉...', 'success');
+                
+                // 延遲跳轉
+                setTimeout(() => {
+                    redirectToSystem(selectedSystem);
+                }, 1500);
+                
+            } catch (error) {
+                console.error(`${selectedSystem} 系統 Google 登入失敗：`, error);
+                
+                let errorMessage = '登入失敗，請重試';
+                if (error.code === 'auth/popup-closed-by-user') {
+                    errorMessage = '登入視窗被關閉，請重試';
+                } else if (error.code === 'auth/popup-blocked') {
+                    errorMessage = '登入視窗被阻擋，請允許彈出視窗';
+                } else if (error.code === 'auth/network-request-failed') {
+                    errorMessage = '網路連線失敗，請檢查網路';
+                }
+                
+                showStatus(errorMessage, 'error');
+                
+                // 恢復按鈕狀態
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = originalText;
+            }
+        }
+
+        // 更新使用者資料（僅家庭記帳系統需要）
+        async function updateUserProfile(user) {
+            try {
+                console.log('開始更新使用者資料:', user.uid, user.email);
+                
+                const userRef = db.collection('users').doc(user.uid);
+                const userDoc = await userRef.get();
+                const isNewUser = !userDoc.exists();
+                
+                const userData = {
+                    uid: user.uid,
+                    email: user.email || null,
+                    displayName: user.displayName || null,
+                    photoURL: user.photoURL || null,
+                    providerId: user.providerData?.[0]?.providerId || null,
+                    lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                
+                if (isNewUser) {
+                    userData.isActive = false;
+                    userData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                }
+                
+                await userRef.set(userData, { merge: true });
+                console.log('✅ 使用者資料已成功更新到 Firestore:', user.uid);
+                return true;
+                
+            } catch (error) {
+                console.error('更新使用者資料失敗:', error);
+                return false;
+            }
+        }
+
+        // 跳轉到對應系統
+        function redirectToSystem(system) {
+            const systemInfo = SYSTEM_INFO[system];
+            if (systemInfo) {
+                window.location.href = systemInfo.redirectUrl;
+            }
+        }
+
+        // 顯示狀態訊息
+        function showStatus(message, type, duration = 3000) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.style.display = 'block';
+            
+            // 清除之前的定時器（如果存在）
+            if (statusDiv.hideTimeout) {
+                clearTimeout(statusDiv.hideTimeout);
+            }
+            
+            // 設置新的隱藏定時器
+            statusDiv.hideTimeout = setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, duration);
+        }
+    </script>
 </body>
 </html>

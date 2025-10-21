@@ -4,7 +4,7 @@
 
 ```
 gitlab_/
-├── index.html              # 主頁面（QA Tracker）
+├── tracker.html            # 主頁面（QA Tracker）
 ├── login.html              # 登入頁面
 ├── README.md               # 完整使用說明
 ├── OPTIMIZATION_SUMMARY.md # 優化總結
@@ -34,7 +34,7 @@ Firestore Database → 建立資料庫 → 生產模式
 ### 2. 修改程式碼（2分鐘）
 
 ```javascript
-// 在 index.html (第 36-43 行) 和 login.html (第 86-92 行)
+// 在 tracker.html (第 36-43 行) 和 login.html (第 86-92 行)
 // 替換為你的 Firebase Config
 
 const firebaseConfig = {
@@ -79,7 +79,7 @@ firebase init hosting
 firebase deploy
 
 # 選項 B: 上傳到任何網頁伺服器
-上傳 index.html 和 login.html 到伺服器
+上傳 tracker.html 和 login.html 到伺服器
 ```
 
 ## ✅ 完成！
@@ -126,7 +126,7 @@ firebase deploy
 ### 修改品牌顏色
 
 ```javascript
-// index.html (第 23-35 行)
+// tracker.html (第 23-35 行)
 tailwind.config = {
   theme: {
     extend: {
@@ -145,7 +145,7 @@ tailwind.config = {
 ### 修改標題
 
 ```html
-<!-- index.html (第 249 行) -->
+<!-- tracker.html (第 249 行) -->
 <h1>你的系統名稱</h1>
 
 <!-- login.html (第 78 行) -->

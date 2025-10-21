@@ -943,7 +943,7 @@
                         console.log('✅ Firebase 初始化完成');
                     } else {
                         console.log('未檢測到登入狀態，導向登入頁面');
-                        window.location.href = 'enter_login.html';
+                        window.location.href = 'index.html';
                     }
                     
                     // 監聽認證狀態變化（僅處理狀態變化，不重複載入）
@@ -961,7 +961,7 @@
                         } else {
                             console.log('認證狀態變化 - 已登出');
                             // 登出時重導向到登入頁面
-                            window.location.href = 'enter_login.html';
+                            window.location.href = 'index.html';
                         }
                     });
                 } catch (error) {
@@ -1097,7 +1097,7 @@
                                     <button onclick="location.reload();" class="logout-btn" style="background: #3498db;">
                                         重新載入
                                     </button>
-                                    <button onclick="window.location.href='enter_login.html';" class="logout-btn">
+                                    <button onclick="window.location.href='index.html';" class="logout-btn">
                                         返回登入
                                     </button>
                                 </div>
@@ -1192,7 +1192,7 @@ service cloud.firestore {
                                     <button onclick="location.reload();" class="logout-btn" style="background: #3498db;">
                                         重新載入
                                     </button>
-                                    <button onclick="window.location.href='enter_login.html';" class="logout-btn">
+                                    <button onclick="window.location.href='index.html';" class="logout-btn">
                                         返回登入
                                     </button>
                                 </div>
@@ -1222,7 +1222,7 @@ service cloud.firestore {
                             console.log('開始登出...');
                             await window.firebaseSignOut(window.firebaseAuth);
                             console.log('登出成功');
-                            window.location.href = 'enter_login.html';
+                            window.location.href = 'index.html';
                         } catch (error) {
                             console.error('登出失敗:', error);
                             this.showNotification('登出失敗，請重試', 'error');
@@ -1260,7 +1260,7 @@ service cloud.firestore {
                                     <p><strong>狀態:</strong> 等待啟用</p>
                                 </div>
                                 <div class="action-buttons">
-                                    <button onclick="window.firebaseAuth.signOut(); window.location.href='enter_login.html';" class="logout-btn">
+                                    <button onclick="window.firebaseAuth.signOut(); window.location.href='index.html';" class="logout-btn">
                                         登出
                                     </button>
                                 </div>
@@ -1371,7 +1371,7 @@ service cloud.firestore {
                         this.showIndexError();
                     } else {
                         // 其他錯誤才導向登入頁面
-                        window.location.href = 'enter_login.html';
+                        window.location.href = 'index.html';
                     }
                 }
             }
