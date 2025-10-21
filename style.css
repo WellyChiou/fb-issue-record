@@ -1625,3 +1625,115 @@ button:hover {
         margin: 0 auto !important;
     }
 }
+
+/* 交易費用配置樣式 */
+.config-section {
+    margin-bottom: 25px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.config-section h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #495057;
+    font-size: 1.1em;
+    border-bottom: 2px solid #007bff;
+    padding-bottom: 5px;
+}
+
+.formula-display {
+    background: #e3f2fd;
+    padding: 15px;
+    border-radius: 6px;
+    border-left: 4px solid #2196f3;
+}
+
+.formula-display p {
+    margin: 5px 0;
+    font-family: 'Courier New', monospace;
+}
+
+.formula-display strong {
+    color: #1976d2;
+}
+
+/* 損益詳細資料樣式 */
+.profit-loss-details {
+    padding: 20px;
+}
+
+.profit-loss-details h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #2c3e50;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 10px;
+}
+
+.detail-section {
+    margin-bottom: 25px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #3498db;
+}
+
+.detail-section h4 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #495057;
+    font-size: 1.1em;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-row .label {
+    font-weight: 500;
+    color: #6c757d;
+    flex: 1;
+}
+
+.detail-row .value {
+    font-weight: 600;
+    color: #2c3e50;
+    text-align: right;
+    flex: 1;
+}
+
+.detail-row .value.profit {
+    color: #27ae60;
+}
+
+.detail-row .value.loss {
+    color: #e74c3c;
+}
+
+/* 詳細資料按鈕樣式 */
+.btn-detail {
+    background: #17a2b8;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    margin-left: 8px;
+    transition: background-color 0.3s;
+}
+
+.btn-detail:hover {
+    background: #138496;
+}

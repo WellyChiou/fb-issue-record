@@ -102,6 +102,9 @@
                 <button class="btn btn-secondary" onclick="expenseTracker.showExchangeRates()">
                     💱 匯率管理
                 </button>
+                <button class="btn btn-info" onclick="expenseTracker.showTradingFeesConfig()">
+                    💰 交易費用配置
+                </button>
             </div>
         </header>
 
@@ -821,6 +824,16 @@
                 // 匯率自動更新標記
                 this.isExchangeRateChecked = false;
                 this.hasShownStartNotification = false;
+                
+                // 股票交易費用配置
+                this.tradingFees = {
+                    commission: 0.001425,  // 手續費 0.1425%
+                    tax: {
+                        'TWD': 0.003,      // 台股交易稅 0.3%
+                        'USD': 0.003,      // 美股交易稅 0.3%
+                        'ETF': 0.001       // ETF交易稅 0.1%
+                    }
+                };
                 
                 this.categoryStructure = {
                     '食': ['外食', '食材', '飲料', '零食', '其他'],
@@ -2156,13 +2169,293 @@ service cloud.firestore {
                         console.log('Firebase中沒有匯率資料，使用預設值');
                     }
                     
+                    // 載入交易費用配置
+                    await this.loadTradingFeesConfig();
                     
                 } catch (error) {
                     console.error('從Firebase載入匯率失敗:', error);
-                    throw error;
                 }
             }
-
+            
+            // 載入交易費用配置
+            async loadTradingFeesConfig() {
+                try {
+                    console.log('從Firebase載入交易費用配置...');
+                    const configRef = window.firebaseDoc(window.firebaseDb, 'config', 'tradingFees');
+                    const configDoc = await window.firebaseGetDoc(configRef);
+                    
+                    if (configDoc.exists()) {
+                        const data = configDoc.data();
+                        this.tradingFees = {
+                            commission: data.commission || 0.001425,
+                            tax: {
+                                'TWD': data.tax?.TWD || 0.003,
+                                'USD': data.tax?.USD || 0.003,
+                                'ETF': data.tax?.ETF || 0.001
+                            }
+                        };
+                        console.log('從Firebase載入交易費用配置成功:', this.tradingFees);
+                    } else {
+                        console.log('Firebase中沒有交易費用配置，使用預設值');
+                        // 儲存預設配置到 Firebase
+                        await this.saveTradingFeesConfig();
+                    }
+                } catch (error) {
+                    console.error('從Firebase載入交易費用配置失敗:', error);
+                }
+            }
+            
+            // 儲存交易費用配置
+            async saveTradingFeesConfig() {
+                try {
+                    const configRef = window.firebaseDoc(window.firebaseDb, 'config', 'tradingFees');
+                    await window.firebaseSetDoc(configRef, {
+                        commission: this.tradingFees.commission,
+                        tax: this.tradingFees.tax,
+                        updatedAt: window.firebaseServerTimestamp()
+                    });
+                    console.log('交易費用配置已儲存到Firebase');
+                } catch (error) {
+                    console.error('儲存交易費用配置失敗:', error);
+                }
+            }
+            
+            // 計算股票實際成交金額（扣除手續費和交易稅）
+            calculateActualAmount(shares, currentPrice, currency, stockCode = '') {
+                const marketValue = shares * currentPrice;
+                const commission = marketValue * this.tradingFees.commission;
+                
+                // 判斷交易稅率
+                let taxRate = 0;
+                
+                // 根據股票代碼判斷台股類型
+                if (currency === 'TWD') {
+                    if (this.isTaiwanETF(stockCode)) {
+                        taxRate = this.tradingFees.tax.ETF;  // ETF稅率
+                    } else {
+                        taxRate = this.tradingFees.tax.TWD;  // 台股稅率
+                    }
+                } else if (currency === 'USD') {
+                    taxRate = this.tradingFees.tax.USD;
+                } else {
+                    // 對於其他幣別，預設使用 ETF 稅率
+                    taxRate = this.tradingFees.tax.ETF;
+                }
+                
+                const tax = marketValue * taxRate;
+                const actualAmount = marketValue - commission - tax;
+                
+                return {
+                    marketValue: marketValue,
+                    commission: commission,
+                    tax: tax,
+                    actualAmount: actualAmount,
+                    commissionRate: this.tradingFees.commission,
+                    taxRate: taxRate
+                };
+            }
+            
+            // 判斷是否為台股ETF
+            isTaiwanETF(stockCode) {
+                if (!stockCode) return false;
+                
+                // 台股ETF邏輯：00xx 開頭 或 00xxx 開頭
+                return stockCode.startsWith('00');
+            }
+            
+            // 判斷是否為台股
+            isTaiwanStock(stockCode) {
+                if (!stockCode) return false;
+                
+                // 台股邏輯：1101～8999
+                const code = parseInt(stockCode);
+                return code >= 1101 && code <= 8999;
+            }
+            
+            // 更新交易費用配置
+            async updateTradingFeesConfig(newConfig) {
+                try {
+                    this.tradingFees = {
+                        commission: newConfig.commission || this.tradingFees.commission,
+                        tax: {
+                            'TWD': newConfig.tax?.TWD || this.tradingFees.tax.TWD,
+                            'USD': newConfig.tax?.USD || this.tradingFees.tax.USD,
+                            'ETF': newConfig.tax?.ETF || this.tradingFees.tax.ETF
+                        }
+                    };
+                    
+                    await this.saveTradingFeesConfig();
+                    this.showNotification('交易費用配置已更新', 'success');
+                    
+                    // 重新計算資產組合
+                    this.updatePortfolioSummary();
+                } catch (error) {
+                    console.error('更新交易費用配置失敗:', error);
+                    this.showNotification('更新交易費用配置失敗', 'error');
+                }
+            }
+            
+            // 顯示交易費用配置
+            showTradingFeesConfig() {
+                console.log('顯示交易費用配置');
+                const modal = document.getElementById('tradingFeesConfigModal');
+                if (modal) {
+                    // 載入當前配置到表單（直接使用小數值）
+                    document.getElementById('commissionRate').value = this.tradingFees.commission;
+                    document.getElementById('taxRateTWD').value = this.tradingFees.tax.TWD;
+                    document.getElementById('taxRateUSD').value = this.tradingFees.tax.USD;
+                    document.getElementById('taxRateETF').value = this.tradingFees.tax.ETF;
+                    
+                    modal.style.display = 'block';
+                }
+            }
+            
+            // 隱藏交易費用配置
+            hideTradingFeesConfig() {
+                console.log('隱藏交易費用配置');
+                const modal = document.getElementById('tradingFeesConfigModal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+            }
+            
+            // 從表單儲存交易費用配置
+            async saveTradingFeesConfigFromForm() {
+                try {
+                    const commissionRate = parseFloat(document.getElementById('commissionRate').value);
+                    const taxRateTWD = parseFloat(document.getElementById('taxRateTWD').value);
+                    const taxRateUSD = parseFloat(document.getElementById('taxRateUSD').value);
+                    const taxRateETF = parseFloat(document.getElementById('taxRateETF').value);
+                    
+                    const newConfig = {
+                        commission: commissionRate,
+                        tax: {
+                            TWD: taxRateTWD,
+                            USD: taxRateUSD,
+                            ETF: taxRateETF
+                        }
+                    };
+                    
+                    await this.updateTradingFeesConfig(newConfig);
+                    this.hideTradingFeesConfig();
+                } catch (error) {
+                    console.error('儲存交易費用配置失敗:', error);
+                    this.showNotification('儲存配置失敗', 'error');
+                }
+            }
+            
+            // 顯示損益詳細資料
+            async showProfitLossDetails(assetId) {
+                const asset = this.assets.find(a => a.id === assetId);
+                if (!asset) return;
+                
+                const quantity = parseFloat(asset.quantity) || 0;
+                const purchasePrice = parseFloat(asset.purchasePrice) || parseFloat(asset.unitPrice) || 0;
+                const currentPrice = parseFloat(asset.currentPrice) || purchasePrice;
+                
+                // 計算詳細資料
+                const costBasis = quantity * purchasePrice;
+                const currentValue = quantity * currentPrice;
+                
+                let actualAmount = null;
+                let feeDetails = '';
+                
+                if (asset.type === '股票') {
+                    actualAmount = this.calculateActualAmount(quantity, currentPrice, asset.currency, asset.stockCode);
+                    
+                    // 轉換為台幣
+                    const marketValueTWD = await this.convertToTWD(actualAmount.marketValue, asset.currency);
+                    const commissionTWD = await this.convertToTWD(actualAmount.commission, asset.currency);
+                    const taxTWD = await this.convertToTWD(actualAmount.tax, asset.currency);
+                    const actualAmountTWD = await this.convertToTWD(actualAmount.actualAmount, asset.currency);
+                    const costBasisTWD = await this.convertToTWD(costBasis, asset.currency, 1, asset.purchaseDate ? new Date(asset.purchaseDate) : null);
+                    
+                    const profitLossTWD = actualAmountTWD - costBasisTWD;
+                    const profitLossPercent = costBasisTWD > 0 ? (profitLossTWD / costBasisTWD) * 100 : 0;
+                    
+                    feeDetails = `
+                        <div class="profit-loss-details">
+                            <h3>📊 ${asset.name} (${asset.stockCode}) 損益詳細</h3>
+                            
+                            <div class="detail-section">
+                                <h4>💰 成本資訊</h4>
+                                <div class="detail-row">
+                                    <span class="label">購買成本:</span>
+                                    <span class="value">NT$ ${this.formatNumber(costBasisTWD)}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="label">股數:</span>
+                                    <span class="value">${this.formatNumber(quantity)} 股</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="label">購買單價:</span>
+                                    <span class="value">${asset.currency} ${purchasePrice.toFixed(2)}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="detail-section">
+                                <h4>📈 市場價值</h4>
+                                <div class="detail-row">
+                                    <span class="label">當前股價:</span>
+                                    <span class="value">${asset.currency} ${currentPrice.toFixed(2)}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="label">市場市值:</span>
+                                    <span class="value">NT$ ${this.formatNumber(marketValueTWD)}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="detail-section">
+                                <h4>💸 交易費用</h4>
+                                <div class="detail-row">
+                                    <span class="label">手續費:</span>
+                                    <span class="value">NT$ ${this.formatNumber(commissionTWD)} (${(actualAmount.commissionRate * 100).toFixed(4)}%)</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="label">交易稅:</span>
+                                    <span class="value">NT$ ${this.formatNumber(taxTWD)} (${(actualAmount.taxRate * 100).toFixed(3)}%)</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="label">總費用:</span>
+                                    <span class="value">NT$ ${this.formatNumber(commissionTWD + taxTWD)}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="detail-section">
+                                <h4>📊 實際損益</h4>
+                                <div class="detail-row">
+                                    <span class="label">扣費後淨收入:</span>
+                                    <span class="value">NT$ ${this.formatNumber(actualAmountTWD)}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="label">損益金額:</span>
+                                    <span class="value ${profitLossTWD >= 0 ? 'profit' : 'loss'}">${profitLossTWD >= 0 ? '+' : ''}NT$ ${this.formatNumber(Math.abs(profitLossTWD))}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="label">損益百分比:</span>
+                                    <span class="value ${profitLossTWD >= 0 ? 'profit' : 'loss'}">${profitLossTWD >= 0 ? '+' : ''}${profitLossPercent.toFixed(2)}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // 顯示模態框
+                const modal = document.getElementById('profitLossDetailsModal');
+                if (modal) {
+                    document.getElementById('profitLossDetailsContent').innerHTML = feeDetails;
+                    modal.style.display = 'block';
+                }
+            }
+            
+            // 隱藏損益詳細資料
+            hideProfitLossDetails() {
+                const modal = document.getElementById('profitLossDetailsModal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+            }
+            
             // 檢查並自動補足當日匯率
             async checkAndAutoFillTodayRates() {
                 // 防止重複執行
@@ -2283,7 +2576,7 @@ service cloud.firestore {
                     this.hasShownStartNotification = false;
                     
                     if (total === 0) {
-                        this.showNotification(`✅ 匯率資料已是最新，無需更新`, 'success');
+                        this.showNotification(`✅ 匯率已是最新，無需更新`, 'success');
                     } else {
                         this.showNotification(`✅ 同步 ${total} 筆匯率完成`, 'success');
                     }
@@ -2885,18 +3178,53 @@ service cloud.firestore {
                     // 計算損益
                     const costBasis = quantity * purchasePrice;
                     const currentValue = quantity * currentPrice;
-                    const profitLoss = currentValue - costBasis;
+                    
+                    // 如果是股票，計算實際成交金額（扣除手續費和交易稅）
+                    let actualValue = currentValue;
+                    let feeDetails = '';
+                    if (asset.type === '股票') {
+                        const actualAmount = this.calculateActualAmount(quantity, currentPrice, asset.currency, asset.stockCode);
+                        actualValue = actualAmount.actualAmount;
+                        
+                        // 準備 tooltip 內容
+                        const marketValueTWD = await this.convertToTWD(actualAmount.marketValue, asset.currency);
+                        const commissionTWD = await this.convertToTWD(actualAmount.commission, asset.currency);
+                        const taxTWD = await this.convertToTWD(actualAmount.tax, asset.currency);
+                        const actualAmountTWD = await this.convertToTWD(actualAmount.actualAmount, asset.currency);
+                        
+                        feeDetails = `
+                            市場市值: NT$ ${this.formatNumber(marketValueTWD)}
+                            手續費: NT$ ${this.formatNumber(commissionTWD)} (${(actualAmount.commissionRate * 100).toFixed(4)}%)
+                            交易稅: NT$ ${this.formatNumber(taxTWD)} (${(actualAmount.taxRate * 100).toFixed(3)}%)
+                            實際金額: NT$ ${this.formatNumber(actualAmountTWD)}
+                        `;
+                    }
+                    
+                    const profitLoss = actualValue - costBasis;
                     const profitLossPercent = costBasis > 0 ? (profitLoss / costBasis) * 100 : 0;
                     
                     // 轉換為台幣（使用購買日期的匯率）
                     const purchaseDate = asset.purchaseDate ? new Date(asset.purchaseDate) : null;
                     const costBasisTWD = await this.convertToTWD(costBasis, asset.currency, 1, purchaseDate);
                     const currentValueTWD = await this.convertToTWD(currentValue, asset.currency);
-                    const profitLossTWD = currentValueTWD - costBasisTWD;
+                    const actualValueTWD = await this.convertToTWD(actualValue, asset.currency);
+                    const profitLossTWD = actualValueTWD - costBasisTWD;
                     
                     // 損益顏色
                     const pnlClass = profitLoss >= 0 ? 'profit' : 'loss';
                     const pnlSign = profitLoss >= 0 ? '+' : '';
+                    
+                    // 損益 tooltip
+                    const profitLossTooltip = asset.type === '股票' ? 
+                        `title="${feeDetails}"` : '';
+                    
+                    // 損益百分比 tooltip
+                    const profitLossPercentTooltip = asset.type === '股票' ? 
+                        `title="${feeDetails}"` : '';
+                    
+                    // 損益詳細資料按鈕
+                    const profitLossDetailButton = asset.type === '股票' ? 
+                        `<button onclick="expenseTracker.showProfitLossDetails('${asset.id}')" class="btn-detail" title="查看詳細損益">📊</button>` : '';
                     
                     return `
                         <tr data-asset-id="${asset.id}">
@@ -2914,10 +3242,15 @@ service cloud.firestore {
                             <td>${asset.currency} ${currentPrice.toFixed(2)}</td>
                             <td>NT$ ${this.formatNumber(costBasisTWD)}</td>
                             <td>NT$ ${this.formatNumber(currentValueTWD)}</td>
-                            <td class="${pnlClass}">${pnlSign}NT$ ${this.formatNumber(Math.abs(profitLossTWD))}</td>
-                            <td class="${pnlClass}">${pnlSign}${profitLossPercent.toFixed(2)}%</td>
+                            <td class="${pnlClass}" ${profitLossTooltip}>
+                                ${pnlSign}NT$ ${this.formatNumber(Math.abs(profitLossTWD))}
+                            </td>
+                            <td class="${pnlClass}" ${profitLossPercentTooltip}>
+                                ${pnlSign}${profitLossPercent.toFixed(2)}%
+                            </td>
                             <td class="operation-cell">
                                 <div class="btn-group">
+                                    ${profitLossDetailButton}
                                     <button onclick="expenseTracker.editAsset('${asset.id}')" class="btn-edit" title="編輯">✏️</button>
                                     <button onclick="expenseTracker.deleteAsset('${asset.id}')" class="btn-delete" title="刪除">🗑️</button>
                                 </div>
@@ -2935,6 +3268,7 @@ service cloud.firestore {
             async updatePortfolioSummary() {
                 let totalValue = 0;
                 let totalCost = 0;
+                let totalActualValue = 0; // 實際成交金額（扣除費用）
                 
                 for (const asset of this.assets) {
                     const quantity = parseFloat(asset.quantity) || 0;
@@ -2951,10 +3285,20 @@ service cloud.firestore {
                     const currentValue = quantity * currentPrice;
                     const currentValueTWD = await this.convertToTWD(currentValue, asset.currency);
                     totalValue += currentValueTWD;
+                    
+                    // 如果是股票，計算實際成交金額（扣除手續費和交易稅）
+                    if (asset.type === '股票') {
+                        const actualAmount = this.calculateActualAmount(quantity, currentPrice, asset.currency, asset.stockCode);
+                        const actualAmountTWD = await this.convertToTWD(actualAmount.actualAmount, asset.currency);
+                        totalActualValue += actualAmountTWD;
+                    } else {
+                        // 非股票資產，實際金額等於市場價值
+                        totalActualValue += currentValueTWD;
+                    }
                 }
                 
-                // 計算總損益
-                const totalProfitLoss = totalValue - totalCost;
+                // 計算總損益（使用實際成交金額）
+                const totalProfitLoss = totalActualValue - totalCost;
                 
                 // 更新顯示
                 document.getElementById('portfolioTotalValue').textContent = '$' + this.formatNumber(totalValue);
@@ -2973,6 +3317,13 @@ service cloud.firestore {
                 if (assetCountDisplay) {
                     assetCountDisplay.textContent = `(${this.assets.length} 項)`;
                 }
+                
+                console.log('資產組合摘要更新:', {
+                    totalValue: totalValue,
+                    totalCost: totalCost,
+                    totalActualValue: totalActualValue,
+                    totalProfitLoss: totalProfitLoss
+                });
             }
             
             async convertToTWD(quantity, currency, unitPrice = 1, date = null) {
@@ -4991,5 +5342,80 @@ service cloud.firestore {
 
     <!-- 通知容器 -->
     <div id="notificationContainer" style="position: fixed; bottom: 20px; left: 20px; z-index: 10000; max-width: 300px;"></div>
+
+    <!-- 交易費用配置模態框 -->
+    <div id="tradingFeesConfigModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>💰 交易費用配置</h2>
+                <span class="close" onclick="expenseTracker.hideTradingFeesConfig()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="config-section">
+                    <h3>手續費設定</h3>
+                    <div class="form-group">
+                        <label for="commissionRate">手續費率</label>
+                        <input type="number" id="commissionRate" step="0.000001" min="0" max="0.1" 
+                               value="0.001425" placeholder="0.001425">
+                        <small>預設值：0.001425 (0.1425%)</small>
+                    </div>
+                </div>
+                
+                <div class="config-section">
+                    <h3>交易稅設定</h3>
+                    <div class="form-group">
+                        <label for="taxRateTWD">台股交易稅率</label>
+                        <input type="number" id="taxRateTWD" step="0.000001" min="0" max="0.1" 
+                               value="0.003" placeholder="0.003">
+                        <small>預設值：0.003 (0.3%)</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="taxRateUSD">美股交易稅率</label>
+                        <input type="number" id="taxRateUSD" step="0.000001" min="0" max="0.1" 
+                               value="0.003" placeholder="0.003">
+                        <small>預設值：0.003 (0.3%)</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="taxRateETF">ETF交易稅率</label>
+                        <input type="number" id="taxRateETF" step="0.000001" min="0" max="0.1" 
+                               value="0.001" placeholder="0.001">
+                        <small>預設值：0.001 (0.1%)</small>
+                    </div>
+                </div>
+                
+                <div class="config-section">
+                    <h3>計算公式</h3>
+                    <div class="formula-display">
+                        <p><strong>實際成交金額 = 股數 × 現價 × (1 - 手續費率 - 交易稅率)</strong></p>
+                        <p>例如：100股 × $50 × (1 - 0.001425 - 0.003) = $4,977.86</p>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button class="btn btn-primary" onclick="expenseTracker.saveTradingFeesConfigFromForm()">
+                        💾 儲存配置
+                    </button>
+                    <button class="btn btn-secondary" onclick="expenseTracker.hideTradingFeesConfig()">
+                        取消
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 損益詳細資料模態框 -->
+    <div id="profitLossDetailsModal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>📊 損益詳細資料</h2>
+                <span class="close" onclick="expenseTracker.hideProfitLossDetails()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="profitLossDetailsContent">
+                    <!-- 動態內容將在這裡顯示 -->
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
