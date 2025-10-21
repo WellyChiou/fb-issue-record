@@ -342,22 +342,42 @@
                             📅 載入該日期匯率
                         </button>
                     </div>
-                    <div class="exchange-rates-grid">
-                        <div class="exchange-rate-item">
-                            <label>美元 (USD)</label>
-                            <input type="number" id="usdRate" step="0.0001" placeholder="30.0000">
+                    <div class="exchange-rates-cards">
+                        <div class="exchange-rate-card">
+                            <div class="currency-header">
+                                <span class="currency-name">美元</span>
+                                <span class="currency-code">(USD)</span>
+                            </div>
+                            <div class="currency-rate">
+                                <input type="number" id="usdRate" step="0.0001" placeholder="30.0000">
+                            </div>
                         </div>
-                        <div class="exchange-rate-item">
-                            <label>歐元 (EUR)</label>
-                            <input type="number" id="eurRate" step="0.0001" placeholder="32.0000">
+                        <div class="exchange-rate-card">
+                            <div class="currency-header">
+                                <span class="currency-name">歐元</span>
+                                <span class="currency-code">(EUR)</span>
+                            </div>
+                            <div class="currency-rate">
+                                <input type="number" id="eurRate" step="0.0001" placeholder="32.0000">
+                            </div>
                         </div>
-                        <div class="exchange-rate-item">
-                            <label>日圓 (JPY)</label>
-                            <input type="number" id="jpyRate" step="0.0001" placeholder="0.2000">
+                        <div class="exchange-rate-card">
+                            <div class="currency-header">
+                                <span class="currency-name">日圓</span>
+                                <span class="currency-code">(JPY)</span>
+                            </div>
+                            <div class="currency-rate">
+                                <input type="number" id="jpyRate" step="0.0001" placeholder="0.2000">
+                            </div>
                         </div>
-                        <div class="exchange-rate-item">
-                            <label>人民幣 (CNY)</label>
-                            <input type="number" id="cnyRate" step="0.0001" placeholder="4.2000">
+                        <div class="exchange-rate-card">
+                            <div class="currency-header">
+                                <span class="currency-name">人民幣</span>
+                                <span class="currency-code">(CNY)</span>
+                            </div>
+                            <div class="currency-rate">
+                                <input type="number" id="cnyRate" step="0.0001" placeholder="4.2000">
+                            </div>
                         </div>
                     </div>
                     <div class="exchange-rate-actions">
@@ -373,39 +393,6 @@
                     </div>
                 </div>
                 
-                <div class="exchange-rate-section">
-                    <h3>歷史匯率查詢</h3>
-                    <div class="history-rate-controls">
-                        <div class="form-group">
-                            <label for="historyDate">查詢日期</label>
-                            <input type="date" id="historyDate">
-            </div>
-                        <button class="btn btn-outline" onclick="expenseTracker.loadHistoryRates()">
-                            📅 載入歷史匯率
-                        </button>
-                    </div>
-                    <div id="historyRatesDisplay" class="history-rates-display" style="display: none;">
-                        <h4>歷史匯率</h4>
-                        <div class="exchange-rates-grid">
-                            <div class="exchange-rate-item">
-                                <label>美元 (USD)</label>
-                                <span id="historyUsdRate">-</span>
-                            </div>
-                            <div class="exchange-rate-item">
-                                <label>歐元 (EUR)</label>
-                                <span id="historyEurRate">-</span>
-                            </div>
-                            <div class="exchange-rate-item">
-                                <label>日圓 (JPY)</label>
-                                <span id="historyJpyRate">-</span>
-                            </div>
-                            <div class="exchange-rate-item">
-                                <label>人民幣 (CNY)</label>
-                                <span id="historyCnyRate">-</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -2384,90 +2371,6 @@ service cloud.firestore {
             }
             
             // 載入歷史匯率
-            async loadHistoryRates() {
-                const dateInput = document.getElementById('historyDate');
-                const historyDisplay = document.getElementById('historyRatesDisplay');
-                const loadButton = document.querySelector('button[onclick="expenseTracker.loadHistoryRates()"]');
-                
-                if (!dateInput.value) {
-                    this.showNotification('請選擇查詢日期', 'warning');
-                    return;
-                }
-                
-                // 顯示 loading 狀態
-                if (loadButton) {
-                    loadButton.disabled = true;
-                    loadButton.textContent = '🔄 載入中...';
-                }
-                
-                // 顯示 loading 在匯率顯示區域
-                const currencies = ['USD', 'EUR', 'JPY', 'CNY'];
-                currencies.forEach(currency => {
-                    const elementId = `history${currency.charAt(0)}${currency.slice(1).toLowerCase()}Rate`;
-                    const element = document.getElementById(elementId);
-                    if (element) {
-                        element.textContent = '載入中...';
-                        element.style.color = '#666';
-                    }
-                });
-                
-                try {
-                    const selectedDate = new Date(dateInput.value);
-                    console.log(`🔍 載入歷史匯率 - 選擇的日期: ${dateInput.value}`);
-                    console.log(`📅 轉換後的日期對象:`, selectedDate);
-                    
-                    // 載入每個幣別的歷史匯率
-                    for (const currency of currencies) {
-                        console.log(`🔄 開始載入 ${currency} 匯率...`);
-                        const rate = await this.getExchangeRateForDate(currency, selectedDate);
-                        console.log(`💰 獲得的 ${currency} 匯率: ${rate}`);
-                        
-                        const elementId = `history${currency.charAt(0)}${currency.slice(1).toLowerCase()}Rate`;
-                        const element = document.getElementById(elementId);
-                        console.log(`🎯 查找元素 ID: ${elementId}`);
-                        console.log(`🎯 找到元素:`, element);
-                        
-                        if (element) {
-                            if (rate !== null) {
-                                element.textContent = rate.toFixed(4);
-                                element.style.color = '#000';
-                                console.log(`✅ 已設定 ${currency} 顯示值: ${rate.toFixed(4)}`);
-                            } else {
-                                element.textContent = '-';
-                                element.style.color = '#999';
-                                console.log(`❌ ${currency} 匯率未找到，顯示: -`);
-                            }
-                        } else {
-                            console.error(`❌ 找不到元素 ${elementId}`);
-                        }
-                    }
-                    
-                    historyDisplay.style.display = 'block';
-                    console.log(`📺 歷史匯率顯示區域已顯示:`, historyDisplay);
-                    console.log(`📺 顯示區域的 display 樣式:`, historyDisplay.style.display);
-                    this.showNotification(`已載入 ${dateInput.value} 的歷史匯率`, 'success');
-                    
-                } catch (error) {
-                    console.error('載入歷史匯率失敗:', error);
-                    this.showNotification('載入歷史匯率失敗', 'error');
-                    
-                    // 顯示錯誤狀態
-                    currencies.forEach(currency => {
-                        const elementId = `history${currency.charAt(0)}${currency.slice(1).toLowerCase()}Rate`;
-                        const element = document.getElementById(elementId);
-                        if (element) {
-                            element.textContent = '載入失敗';
-                            element.style.color = '#dc3545';
-                        }
-                    });
-                } finally {
-                    // 恢復按鈕狀態
-                    if (loadButton) {
-                        loadButton.disabled = false;
-                        loadButton.textContent = '📅 載入歷史匯率';
-                    }
-                }
-            }
             
             // ========== 資產組合管理功能 ==========
             
