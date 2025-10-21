@@ -851,6 +851,70 @@
                 this.init();
             }
 
+            // 處理用戶登入邏輯（避免重複載入）
+            async handleUserLogin(user) {
+                this.showLoading('載入用戶資料', '正在更新用戶資訊...');
+                console.log('使用者詳細資訊:', {
+                    uid: user.uid,
+                    email: user.email,
+                    displayName: user.displayName,
+                    providerId: user.providerData?.[0]?.providerId
+                });
+                
+                // 先更新使用者基本資料（無論啟用狀態如何）
+                console.log('開始執行 updateUserProfile...');
+                const updateSuccess = await this.updateUserProfile(user);
+                console.log('updateUserProfile 執行結果:', updateSuccess);
+                if (!updateSuccess) {
+                    console.error('❌ 使用者資料更新失敗！');
+                    console.error('這可能是因為 Firebase 權限問題或網路問題');
+                } else {
+                    console.log('✅ 使用者資料更新成功');
+                }
+                
+                // 然後檢查使用者啟用狀態
+                console.log('開始檢查使用者啟用狀態...');
+                const userStatus = await this.checkUserStatus(user);
+                console.log('使用者狀態檢查結果:', userStatus);
+                console.log('isActive 值:', userStatus.isActive);
+                console.log('isActive 類型:', typeof userStatus.isActive);
+                
+                if (!userStatus.isActive) {
+                    console.log('❌ 使用者尚未啟用，顯示未啟用訊息:', user.email);
+                    this.showInactiveUserMessage(user);
+                    return;
+                } else {
+                    console.log('✅ 使用者已啟用，繼續載入應用程式');
+                }
+                
+                this.currentUser = user;
+                this.isFirebaseReady = true;
+                
+                // 載入記錄
+                this.showLoading('載入記帳資料', '正在從資料庫讀取記錄...');
+                await this.loadRecordsFromFirebase();
+                
+                // 載入匯率
+                try {
+                    await this.loadExchangeRatesFromFirebase();
+                    console.log('匯率載入完成');
+                } catch (error) {
+                    console.error('匯率載入失敗:', error);
+                }
+                
+                this.hideLoading();
+                
+                // 畫面載入完成後，延遲執行自動更新匯率
+                setTimeout(async () => {
+                    if (!this.isExchangeRateChecked) {
+                        await this.checkAndUpdateExchangeRates();
+                    }
+                }, 2000);
+                
+                // 顯示用戶資訊
+                this.showUserInfo(user);
+            }
+
             // Firebase 初始化
             async initFirebase() {
                 try {
@@ -874,129 +938,29 @@
                     
                     if (authState) {
                         console.log('檢測到現有登入狀態:', authState.uid);
-                        this.showLoading('載入用戶資料', '正在更新用戶資訊...');
-                        console.log('使用者詳細資訊:', {
-                            uid: authState.uid,
-                            email: authState.email,
-                            displayName: authState.displayName,
-                            providerId: authState.providerData?.[0]?.providerId
-                        });
-                        
-                        // 先更新使用者基本資料（無論啟用狀態如何）
-                        console.log('開始執行 updateUserProfile...');
-                        const updateSuccess = await this.updateUserProfile(authState);
-                        console.log('updateUserProfile 執行結果:', updateSuccess);
-                        if (!updateSuccess) {
-                            console.error('❌ 使用者資料更新失敗！');
-                            console.error('這可能是因為 Firebase 權限問題或網路問題');
-                        } else {
-                            console.log('✅ 使用者資料更新成功');
-                        }
-                        
-                        // 然後檢查使用者啟用狀態
-                        console.log('開始檢查使用者啟用狀態...');
-                        const userStatus = await this.checkUserStatus(authState);
-                        console.log('使用者狀態檢查結果:', userStatus);
-                        console.log('isActive 值:', userStatus.isActive);
-                        console.log('isActive 類型:', typeof userStatus.isActive);
-                        
-                        if (!userStatus.isActive) {
-                            console.log('❌ 使用者尚未啟用，顯示未啟用訊息:', authState.email);
-                            this.showInactiveUserMessage(authState);
-                            return;
-                        } else {
-                            console.log('✅ 使用者已啟用，繼續載入應用程式');
-                        }
-                        
-                        this.currentUser = authState;
-                        this.isFirebaseReady = true;
-                        
-                        // 載入記錄
-                        this.showLoading('載入記帳資料', '正在從資料庫讀取記錄...');
-                        await this.loadRecordsFromFirebase();
-                        
-                        // 載入匯率
-                        try {
-                            await this.loadExchangeRatesFromFirebase();
-                            console.log('匯率載入完成');
-                        } catch (error) {
-                            console.error('匯率載入失敗:', error);
-                        }
-                        
-                        this.hideLoading();
-                        
-                        // 畫面載入完成後，延遲執行自動更新匯率
-                        setTimeout(async () => {
-                            try {
-                                console.log('🔄 畫面載入完成，開始自動檢查匯率...');
-                                await this.checkAndAutoFillTodayRates();
-                            } catch (error) {
-                                console.error('自動更新匯率失敗:', error);
-                            }
-                        }, 2000); // 延遲 2 秒執行
+                        // 直接處理已登入的用戶，不重複載入
+                        await this.handleUserLogin(authState);
+                        console.log('✅ Firebase 初始化完成');
                     } else {
                         console.log('未檢測到登入狀態，導向登入頁面');
                         window.location.href = 'enter_login.html';
                     }
                     
-                    // 監聽認證狀態變化
+                    // 監聽認證狀態變化（僅處理狀態變化，不重複載入）
                     window.firebaseOnAuthStateChanged(window.firebaseAuth, (user) => {
                         if (user) {
                             console.log('認證狀態變化 - 已登入:', user.uid);
-                            this.showLoading('載入用戶資料', '正在更新用戶資訊...');
-                            
-                            // 先更新使用者基本資料（無論啟用狀態如何）
-                            console.log('開始執行 updateUserProfile...');
-                            this.updateUserProfile(user).then(async updateSuccess => {
-                                console.log('updateUserProfile 執行結果:', updateSuccess);
-                                if (!updateSuccess) {
-                                    console.error('❌ 使用者資料更新失敗！');
-                                    console.error('這可能是因為 Firebase 權限問題或網路問題');
-                                } else {
-                                    console.log('✅ 使用者資料更新成功');
-                                }
-                                
-                                // 然後檢查使用者啟用狀態
-                                const userStatus = await this.checkUserStatus(user);
-                                if (!userStatus.isActive) {
-                                    console.log('使用者尚未啟用:', user.email);
-                                    this.hideLoading();
-                                    this.showInactiveUserMessage(user);
-                                    return;
-                                }
-                                
-                                this.currentUser = user;
-                                this.isFirebaseReady = true;
-                                
-                                // 顯示用戶資訊
+                            // 只有在尚未載入過的情況下才處理
+                            if (!this.isFirebaseReady) {
+                                console.log('首次認證狀態變化，開始載入用戶資料...');
+                                this.handleUserLogin(user);
+                            } else {
+                                console.log('用戶已載入，僅更新用戶資訊');
                                 this.showUserInfo(user);
-                                
-                                // 載入記錄
-                                this.showLoading('載入記帳資料', '正在從資料庫讀取記錄...');
-                                await this.loadRecordsFromFirebase();
-                                
-                                // 載入匯率
-                                try {
-                                    await this.loadExchangeRatesFromFirebase();
-                                    console.log('匯率載入完成');
-                                } catch (error) {
-                                    console.error('匯率載入失敗:', error);
-                                }
-                                
-                                this.hideLoading();
-                                
-                                // 畫面載入完成後，延遲執行自動更新匯率
-                                setTimeout(async () => {
-                                    try {
-                                        console.log('🔄 畫面載入完成，開始自動檢查匯率...');
-                                        await this.checkAndAutoFillTodayRates();
-                                    } catch (error) {
-                                        console.error('自動更新匯率失敗:', error);
-                                    }
-                                }, 2000); // 延遲 2 秒執行
-                            });
+                            }
                         } else {
-                            console.log('認證狀態變化 - 已登出，導向登入頁面');
+                            console.log('認證狀態變化 - 已登出');
+                            // 登出時重導向到登入頁面
                             window.location.href = 'enter_login.html';
                         }
                     });
