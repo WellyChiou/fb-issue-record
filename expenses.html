@@ -5097,6 +5097,57 @@ service cloud.firestore {
                         this.updateCharts();
                     });
                 }
+
+                // 燈箱點擊外部關閉功能
+                window.addEventListener('click', (event) => {
+                    // 檢查所有燈箱
+                    const modals = [
+                        'chartsModal',
+                        'exchangeRateModal', 
+                        'updateStocksLoadingModal',
+                        'assetPortfolioModal',
+                        'addAssetModal',
+                        'dataMigrationModal',
+                        'tradingFeesConfigModal',
+                        'profitLossDetailsModal'
+                    ];
+                    
+                    modals.forEach(modalId => {
+                        const modal = document.getElementById(modalId);
+                        if (modal && modal.style.display === 'block') {
+                            // 如果點擊的是燈箱本身（不是內容區域），則關閉燈箱
+                            if (event.target === modal) {
+                                // 根據不同的燈箱調用對應的關閉方法
+                                switch(modalId) {
+                                    case 'chartsModal':
+                                        this.hideChartsModal();
+                                        break;
+                                    case 'exchangeRateModal':
+                                        this.hideExchangeRates();
+                                        break;
+                                    case 'updateStocksLoadingModal':
+                                        this.hideUpdateStocksLoading();
+                                        break;
+                                    case 'assetPortfolioModal':
+                                        this.hideAssetPortfolio();
+                                        break;
+                                    case 'addAssetModal':
+                                        this.hideAddAssetForm();
+                                        break;
+                                    case 'dataMigrationModal':
+                                        this.hideDataMigration();
+                                        break;
+                                    case 'tradingFeesConfigModal':
+                                        this.hideTradingFeesConfig();
+                                        break;
+                                    case 'profitLossDetailsModal':
+                                        this.hideProfitLossDetails();
+                                        break;
+                                }
+                            }
+                        }
+                    });
+                });
             }
 
             // 更新細項選項
