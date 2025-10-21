@@ -257,17 +257,14 @@
                             <option value="">所有類型</option>
                             <option value="收入">收入</option>
                             <option value="支出">支出</option>
-                            <option value="資產">資產</option>
                         </select>
                         
                         <label for="chartFilterYear">年份：</label>
-                        <select id="chartFilterYear">
-                            <option value="">所有年份</option>
+                        <select id="chartFilterYear" required>
                         </select>
                         
                         <label for="chartFilterMonth">月份：</label>
-                        <select id="chartFilterMonth">
-                            <option value="">所有月份</option>
+                        <select id="chartFilterMonth" required>
                             <option value="01">1月</option>
                             <option value="02">2月</option>
                             <option value="03">3月</option>
@@ -308,8 +305,8 @@
                     </div>
                 </div>
                 
-                <h2 class="asset-section-title">資產統計</h2>
-                <div class="chart-row asset-section">
+                <h2 class="asset-section-title" style="display: none;">資產統計</h2>
+                <div class="chart-row asset-section" style="display: none;">
                     <div class="chart-container">
                         <h3>資產類別分布</h3>
                         <canvas id="assetCategoryChart"></canvas>
@@ -352,8 +349,8 @@
                                 <span class="currency-code">(USD)</span>
                             </div>
                             <div class="currency-rate">
-                                <input type="number" id="usdRate" step="0.0001" placeholder="30.0000">
-                            </div>
+                            <input type="number" id="usdRate" step="0.0001" placeholder="30.0000">
+                        </div>
                         </div>
                         <div class="exchange-rate-card">
                             <div class="currency-header">
@@ -361,8 +358,8 @@
                                 <span class="currency-code">(EUR)</span>
                             </div>
                             <div class="currency-rate">
-                                <input type="number" id="eurRate" step="0.0001" placeholder="32.0000">
-                            </div>
+                            <input type="number" id="eurRate" step="0.0001" placeholder="32.0000">
+                        </div>
                         </div>
                         <div class="exchange-rate-card">
                             <div class="currency-header">
@@ -370,8 +367,8 @@
                                 <span class="currency-code">(JPY)</span>
                             </div>
                             <div class="currency-rate">
-                                <input type="number" id="jpyRate" step="0.0001" placeholder="0.2000">
-                            </div>
+                            <input type="number" id="jpyRate" step="0.0001" placeholder="0.2000">
+                        </div>
                         </div>
                         <div class="exchange-rate-card">
                             <div class="currency-header">
@@ -379,7 +376,7 @@
                                 <span class="currency-code">(CNY)</span>
                             </div>
                             <div class="currency-rate">
-                                <input type="number" id="cnyRate" step="0.0001" placeholder="4.2000">
+                            <input type="number" id="cnyRate" step="0.0001" placeholder="4.2000">
                             </div>
                         </div>
                     </div>
@@ -853,46 +850,46 @@
 
             // 處理用戶登入邏輯（避免重複載入）
             async handleUserLogin(user) {
-                this.showLoading('載入用戶資料', '正在更新用戶資訊...');
-                console.log('使用者詳細資訊:', {
+                        this.showLoading('載入用戶資料', '正在更新用戶資訊...');
+                        console.log('使用者詳細資訊:', {
                     uid: user.uid,
                     email: user.email,
                     displayName: user.displayName,
                     providerId: user.providerData?.[0]?.providerId
-                });
-                
-                // 先更新使用者基本資料（無論啟用狀態如何）
-                console.log('開始執行 updateUserProfile...');
+                        });
+                        
+                        // 先更新使用者基本資料（無論啟用狀態如何）
+                        console.log('開始執行 updateUserProfile...');
                 const updateSuccess = await this.updateUserProfile(user);
-                console.log('updateUserProfile 執行結果:', updateSuccess);
-                if (!updateSuccess) {
-                    console.error('❌ 使用者資料更新失敗！');
-                    console.error('這可能是因為 Firebase 權限問題或網路問題');
-                } else {
-                    console.log('✅ 使用者資料更新成功');
-                }
-                
-                // 然後檢查使用者啟用狀態
-                console.log('開始檢查使用者啟用狀態...');
+                        console.log('updateUserProfile 執行結果:', updateSuccess);
+                        if (!updateSuccess) {
+                            console.error('❌ 使用者資料更新失敗！');
+                            console.error('這可能是因為 Firebase 權限問題或網路問題');
+                        } else {
+                            console.log('✅ 使用者資料更新成功');
+                        }
+                        
+                        // 然後檢查使用者啟用狀態
+                        console.log('開始檢查使用者啟用狀態...');
                 const userStatus = await this.checkUserStatus(user);
-                console.log('使用者狀態檢查結果:', userStatus);
-                console.log('isActive 值:', userStatus.isActive);
-                console.log('isActive 類型:', typeof userStatus.isActive);
-                
-                if (!userStatus.isActive) {
+                        console.log('使用者狀態檢查結果:', userStatus);
+                        console.log('isActive 值:', userStatus.isActive);
+                        console.log('isActive 類型:', typeof userStatus.isActive);
+                        
+                        if (!userStatus.isActive) {
                     console.log('❌ 使用者尚未啟用，顯示未啟用訊息:', user.email);
                     this.showInactiveUserMessage(user);
-                    return;
-                } else {
-                    console.log('✅ 使用者已啟用，繼續載入應用程式');
-                }
-                
+                            return;
+                        } else {
+                            console.log('✅ 使用者已啟用，繼續載入應用程式');
+                        }
+                        
                 this.currentUser = user;
-                this.isFirebaseReady = true;
-                
-                // 載入記錄
-                this.showLoading('載入記帳資料', '正在從資料庫讀取記錄...');
-                await this.loadRecordsFromFirebase();
+                        this.isFirebaseReady = true;
+                        
+                        // 載入記錄
+                        this.showLoading('載入記帳資料', '正在從資料庫讀取記錄...');
+                        await this.loadRecordsFromFirebase();
                 
                 // 載入匯率
                 try {
@@ -902,12 +899,12 @@
                     console.error('匯率載入失敗:', error);
                 }
                 
-                this.hideLoading();
+                        this.hideLoading();
                 
                 // 畫面載入完成後，延遲執行自動更新匯率
                 setTimeout(async () => {
                     if (!this.isExchangeRateChecked) {
-                        await this.checkAndUpdateExchangeRates();
+                        await this.checkAndAutoFillTodayRates();
                     }
                 }, 2000);
                 
@@ -954,7 +951,7 @@
                             if (!this.isFirebaseReady) {
                                 console.log('首次認證狀態變化，開始載入用戶資料...');
                                 this.handleUserLogin(user);
-                            } else {
+                                } else {
                                 console.log('用戶已載入，僅更新用戶資訊');
                                 this.showUserInfo(user);
                             }
@@ -1793,13 +1790,20 @@ service cloud.firestore {
             }
 
             // 顯示圖表彈窗
-            showChartsModal() {
+            async showChartsModal() {
                 console.log('顯示圖表彈窗');
                 const modal = document.getElementById('chartsModal');
                 if (modal) {
                     modal.style.display = 'block';
+                    
+                    // 更新篩選器並設定預設值
                     this.updateChartFilters();
-                    this.updateCharts();
+                    
+                    // 資產圓餅圖已隱藏，不需要載入資產資料
+                    console.log('資產圓餅圖已隱藏，跳過資產資料載入');
+                    
+                    // 立即載入圖表
+                    await this.updateCharts();
                 } else {
                     console.error('找不到圖表彈窗元素');
                 }
@@ -1807,23 +1811,35 @@ service cloud.firestore {
 
             // 更新圖表篩選器
             updateChartFilters() {
+                console.log('updateChartFilters - 記錄數量:', this.records.length);
+                console.log('updateChartFilters - 記錄資料:', this.records);
+                
                 // 更新年份篩選器
                 const chartFilterYear = document.getElementById('chartFilterYear');
                 if (chartFilterYear) {
                     const allYears = [...new Set(this.records.map(r => r.date.split('-')[0]))].sort((a, b) => b - a);
-                    chartFilterYear.innerHTML = '<option value="">所有年份</option>' + 
-                        allYears.map(year => `<option value="${year}">${year}</option>`).join('');
+                    console.log('可用的年份:', allYears);
+                    chartFilterYear.innerHTML = allYears.map(year => `<option value="${year}">${year}</option>`).join('');
+                    
+                    // 設定預設值為當前年份
+                    const currentYear = new Date().getFullYear().toString();
+                    console.log('當前年份:', currentYear);
+                    if (allYears.includes(currentYear)) {
+                        chartFilterYear.value = currentYear;
+                        console.log('設定年份為當前年份:', currentYear);
+                    } else if (allYears.length > 0) {
+                        chartFilterYear.value = allYears[0]; // 設定為最新的年份
+                        console.log('設定年份為最新年份:', allYears[0]);
+                    }
                 }
                 
                 // 更新月份篩選器
                 const chartFilterMonth = document.getElementById('chartFilterMonth');
                 if (chartFilterMonth) {
-                    const allMonths = [...new Set(this.records.map(r => r.date.split('-')[1]))].sort((a, b) => a - b);
-                    chartFilterMonth.innerHTML = '<option value="">所有月份</option>' + 
-                        allMonths.map(month => {
-                            const monthNames = ['', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
-                            return `<option value="${month}">${monthNames[parseInt(month)]}</option>`;
-                        }).join('');
+                    // 設定預設值為當前月份
+                    const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
+                    chartFilterMonth.value = currentMonth;
+                    console.log('設定月份為當前月份:', currentMonth);
                 }
             }
 
@@ -3297,8 +3313,8 @@ service cloud.firestore {
                 
                 // 如果沒有指定日期，使用當前匯率
                 if (!date) {
-                    const rate = this.exchangeRates[currency] || 1;
-                    return quantity * unitPrice * rate;
+                const rate = this.exchangeRates[currency] || 1;
+                return quantity * unitPrice * rate;
                 }
                 
                 // 使用指定日期的匯率
@@ -4445,10 +4461,20 @@ service cloud.firestore {
             }
 
             // 更新圖表
-            updateCharts() {
+            async updateCharts() {
                 const chartTypeFilter = document.getElementById('chartFilterType').value;
                 const chartYearFilter = document.getElementById('chartFilterYear').value;
                 const chartMonthFilter = document.getElementById('chartFilterMonth').value;
+                
+                console.log('更新圖表 - 篩選條件:', { chartTypeFilter, chartYearFilter, chartMonthFilter });
+                console.log('當前資產數量:', this.assets.length);
+                console.log('當前記錄數量:', this.records.length);
+                
+                // 檢查篩選器是否有值
+                if (!chartYearFilter || !chartMonthFilter) {
+                    console.error('年份或月份篩選器沒有值:', { chartYearFilter, chartMonthFilter });
+                    return;
+                }
                 
                 // 根據圖表篩選器過濾記錄
                 const filteredRecords = this.records.filter(record => {
@@ -4457,9 +4483,12 @@ service cloud.firestore {
                     const recordMonth = String(recordDate.getMonth() + 1).padStart(2, '0');
                     
                     return (!chartTypeFilter || record.type === chartTypeFilter) &&
-                           (!chartYearFilter || recordYear === chartYearFilter) &&
-                           (!chartMonthFilter || recordMonth === chartMonthFilter);
+                           recordYear === chartYearFilter &&
+                           recordMonth === chartMonthFilter;
                 });
+                
+                console.log('篩選後的記錄數量:', filteredRecords.length);
+                console.log('篩選後的記錄:', filteredRecords);
                 
                 // 控制圖表顯示/隱藏
                 this.toggleChartSections(chartTypeFilter);
@@ -4549,45 +4578,81 @@ service cloud.firestore {
                 
                 this.incomeMemberChart.update();
 
-                // 更新資產類別圖表
-                const assetCategoryData = this.getCategoryData(assetRecords);
-                this.assetCategoryChart.data.labels = assetCategoryData.labels;
-                this.assetCategoryChart.data.datasets[0].data = assetCategoryData.data;
-                
-                // 如果沒有資產資料，顯示提示
-                if (assetCategoryData.labels.length === 0) {
-                    const filterText = this.getFilterText(chartTypeFilter, chartYearFilter, chartMonthFilter);
-                    this.assetCategoryChart.data.labels = [`${filterText}暫無資產資料`];
-                    this.assetCategoryChart.data.datasets[0].data = [1];
-                    this.assetCategoryChart.data.datasets[0].backgroundColor = ['#e0e0e0'];
-                } else {
-                    // 恢復原始顏色
-                    this.assetCategoryChart.data.datasets[0].backgroundColor = [
-                        '#f39c12', '#e67e22', '#d35400', '#e74c3c', '#c0392b', '#f39c12', '#e67e22', '#d35400', '#e74c3c', '#c0392b'
-                    ];
-                }
-                
-                this.assetCategoryChart.update();
+                // 資產圓餅圖已隱藏，停止資料讀取以提升效能
+                console.log('資產圓餅圖已隱藏，跳過資料讀取');
+            }
 
-                // 更新資產成員圖表
-                const assetMemberData = this.getMemberData(assetRecords);
-                this.assetMemberChart.data.labels = assetMemberData.labels;
-                this.assetMemberChart.data.datasets[0].data = assetMemberData.data;
+            // 獲取資產類別資料（從資產組合管理）
+            async getAssetCategoryData() {
+                console.log('getAssetCategoryData - 資產數量:', this.assets.length);
+                console.log('getAssetCategoryData - 資產資料:', this.assets);
                 
-                // 如果沒有資產資料，顯示提示
-                if (assetMemberData.labels.length === 0) {
-                    const filterText = this.getFilterText(chartTypeFilter, chartYearFilter, chartMonthFilter);
-                    this.assetMemberChart.data.labels = [`${filterText}暫無資產資料`];
-                    this.assetMemberChart.data.datasets[0].data = [1];
-                    this.assetMemberChart.data.datasets[0].backgroundColor = ['#e0e0e0'];
-                } else {
-                    // 恢復原始顏色
-                    this.assetMemberChart.data.datasets[0].backgroundColor = [
-                        '#f39c12', '#e67e22', '#d35400', '#c0392b'
-                    ];
+                if (this.assets.length === 0) {
+                    console.log('沒有資產資料，返回空陣列');
+                    return { labels: [], data: [] };
                 }
+
+                const categoryMap = new Map();
                 
-                this.assetMemberChart.update();
+                for (const asset of this.assets) {
+                    const quantity = parseFloat(asset.quantity) || 0;
+                    const currentPrice = parseFloat(asset.currentPrice) || parseFloat(asset.purchasePrice) || parseFloat(asset.unitPrice) || 0;
+                    const currentValue = quantity * currentPrice;
+                    
+                    // 轉換為台幣
+                    const currentValueTWD = await this.convertToTWD(currentValue, asset.currency);
+                    
+                    const category = asset.type || '其他';
+                    console.log(`資產: ${asset.name}, 類別: ${category}, 價值: ${currentValueTWD}`);
+                    
+                    if (categoryMap.has(category)) {
+                        categoryMap.set(category, categoryMap.get(category) + currentValueTWD);
+                    } else {
+                        categoryMap.set(category, currentValueTWD);
+                    }
+                }
+
+                const labels = Array.from(categoryMap.keys());
+                const data = Array.from(categoryMap.values());
+                
+                console.log('資產類別資料:', { labels, data });
+                return { labels, data };
+            }
+
+            // 獲取資產成員資料（從資產組合管理）
+            async getAssetMemberData() {
+                console.log('getAssetMemberData - 資產數量:', this.assets.length);
+                
+                if (this.assets.length === 0) {
+                    console.log('沒有資產資料，返回空陣列');
+                    return { labels: [], data: [] };
+                }
+
+                const memberMap = new Map();
+                
+                for (const asset of this.assets) {
+                    const quantity = parseFloat(asset.quantity) || 0;
+                    const currentPrice = parseFloat(asset.currentPrice) || parseFloat(asset.purchasePrice) || parseFloat(asset.unitPrice) || 0;
+                    const currentValue = quantity * currentPrice;
+                    
+                    // 轉換為台幣
+                    const currentValueTWD = await this.convertToTWD(currentValue, asset.currency);
+                    
+                    const member = asset.member || '未指定';
+                    console.log(`資產: ${asset.name}, 成員: ${member}, 價值: ${currentValueTWD}`);
+                    
+                    if (memberMap.has(member)) {
+                        memberMap.set(member, memberMap.get(member) + currentValueTWD);
+                    } else {
+                        memberMap.set(member, currentValueTWD);
+                    }
+                }
+
+                const labels = Array.from(memberMap.keys());
+                const data = Array.from(memberMap.values());
+                
+                console.log('資產成員資料:', { labels, data });
+                return { labels, data };
             }
 
             // 控制圖表區域顯示/隱藏
@@ -4610,13 +4675,13 @@ service cloud.firestore {
                     incomeSection.style.display = showIncome ? 'flex' : 'none';
                 }
                 
-                // 控制資產統計區域
+                // 控制資產統計區域（已隱藏）
                 const assetTitle = document.querySelector('.asset-section-title');
                 const assetSection = document.querySelector('.asset-section');
                 if (assetTitle && assetSection) {
-                    const showAsset = !typeFilter || typeFilter === '資產';
-                    assetTitle.style.display = showAsset ? 'block' : 'none';
-                    assetSection.style.display = showAsset ? 'flex' : 'none';
+                    // 資產圓餅圖已隱藏，始終保持隱藏狀態
+                    assetTitle.style.display = 'none';
+                    assetSection.style.display = 'none';
                 }
             }
 
@@ -5043,22 +5108,22 @@ service cloud.firestore {
                 // 圖表篩選事件監聽器
                 const chartFilterType = document.getElementById('chartFilterType');
                 if (chartFilterType) {
-                    chartFilterType.addEventListener('change', () => {
-                        this.updateCharts();
+                    chartFilterType.addEventListener('change', async () => {
+                        await this.updateCharts();
                     });
                 }
 
                 const chartFilterYear = document.getElementById('chartFilterYear');
                 if (chartFilterYear) {
-                    chartFilterYear.addEventListener('change', () => {
-                        this.updateCharts();
+                    chartFilterYear.addEventListener('change', async () => {
+                        await this.updateCharts();
                     });
                 }
 
                 const chartFilterMonth = document.getElementById('chartFilterMonth');
                 if (chartFilterMonth) {
-                    chartFilterMonth.addEventListener('change', () => {
-                        this.updateCharts();
+                    chartFilterMonth.addEventListener('change', async () => {
+                        await this.updateCharts();
                     });
                 }
 
