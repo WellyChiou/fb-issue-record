@@ -264,7 +264,8 @@
                         </select>
                         
                         <label for="chartFilterMonth">月份：</label>
-                        <select id="chartFilterMonth" required>
+                        <select id="chartFilterMonth">
+                            <option value="">整年</option>
                             <option value="01">1月</option>
                             <option value="02">2月</option>
                             <option value="03">3月</option>
@@ -726,7 +727,7 @@
             }
             
             /* 美化操作按鈕 */
-            .btn-edit, .btn-delete, .btn-update {
+            .btn-edit, .btn-delete, .btn-update, .btn-copy, .copy-btn {
                 background: none !important;
                 border: none !important;
                 padding: 4px 6px !important;
@@ -742,23 +743,23 @@
                 height: 28px !important;
             }
             
-            .btn-edit {
+            .btn-edit, .edit-btn {
                 color: #007bff !important;
-                background-color: rgba(0, 123, 255, 0.1) !important;
+                background-color: #007bff !important;
             }
             
-            .btn-edit:hover {
-                background-color: rgba(0, 123, 255, 0.2) !important;
+            .btn-edit:hover, .edit-btn:hover {
+                background-color: #0056b3 !important;
                 transform: scale(1.05) !important;
             }
             
-            .btn-delete {
+            .btn-delete, .delete-btn {
                 color: #dc3545 !important;
-                background-color: rgba(220, 53, 69, 0.1) !important;
+                background-color: #dc3545 !important;
             }
             
-            .btn-delete:hover {
-                background-color: rgba(220, 53, 69, 0.2) !important;
+            .btn-delete:hover, .delete-btn:hover {
+                background-color: #c82333 !important;
                 transform: scale(1.05) !important;
             }
             
@@ -769,6 +770,16 @@
             
             .btn-update:hover {
                 background-color: rgba(40, 167, 69, 0.2) !important;
+                transform: scale(1.05) !important;
+            }
+            
+            .btn-copy, .copy-btn {
+                color: #6c757d !important;
+                background-color: rgba(108, 117, 125, 0.1) !important;
+            }
+            
+            .btn-copy:hover, .copy-btn:hover {
+                background-color: rgba(108, 117, 125, 0.2) !important;
                 transform: scale(1.05) !important;
             }
             
@@ -1343,11 +1354,14 @@ service cloud.firestore {
                             amount: data.amount,
                             description: data.description,
                             date: data.date,
-                            currency: data.currency
+                            currency: data.currency,
+                            createdAt: data.createdAt || null
                         });
                     });
                     
                     console.log(`從 Firebase 載入了 ${this.records.length} 筆記錄（所有用戶，已按日期降序排列）`);
+                    // 重置分頁到第一頁，確保新記錄能顯示
+                    this.currentPage = 1;
                     await this.updateDisplay();
                 } catch (error) {
                     console.error('從 Firebase 載入記錄失敗:', error);
@@ -1374,15 +1388,30 @@ service cloud.firestore {
             }
 
             // 更新顯示
-            async updateDisplay() {
+            async updateDisplay(resetPage = false) {
+                console.log('updateDisplay 開始執行，當前記錄數量:', this.records.length);
                 const filteredRecords = this.getCurrentFilteredRecords();
+                console.log('篩選後的記錄數量:', filteredRecords.length);
+                
+                // 如果需要重置分頁，則重置到第一頁
+                if (resetPage) {
+                    this.currentPage = 1;
+                    console.log('重置分頁到第一頁');
+                }
+                
                 this.displayRecords(filteredRecords);
                 await this.updateSummary(filteredRecords);
+                console.log('updateDisplay 執行完成');
             }
 
             // 顯示記錄
             displayRecords(records) {
+                console.log('displayRecords 開始執行，傳入的記錄數量:', records.length);
                 const recordsList = document.getElementById('recordsList');
+                if (!recordsList) {
+                    console.error('找不到 recordsList 元素');
+                    return;
+                }
                 
                 // 保存當前的篩選值，如果沒有設定則使用當前年月作為預設值
                 const currentDate = new Date();
@@ -1514,7 +1543,28 @@ service cloud.firestore {
                         </thead>
                         <tbody>
                             ${pageRecords
-                                .sort((a, b) => new Date(b.date) - new Date(a.date))
+                                .sort((a, b) => {
+                                    // 先按日期排序（降序）
+                                    const dateCompare = new Date(b.date) - new Date(a.date);
+                                    if (dateCompare !== 0) {
+                                        return dateCompare;
+                                    }
+                                    // 如果日期相同，再按建立時間排序（降序，後建立的排在前面）
+                                    const getTimestamp = (record) => {
+                                        if (!record.createdAt) return 0;
+                                        // 處理 Firebase Timestamp 物件
+                                        if (record.createdAt && typeof record.createdAt.toMillis === 'function') {
+                                            return record.createdAt.toMillis();
+                                        }
+                                        if (record.createdAt && record.createdAt.seconds) {
+                                            return record.createdAt.seconds * 1000;
+                                        }
+                                        return 0;
+                                    };
+                                    const aTime = getTimestamp(a);
+                                    const bTime = getTimestamp(b);
+                                    return bTime - aTime;
+                                })
                                 .map(record => {
                                     const amountClass = record.type === '收入' ? 'amount-income' : 
                                                        record.type === '支出' ? 'amount-expense' : 'amount-asset';
@@ -1530,12 +1580,13 @@ service cloud.firestore {
                                             <td>${record.subCategory}</td>
                                             <td class="${amountClass}">${amountPrefix}$${this.formatNumber(record.amount)} (${record.currency || 'TWD'})</td>
                                             <td>${record.description || '-'}</td>
-                                            <td>
-                                                <div class="action-buttons">
-                                                    <button class="action-btn edit-btn" onclick="expenseTracker.editRecord('${record.id}')" title="編輯" style="padding: 2px 4px; font-size: 10px;"></button>
-                                                    <button class="action-btn delete-btn" onclick="expenseTracker.deleteRecord('${record.id}')" title="刪除" style="padding: 2px 4px; font-size: 10px;"></button>
-                                                </div>
-                                            </td>
+                                                                                <td>
+                                        <div class="action-buttons">
+                                            <button class="action-btn edit-btn" onclick="expenseTracker.editRecord('${record.id}')" title="編輯記錄" style="padding: 2px 4px; font-size: 10px;"></button>
+                                            <button class="action-btn copy-btn" onclick="expenseTracker.copyRecord('${record.id}')" title="複製記錄到表單（日期不載入）" style="padding: 2px 4px; font-size: 10px;">📋</button>
+                                            <button class="action-btn delete-btn" onclick="expenseTracker.deleteRecord('${record.id}')" title="刪除記錄" style="padding: 2px 4px; font-size: 10px;"></button>
+                                        </div>
+                                    </td>
                                         </tr>
                                     `;
                                 }).join('')}
@@ -1545,6 +1596,7 @@ service cloud.firestore {
                 
                 recordsList.innerHTML = filterHTML + tableHTML;
                 this.updatePagination(records.length);
+                console.log('displayRecords 執行完成，已更新 DOM');
             }
 
             // 切換多選選項
@@ -1656,18 +1708,63 @@ service cloud.firestore {
                 const selectedMainCategories = Array.from(mainCategorySelect?.selectedOptions || []).map(option => option.value);
                 const selectedSubCategories = Array.from(subCategorySelect?.selectedOptions || []).map(option => option.value);
 
+                console.log('getCurrentFilteredRecords 篩選條件:', {
+                    yearFilter,
+                    monthFilter,
+                    selectedMembers,
+                    selectedTypes,
+                    selectedMainCategories,
+                    selectedSubCategories,
+                    totalRecords: this.records.length
+                });
+
                 // 篩選記錄
-                return this.records.filter(record => {
+                const filtered = this.records.filter(record => {
                     const recordYear = record.date.split('-')[0];
                     const recordMonth = record.date.split('-')[1];
                     
-                    return (recordYear === yearFilter) &&
-                           (recordMonth === monthFilter) &&
-                           (selectedMembers.length === 0 || selectedMembers.includes(record.member)) &&
-                           (selectedTypes.length === 0 || selectedTypes.includes(record.type)) &&
-                           (selectedMainCategories.length === 0 || selectedMainCategories.includes(record.mainCategory)) &&
-                           (selectedSubCategories.length === 0 || selectedSubCategories.includes(record.subCategory));
+                    const matchesYearMonth = (recordYear === yearFilter) && (recordMonth === monthFilter);
+                    const matchesMember = selectedMembers.length === 0 || selectedMembers.includes(record.member);
+                    const matchesType = selectedTypes.length === 0 || selectedTypes.includes(record.type);
+                    const matchesMainCategory = selectedMainCategories.length === 0 || selectedMainCategories.includes(record.mainCategory);
+                    const matchesSubCategory = selectedSubCategories.length === 0 || selectedSubCategories.includes(record.subCategory);
+                    
+                    const matches = matchesYearMonth && matchesMember && matchesType && matchesMainCategory && matchesSubCategory;
+                    
+                    // 如果記錄不匹配，記錄詳細信息（特別是對新記錄）
+                    if (!matches && record.date) {
+                        const recordDate = new Date(record.date);
+                        const isNewRecord = recordDate && recordDate.getTime() > Date.now() - 60000; // 最近1分鐘內的記錄
+                        if (isNewRecord || this.records.indexOf(record) >= this.records.length - 1) {
+                            console.log('記錄被篩選掉:', {
+                                id: record.id,
+                                date: record.date,
+                                recordYear,
+                                recordMonth,
+                                yearFilter,
+                                monthFilter,
+                                matchesYearMonth,
+                                matchesMember,
+                                matchesType,
+                                matchesMainCategory,
+                                matchesSubCategory
+                            });
+                        }
+                    }
+                    
+                    return matches;
                 });
+                
+                console.log('getCurrentFilteredRecords 篩選結果:', filtered.length, '筆記錄');
+                
+                // 檢查新記錄是否在篩選結果中
+                const latestRecord = this.records[this.records.length - 1];
+                if (latestRecord && latestRecord.date) {
+                    const isInFiltered = filtered.some(r => r.id === latestRecord.id);
+                    console.log('最新記錄是否在篩選結果中:', isInFiltered, '記錄ID:', latestRecord.id, '記錄日期:', latestRecord.date);
+                }
+                
+                return filtered;
             }
 
             // 包裝函數用於 HTML 事件處理
@@ -1709,8 +1806,8 @@ service cloud.firestore {
                 await this.applyTableFilter(true);
             }
             
-            async handleUpdateDisplay() {
-                await this.updateDisplay();
+            async handleUpdateDisplay(resetPage = false) {
+                await this.updateDisplay(resetPage);
             }
 
             // 應用表格篩選
@@ -1836,10 +1933,9 @@ service cloud.firestore {
                 // 更新月份篩選器
                 const chartFilterMonth = document.getElementById('chartFilterMonth');
                 if (chartFilterMonth) {
-                    // 設定預設值為當前月份
-                    const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
-                    chartFilterMonth.value = currentMonth;
-                    console.log('設定月份為當前月份:', currentMonth);
+                    // 預設值設為「整年」（空值），讓用戶可以選擇查看整年或特定月份
+                    chartFilterMonth.value = '';
+                    console.log('設定月份為「整年」');
                 }
             }
 
@@ -4470,9 +4566,9 @@ service cloud.firestore {
                 console.log('當前資產數量:', this.assets.length);
                 console.log('當前記錄數量:', this.records.length);
                 
-                // 檢查篩選器是否有值
-                if (!chartYearFilter || !chartMonthFilter) {
-                    console.error('年份或月份篩選器沒有值:', { chartYearFilter, chartMonthFilter });
+                // 檢查年份篩選器是否有值（月份可以為空，表示整年）
+                if (!chartYearFilter) {
+                    console.error('年份篩選器沒有值:', { chartYearFilter });
                     return;
                 }
                 
@@ -4482,9 +4578,16 @@ service cloud.firestore {
                     const recordYear = recordDate.getFullYear().toString();
                     const recordMonth = String(recordDate.getMonth() + 1).padStart(2, '0');
                     
-                    return (!chartTypeFilter || record.type === chartTypeFilter) &&
-                           recordYear === chartYearFilter &&
-                           recordMonth === chartMonthFilter;
+                    // 類型篩選
+                    const matchesType = !chartTypeFilter || record.type === chartTypeFilter;
+                    
+                    // 年份篩選
+                    const matchesYear = recordYear === chartYearFilter;
+                    
+                    // 月份篩選：如果 chartMonthFilter 為空或「整年」，則不篩選月份
+                    const matchesMonth = !chartMonthFilter || recordMonth === chartMonthFilter;
+                    
+                    return matchesType && matchesYear && matchesMonth;
                 });
                 
                 console.log('篩選後的記錄數量:', filteredRecords.length);
@@ -5220,6 +5323,28 @@ service cloud.firestore {
 
             // 新增記錄
             async addRecord() {
+                // 獲取提交按鈕
+                const submitBtn = document.querySelector('#recordForm button[type="submit"]');
+                const isEditing = !!this.editingId;
+                
+                // 檢查是否正在處理中
+                if (submitBtn && submitBtn.disabled) {
+                    console.log('正在處理中，請稍候...');
+                    return;
+                }
+                
+                // 設置 loading 狀態
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    const originalText = submitBtn.textContent;
+                    submitBtn.textContent = isEditing ? '更新中...' : '新增中...';
+                    submitBtn.style.opacity = '0.6';
+                    submitBtn.style.cursor = 'not-allowed';
+                    
+                    // 保存原始文字以便恢復
+                    submitBtn.dataset.originalText = originalText;
+                }
+                
                 const formData = {
                     type: document.getElementById('type').value,
                     member: document.getElementById('member').value,
@@ -5239,17 +5364,28 @@ service cloud.firestore {
                         // 編輯模式
                         await this.updateRecordInFirebase(this.editingId, formData);
                         this.editingId = null;
-                        document.querySelector('#recordForm button[type="submit"]').textContent = '新增記錄';
+                        // 編輯後重新載入記錄
+                        await this.loadRecordsFromFirebase();
                     } else {
                         // 新增模式
                         await this.addRecordToFirebase(formData);
+                        // 新增後重新載入記錄
+                        await this.loadRecordsFromFirebase();
                     }
 
                     this.resetForm();
-                    await this.handleUpdateDisplay();
+                    console.log('記錄已成功儲存並重新載入');
                 } catch (error) {
                     console.error('儲存記錄失敗:', error);
                     this.showNotification('儲存失敗，請重試', 'error');
+                } finally {
+                    // 恢復按鈕狀態
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = submitBtn.dataset.originalText || (isEditing ? '更新記錄' : '新增記錄');
+                        submitBtn.style.opacity = '1';
+                        submitBtn.style.cursor = 'pointer';
+                    }
                 }
             }
 
@@ -5271,12 +5407,6 @@ service cloud.firestore {
                     updatedAt: window.firebaseServerTimestamp()
                 });
                 
-                // 添加到本地陣列
-                this.records.push({
-                    id: docRef.id,
-                    ...formData
-                });
-                
                 console.log('記錄已新增到 Firebase:', docRef.id);
                 this.showNotification('記錄已成功新增！', 'success');
             }
@@ -5288,12 +5418,6 @@ service cloud.firestore {
                     ...formData,
                     updatedAt: window.firebaseServerTimestamp()
                 });
-                
-                // 更新本地陣列
-                const index = this.records.findIndex(record => record.id === recordId);
-                if (index !== -1) {
-                    this.records[index] = { ...formData, id: recordId };
-                }
                 
                 console.log('記錄已更新到 Firebase:', recordId);
                 this.showNotification('記錄已成功修改！', 'success');
@@ -5337,6 +5461,46 @@ service cloud.firestore {
                 console.log('記錄已載入表單，準備編輯');
             }
 
+            // 複製記錄（載入到表單，但日期不載入）
+            copyRecord(recordId) {
+                console.log('複製記錄:', recordId);
+                
+                const record = this.records.find(r => r.id === recordId);
+                if (!record) {
+                    console.error('找不到要複製的記錄');
+                    return;
+                }
+                
+                // 清除編輯狀態（因為是複製，不是編輯）
+                this.editingId = null;
+                
+                // 填入表單資料（但日期不載入）
+                document.getElementById('type').value = record.type;
+                document.getElementById('member').value = record.member;
+                document.getElementById('mainCategory').value = record.mainCategory;
+                document.getElementById('amount').value = record.amount;
+                document.getElementById('description').value = record.description || '';
+                // 日期不載入，保留當前預設值（今天的日期）
+                // document.getElementById('date').value = record.date; // 註解掉，不載入日期
+                document.getElementById('currency').value = record.currency || 'TWD';
+                
+                // 更新細項選項
+                this.updateSubCategoryOptions();
+                document.getElementById('subCategory').value = record.subCategory;
+                
+                // 確保按鈕文字是「新增記錄」（因為是複製模式，不是編輯模式）
+                const submitBtn = document.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.textContent = '新增記錄';
+                }
+                
+                // 滾動到表單
+                document.querySelector('.add-record').scrollIntoView({ behavior: 'smooth' });
+                
+                console.log('記錄已複製到表單，日期保留為預設值');
+                this.showNotification('記錄已複製到表單，請確認並新增', 'success');
+            }
+
             // 刪除記錄
             async deleteRecord(recordId) {
                 console.log('刪除記錄:', recordId);
@@ -5355,14 +5519,11 @@ service cloud.firestore {
                     const recordRef = window.firebaseDoc(window.firebaseDb, 'records', recordId);
                     await window.firebaseDeleteDoc(recordRef);
                     
-                    // 從本地陣列移除
-                    this.records = this.records.filter(record => record.id !== recordId);
-                    
                     console.log('記錄已刪除:', recordId);
                     this.showNotification('記錄已成功刪除！', 'success');
                     
-                    // 更新顯示
-                    await this.handleUpdateDisplay();
+                    // 刪除後重新載入記錄
+                    await this.loadRecordsFromFirebase();
                     
                 } catch (error) {
                     console.error('刪除記錄失敗:', error);
@@ -5387,10 +5548,16 @@ service cloud.firestore {
                 // 重置編輯狀態
                 this.editingId = null;
                 
-                // 更新按鈕文字
+                // 更新按鈕文字和狀態
                 const submitBtn = document.querySelector('button[type="submit"]');
                 if (submitBtn) {
                     submitBtn.textContent = '新增記錄';
+                    submitBtn.disabled = false;
+                    submitBtn.style.opacity = '1';
+                    submitBtn.style.cursor = 'pointer';
+                    if (submitBtn.dataset.originalText) {
+                        delete submitBtn.dataset.originalText;
+                    }
                 }
                 
                 console.log('表單已清空，日期已設定為今日');
