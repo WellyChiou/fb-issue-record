@@ -1202,7 +1202,7 @@
 		
 		// 只能查到自己建立的資料
 		const u = auth.currentUser;
-		if (u?.uid) constraints.push(where('created_by_uid', '==', u.uid)); // ★ 新增這行
+		//if (u?.uid) constraints.push(where('created_by_uid', '==', u.uid)); // ★ 新增這行
 		
 		const kw = (qKeyword?.value ?? '').trim();
 		const kwIsNumber = kw !== '' && !Number.isNaN(Number(kw));
