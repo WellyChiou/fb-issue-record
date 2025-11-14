@@ -4567,10 +4567,10 @@ service cloud.firestore {
 
             // 更新圖表
             async updateCharts() {
-                const chartTypeFilter = document.getElementById('chartFilterType').value;
-                const chartYearFilter = document.getElementById('chartFilterYear').value;
-                const chartMonthFilter = document.getElementById('chartFilterMonth').value;
-                const chartMemberFilter = document.getElementById('chartFilterMember').value;
+                const chartTypeFilter = document.getElementById('chartFilterType')?.value || '';
+                const chartYearFilter = document.getElementById('chartFilterYear')?.value || '';
+                const chartMonthFilter = document.getElementById('chartFilterMonth')?.value || '';
+                const chartMemberFilter = document.getElementById('chartFilterMember')?.value || '';
                 
                 console.log('更新圖表 - 篩選條件:', { chartTypeFilter, chartYearFilter, chartMonthFilter, chartMemberFilter });
                 console.log('當前資產數量:', this.assets.length);
@@ -5241,6 +5241,13 @@ service cloud.firestore {
                 const chartFilterMonth = document.getElementById('chartFilterMonth');
                 if (chartFilterMonth) {
                     chartFilterMonth.addEventListener('change', async () => {
+                        await this.updateCharts();
+                    });
+                }
+
+                const chartFilterMember = document.getElementById('chartFilterMember');
+                if (chartFilterMember) {
+                    chartFilterMember.addEventListener('change', async () => {
                         await this.updateCharts();
                     });
                 }
