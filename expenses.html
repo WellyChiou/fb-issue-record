@@ -279,6 +279,15 @@
                             <option value="11">11月</option>
                             <option value="12">12月</option>
                         </select>
+
+                        <label for="chartFilterMember">家庭成員：</label>
+                        <select id="chartFilterMember">
+                            <option value="">全部成員</option>
+                            <option value="爸爸">爸爸</option>
+                            <option value="媽媽">媽媽</option>
+                            <option value="孩子">孩子</option>
+                            <option value="其他">其他</option>
+                        </select>
                     </div>
                 </div>
                 
@@ -4561,8 +4570,9 @@ service cloud.firestore {
                 const chartTypeFilter = document.getElementById('chartFilterType').value;
                 const chartYearFilter = document.getElementById('chartFilterYear').value;
                 const chartMonthFilter = document.getElementById('chartFilterMonth').value;
+                const chartMemberFilter = document.getElementById('chartFilterMember').value;
                 
-                console.log('更新圖表 - 篩選條件:', { chartTypeFilter, chartYearFilter, chartMonthFilter });
+                console.log('更新圖表 - 篩選條件:', { chartTypeFilter, chartYearFilter, chartMonthFilter, chartMemberFilter });
                 console.log('當前資產數量:', this.assets.length);
                 console.log('當前記錄數量:', this.records.length);
                 
@@ -4587,7 +4597,10 @@ service cloud.firestore {
                     // 月份篩選：如果 chartMonthFilter 為空或「整年」，則不篩選月份
                     const matchesMonth = !chartMonthFilter || recordMonth === chartMonthFilter;
                     
-                    return matchesType && matchesYear && matchesMonth;
+                    // 成員篩選
+                    const matchesMember = !chartMemberFilter || record.member === chartMemberFilter;
+
+                    return matchesType && matchesYear && matchesMonth && matchesMember;
                 });
                 
                 console.log('篩選後的記錄數量:', filteredRecords.length);
@@ -4608,7 +4621,7 @@ service cloud.firestore {
                 
                 // 如果沒有支出資料，顯示提示
                 if (expenseCategoryData.labels.length === 0) {
-                    const filterText = this.getFilterText(chartTypeFilter, chartYearFilter, chartMonthFilter);
+                    const filterText = this.getFilterText(chartTypeFilter, chartYearFilter, chartMonthFilter, chartMemberFilter);
                     this.expenseCategoryChart.data.labels = [`${filterText}暫無支出資料`];
                     this.expenseCategoryChart.data.datasets[0].data = [1];
                     this.expenseCategoryChart.data.datasets[0].backgroundColor = ['#e0e0e0'];
@@ -4628,7 +4641,7 @@ service cloud.firestore {
                 
                 // 如果沒有支出資料，顯示提示
                 if (expenseMemberData.labels.length === 0) {
-                    const filterText = this.getFilterText(chartTypeFilter, chartYearFilter, chartMonthFilter);
+                    const filterText = this.getFilterText(chartTypeFilter, chartYearFilter, chartMonthFilter, chartMemberFilter);
                     this.expenseMemberChart.data.labels = [`${filterText}暫無支出資料`];
                     this.expenseMemberChart.data.datasets[0].data = [1];
                     this.expenseMemberChart.data.datasets[0].backgroundColor = ['#e0e0e0'];
@@ -4648,7 +4661,7 @@ service cloud.firestore {
                 
                 // 如果沒有收入資料，顯示提示
                 if (incomeCategoryData.labels.length === 0) {
-                    const filterText = this.getFilterText(chartTypeFilter, chartYearFilter, chartMonthFilter);
+                    const filterText = this.getFilterText(chartTypeFilter, chartYearFilter, chartMonthFilter, chartMemberFilter);
                     this.incomeCategoryChart.data.labels = [`${filterText}暫無收入資料`];
                     this.incomeCategoryChart.data.datasets[0].data = [1];
                     this.incomeCategoryChart.data.datasets[0].backgroundColor = ['#e0e0e0'];
@@ -4668,7 +4681,7 @@ service cloud.firestore {
                 
                 // 如果沒有收入資料，顯示提示
                 if (incomeMemberData.labels.length === 0) {
-                    const filterText = this.getFilterText(chartTypeFilter, chartYearFilter, chartMonthFilter);
+                    const filterText = this.getFilterText(chartTypeFilter, chartYearFilter, chartMonthFilter, chartMemberFilter);
                     this.incomeMemberChart.data.labels = [`${filterText}暫無收入資料`];
                     this.incomeMemberChart.data.datasets[0].data = [1];
                     this.incomeMemberChart.data.datasets[0].backgroundColor = ['#e0e0e0'];
@@ -4789,7 +4802,7 @@ service cloud.firestore {
             }
 
             // 獲取篩選文字
-            getFilterText(typeFilter, yearFilter, monthFilter) {
+            getFilterText(typeFilter, yearFilter, monthFilter, memberFilter) {
                 let text = '';
                 if (typeFilter) text += `${typeFilter} `;
                 if (yearFilter) text += `${yearFilter}年 `;
@@ -4797,6 +4810,7 @@ service cloud.firestore {
                     const monthNames = ['', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
                     text += `${monthNames[parseInt(monthFilter)]} `;
                 }
+                if (memberFilter) text += `${memberFilter} `;
                 return text;
             }
 
