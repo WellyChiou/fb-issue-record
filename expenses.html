@@ -4803,8 +4803,9 @@ service cloud.firestore {
             // 獲取類別數據
             getCategoryData(records) {
                 const categoryMap = {};
+
                 records.forEach(record => {
-                    const categoryKey = `${record.mainCategory} - ${record.subCategory}`;
+                    const categoryKey = record.mainCategory || '未分類';
                     categoryMap[categoryKey] = (categoryMap[categoryKey] || 0) + record.amount;
                 });
 
