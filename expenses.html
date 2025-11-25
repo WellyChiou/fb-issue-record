@@ -5205,7 +5205,7 @@ service cloud.firestore {
                     prevPageBtn.addEventListener('click', async () => {
                         if (this.currentPage > 1) {
                             this.currentPage--;
-                            await this.handleTableFilterChange(null);
+                            await this.applyTableFilter(false);
                         }
                     });
                 }
@@ -5218,7 +5218,7 @@ service cloud.firestore {
                         const totalPages = Math.ceil(filteredRecords.length / this.recordsPerPage);
                         if (this.currentPage < totalPages) {
                             this.currentPage++;
-                            await this.handleTableFilterChange(null);
+                            await this.applyTableFilter(false);
                         }
                     });
                 }
