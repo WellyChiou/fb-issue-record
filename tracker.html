@@ -2223,7 +2223,24 @@
 		}
 		
 		// 移除尾部的斜線和 /api
-		const apiBaseUrl = apiUrl.replace(/\/+$/, '').replace(/\/api\/?$/, '');
+		let apiBaseUrl = apiUrl.replace(/\/+$/, '').replace(/\/api\/?$/, '');
+		
+		// 處理 Mixed Content：如果當前頁面是 HTTPS，但 API 是 HTTP
+		// 提示用戶使用本地檔案或設置 HTTPS
+		if (window.location.protocol === 'https:' && apiBaseUrl.startsWith('http://')) {
+			const useHttp = confirm(
+				'⚠️ Mixed Content 警告\n\n' +
+				'您正在 HTTPS 頁面上請求 HTTP API，瀏覽器會阻止此請求。\n\n' +
+				'建議解決方案：\n' +
+				'1. 下載 tracker.html 到本地，用瀏覽器直接打開（推薦）\n' +
+				'2. 在新系統設置 HTTPS\n' +
+				'3. 點擊「確定」嘗試繼續（可能失敗）\n\n' +
+				'點擊「取消」中止，或「確定」繼續嘗試。'
+			);
+			if (!useHttp) {
+				return;
+			}
+		}
 		
 		// 測試連線
 		migrateProgress.classList.remove('hidden');
