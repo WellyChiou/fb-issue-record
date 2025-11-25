@@ -666,6 +666,12 @@
           </svg>
           GitLab Issues
         </button>
+        <button id="btnMigrateToNewSystem" class="btn btn-success flex-1 md:flex-initial">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+          </svg>
+          匯入到新系統
+        </button>
 	  <button id="btnBulkUpdate" class="btn btn-warning" hidden>更新現有資料</button>
       </div>
 	</div>
@@ -759,6 +765,94 @@
 
     </section>
 	
+	<!-- 🔵 匯入到新系統 Modal -->
+	<div id="migrateModal" class="fixed inset-0 z-[130] hidden">
+	  <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+	  <div class="relative w-full h-full grid place-items-center p-4 overflow-y-auto">
+		<div class="bg-white rounded-2xl shadow-soft-lg border border-slate-200 w-full max-w-4xl my-8">
+		  <div class="px-5 md:px-6 py-4 border-b bg-gradient-to-r from-blue-50 to-white rounded-t-2xl">
+			<div class="flex items-center justify-between">
+			  <div class="flex items-center gap-3">
+				<div class="w-10 h-10 rounded-xl bg-blue-100 grid place-items-center">
+				  <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+				  </svg>
+				</div>
+				<div>
+				  <h2 class="text-xl md:text-2xl font-bold text-slate-800">匯入到新系統 (MySQL)</h2>
+				  <p class="text-xs text-slate-500">將 Firebase 資料匯入到虛擬主機的 MySQL 系統</p>
+				</div>
+			  </div>
+			  <button id="btnCloseMigrateModal" class="btn-secondary text-sm">
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+				</svg>
+				關閉
+			  </button>
+			</div>
+		  </div>
+		  
+		  <div class="p-5 md:p-6">
+			<div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+			  <div class="flex items-start gap-3">
+				<svg class="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+				</svg>
+				<div class="flex-1">
+				  <p class="text-sm font-medium text-blue-900 mb-1">使用說明</p>
+				  <ul class="text-xs text-blue-700 space-y-1 list-disc list-inside">
+					<li>請先確保新系統已部署並正常運行</li>
+					<li>輸入新系統的 API 地址（例如：http://38.54.89.136:8080）</li>
+					<li>系統會讀取所有 Firebase 資料並匯入到新系統</li>
+					<li>已存在的記錄（依 issue_number）會自動略過</li>
+				  </ul>
+				</div>
+			  </div>
+			</div>
+			
+			<div class="space-y-4">
+			  <div>
+				<label class="block text-sm font-medium text-slate-600 mb-1.5">新系統 API 地址</label>
+				<input id="migrateApiUrl" type="text" class="inp" 
+				  placeholder="http://38.54.89.136:8080" 
+				  value="http://38.54.89.136:8080" />
+				<p class="text-xs text-slate-500 mt-1">不需要包含 /api，系統會自動加上</p>
+			  </div>
+			  
+			  <div class="flex items-center gap-2">
+				<input type="checkbox" id="migrateCheckExisting" checked class="w-4 h-4">
+				<label for="migrateCheckExisting" class="text-sm text-slate-600">
+				  檢查重複（依 issue_number，已存在則略過）
+				</label>
+			  </div>
+			  
+			  <div id="migrateProgress" class="hidden">
+				<div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+				  <div class="flex items-center gap-3 mb-3">
+					<div class="animate-spin h-5 w-5 border-2 border-indigo-600 border-t-transparent rounded-full"></div>
+					<span class="text-sm font-medium text-slate-700" id="migrateStatus">準備中...</span>
+				  </div>
+				  <div class="w-full bg-slate-200 rounded-full h-2">
+					<div id="migrateProgressBar" class="bg-indigo-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+				  </div>
+				  <div class="mt-2 text-xs text-slate-600" id="migrateDetails"></div>
+				</div>
+			  </div>
+			  
+			  <div class="flex justify-end gap-2">
+				<button id="btnStartMigrate" class="btn btn-primary">
+				  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+				  </svg>
+				  開始匯入
+				</button>
+			  </div>
+			</div>
+		  </div>
+		</div>
+	  </div>
+	</div>
+
 	<!-- 🟢 GitLab Issues Modal -->
 	<div id="gitlabModal" class="fixed inset-0 z-[120] hidden">
 	  <!-- 背景 -->
@@ -2011,6 +2105,219 @@
 	  await reload(); // 你原本的重查函式:contentReference[oaicite:2]{index=2}
 	}
 	document.getElementById('btnBulkUpdate').addEventListener('click', bulkUpdateCurrentCache);
+	
+	// === 🔵 匯入到新系統功能 ===
+	const btnMigrateToNewSystem = document.getElementById('btnMigrateToNewSystem');
+	const migrateModal = document.getElementById('migrateModal');
+	const btnCloseMigrateModal = document.getElementById('btnCloseMigrateModal');
+	const btnStartMigrate = document.getElementById('btnStartMigrate');
+	const migrateApiUrl = document.getElementById('migrateApiUrl');
+	const migrateCheckExisting = document.getElementById('migrateCheckExisting');
+	const migrateProgress = document.getElementById('migrateProgress');
+	const migrateStatus = document.getElementById('migrateStatus');
+	const migrateProgressBar = document.getElementById('migrateProgressBar');
+	const migrateDetails = document.getElementById('migrateDetails');
+	
+	// 開啟匯入 Modal
+	btnMigrateToNewSystem.addEventListener('click', () => {
+		migrateModal.classList.remove('hidden');
+		migrateProgress.classList.add('hidden');
+	});
+	
+	// 關閉 Modal
+	btnCloseMigrateModal.addEventListener('click', () => {
+		migrateModal.classList.add('hidden');
+	});
+	
+	migrateModal.addEventListener('click', (e) => {
+		if (e.target === migrateModal) migrateModal.classList.add('hidden');
+	});
+	
+	// 轉換 Firebase Timestamp 為 ISO 字串
+	function convertTimestamp(fbTimestamp) {
+		if (!fbTimestamp) return null;
+		if (fbTimestamp.seconds) {
+			return new Date(fbTimestamp.seconds * 1000).toISOString().slice(0, 10);
+		}
+		if (typeof fbTimestamp.toDate === 'function') {
+			return fbTimestamp.toDate().toISOString().slice(0, 10);
+		}
+		if (fbTimestamp instanceof Date) {
+			return fbTimestamp.toISOString().slice(0, 10);
+		}
+		return null;
+	}
+	
+	// 轉換 Firebase 記錄為新系統格式
+	function convertRecordToNewFormat(fbRecord) {
+		return {
+			firebaseId: fbRecord.id, // 保留原始 ID 以便追蹤
+			issueNumber: fbRecord.issue_number || null,
+			issueLink: fbRecord.issue_link || null,
+			status: fbRecord.status ?? 1,
+			category: fbRecord.category || null,
+			feature: fbRecord.feature || null,
+			memo: fbRecord.memo || null,
+			testPlan: fbRecord.test_plan || '0',
+			bugFound: fbRecord.bug_found ?? 0,
+			optimizationPoints: fbRecord.optimization_points ?? 0,
+			verifyFailed: fbRecord.verify_failed ?? 0,
+			testCases: fbRecord.test_cases ?? 0,
+			fileCount: fbRecord.file_count ?? 0,
+			testStartDate: convertTimestamp(fbRecord.test_start_date),
+			etaDate: convertTimestamp(fbRecord.eta_date),
+			completedAt: convertTimestamp(fbRecord.completed_at),
+			createdByUid: fbRecord.created_by_uid || null
+		};
+	}
+	
+	// 檢查記錄是否已存在（依 issue_number）
+	async function checkRecordExists(apiBaseUrl, issueNumber) {
+		if (!issueNumber) return false;
+		try {
+			const response = await fetch(`${apiBaseUrl}/api/records?issueNumber=${issueNumber}&size=1`);
+			if (!response.ok) return false;
+			const data = await response.json();
+			return data.totalElements > 0;
+		} catch (error) {
+			console.error('檢查記錄失敗:', error);
+			return false;
+		}
+	}
+	
+	// 匯入單筆記錄
+	async function importRecord(apiBaseUrl, record, checkExisting) {
+		try {
+			// 如果需要檢查重複
+			if (checkExisting && record.issueNumber) {
+				const exists = await checkRecordExists(apiBaseUrl, record.issueNumber);
+				if (exists) {
+					return { success: false, skipped: true, message: '記錄已存在' };
+				}
+			}
+			
+			// 匯入記錄
+			const response = await fetch(`${apiBaseUrl}/api/records`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(record)
+			});
+			
+			if (!response.ok) {
+				const error = await response.text();
+				return { success: false, message: error };
+			}
+			
+			return { success: true };
+		} catch (error) {
+			return { success: false, message: error.message };
+		}
+	}
+	
+	// 開始匯入
+	btnStartMigrate.addEventListener('click', async () => {
+		const apiUrl = migrateApiUrl.value.trim();
+		if (!apiUrl) {
+			alert('請輸入 API 地址');
+			return;
+		}
+		
+		// 移除尾部的斜線和 /api
+		const apiBaseUrl = apiUrl.replace(/\/+$/, '').replace(/\/api\/?$/, '');
+		
+		// 測試連線
+		migrateProgress.classList.remove('hidden');
+		migrateStatus.textContent = '測試連線中...';
+		migrateProgressBar.style.width = '5%';
+		
+		try {
+			const testResponse = await fetch(`${apiBaseUrl}/api/records/stats/in-progress`);
+			if (!testResponse.ok) {
+				throw new Error('無法連接到新系統，請檢查 API 地址');
+			}
+		} catch (error) {
+			alert('連線失敗: ' + error.message);
+			migrateProgress.classList.add('hidden');
+			return;
+		}
+		
+		// 讀取所有 Firebase 記錄
+		migrateStatus.textContent = '讀取 Firebase 資料中...';
+		migrateProgressBar.style.width = '10%';
+		
+		let allRecords = [];
+		try {
+			const q = query(collection(db, 'records'), limit(10000));
+			const snap = await getDocs(q);
+			allRecords = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+			
+			if (allRecords.length === 0) {
+				alert('沒有找到任何記錄');
+				migrateProgress.classList.add('hidden');
+				return;
+			}
+		} catch (error) {
+			alert('讀取 Firebase 資料失敗: ' + error.message);
+			migrateProgress.classList.add('hidden');
+			return;
+		}
+		
+		// 開始匯入
+		const total = allRecords.length;
+		const checkExisting = migrateCheckExisting.checked;
+		let successCount = 0;
+		let skippedCount = 0;
+		let failCount = 0;
+		const errors = [];
+		
+		migrateStatus.textContent = `匯入中... (0/${total})`;
+		
+		for (let i = 0; i < total; i++) {
+			const fbRecord = allRecords[i];
+			const record = convertRecordToNewFormat(fbRecord);
+			
+			// 更新進度
+			const progress = 10 + Math.floor((i / total) * 85);
+			migrateProgressBar.style.width = progress + '%';
+			migrateStatus.textContent = `匯入中... (${i + 1}/${total})`;
+			migrateDetails.textContent = `正在匯入 Issue #${record.issueNumber || 'N/A'}...`;
+			
+			// 匯入記錄
+			const result = await importRecord(apiBaseUrl, record, checkExisting);
+			
+			if (result.success) {
+				successCount++;
+			} else if (result.skipped) {
+				skippedCount++;
+			} else {
+				failCount++;
+				errors.push(`Issue #${record.issueNumber}: ${result.message}`);
+			}
+			
+			// 每 10 筆稍作延遲，避免 API 過載
+			if ((i + 1) % 10 === 0) {
+				await new Promise(resolve => setTimeout(resolve, 100));
+			}
+		}
+		
+		// 完成
+		migrateProgressBar.style.width = '100%';
+		migrateStatus.textContent = '匯入完成！';
+		
+		let message = `匯入完成！\n成功: ${successCount} 筆\n`;
+		if (skippedCount > 0) message += `略過（已存在）: ${skippedCount} 筆\n`;
+		if (failCount > 0) message += `失敗: ${failCount} 筆\n`;
+		
+		if (errors.length > 0 && errors.length <= 10) {
+			message += '\n錯誤詳情:\n' + errors.join('\n');
+		} else if (errors.length > 10) {
+			message += '\n（有 ' + errors.length + ' 筆失敗，請查看瀏覽器控制台）';
+			console.error('匯入錯誤:', errors);
+		}
+		
+		alert(message);
+		migrateDetails.textContent = `成功: ${successCount} | 略過: ${skippedCount} | 失敗: ${failCount}`;
+	});
   </script>
   </div> <!-- 關閉主要內容容器 -->
 </body>
