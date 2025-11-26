@@ -852,7 +852,7 @@
 		</div>
 	  </div>
 	</div>
-
+	
 	<!-- 🟢 GitLab Issues Modal -->
 	<div id="gitlabModal" class="fixed inset-0 z-[120] hidden">
 	  <!-- 背景 -->
@@ -2167,7 +2167,8 @@
 			testStartDate: convertTimestamp(fbRecord.test_start_date),
 			etaDate: convertTimestamp(fbRecord.eta_date),
 			completedAt: convertTimestamp(fbRecord.completed_at),
-			createdByUid: fbRecord.created_by_uid || null
+			createdByUid: fbRecord.created_by_uid || null,
+			updatedByUid: fbRecord.updated_by_uid || null
 		};
 	}
 	
@@ -2185,6 +2186,18 @@
 		}
 	}
 	
+	// 檢查用戶是否存在
+	async function checkUserExists(apiBaseUrl, uid) {
+		if (!uid) return false;
+		try {
+			const response = await fetch(`${apiBaseUrl}/api/users/${uid}`);
+			return response.ok;
+		} catch (error) {
+			console.error('檢查用戶失敗:', error);
+			return false;
+		}
+	}
+	
 	// 匯入單筆記錄
 	async function importRecord(apiBaseUrl, record, checkExisting) {
 		try {
@@ -2193,6 +2206,25 @@
 				const exists = await checkRecordExists(apiBaseUrl, record.issueNumber);
 				if (exists) {
 					return { success: false, skipped: true, message: '記錄已存在' };
+				}
+			}
+			
+			// 檢查 created_by_uid 對應的用戶是否存在
+			// 如果不存在，設為 null 以避免外鍵約束錯誤
+			if (record.createdByUid) {
+				const userExists = await checkUserExists(apiBaseUrl, record.createdByUid);
+				if (!userExists) {
+					console.warn(`用戶 ${record.createdByUid} 不存在，將 createdByUid 設為 null`);
+					record.createdByUid = null;
+				}
+			}
+			
+			// 同樣檢查 updated_by_uid
+			if (record.updatedByUid) {
+				const userExists = await checkUserExists(apiBaseUrl, record.updatedByUid);
+				if (!userExists) {
+					console.warn(`用戶 ${record.updatedByUid} 不存在，將 updatedByUid 設為 null`);
+					record.updatedByUid = null;
 				}
 			}
 			
@@ -2286,6 +2318,7 @@
 		let skippedCount = 0;
 		let failCount = 0;
 		const errors = [];
+		const duplicateIssues = []; // 收集重複的 issue number
 		
 		migrateStatus.textContent = `匯入中... (0/${total})`;
 		
@@ -2306,9 +2339,13 @@
 				successCount++;
 			} else if (result.skipped) {
 				skippedCount++;
+				// 記錄重複的 issue number
+				if (record.issueNumber) {
+					duplicateIssues.push(record.issueNumber);
+				}
 			} else {
 				failCount++;
-				errors.push(`Issue #${record.issueNumber}: ${result.message}`);
+				errors.push(`Issue #${record.issueNumber || 'N/A'}: ${result.message}`);
 			}
 			
 			// 每 10 筆稍作延遲，避免 API 過載
@@ -2321,19 +2358,48 @@
 		migrateProgressBar.style.width = '100%';
 		migrateStatus.textContent = '匯入完成！';
 		
-		let message = `匯入完成！\n成功: ${successCount} 筆\n`;
-		if (skippedCount > 0) message += `略過（已存在）: ${skippedCount} 筆\n`;
+		let message = `匯入完成！\n\n成功: ${successCount} 筆\n`;
+		if (skippedCount > 0) {
+			message += `略過（已存在）: ${skippedCount} 筆\n`;
+		}
 		if (failCount > 0) message += `失敗: ${failCount} 筆\n`;
 		
+		// 顯示重複的 issue number
+		if (duplicateIssues.length > 0) {
+			message += `\n重複的 Issue Number (${duplicateIssues.length} 筆):\n`;
+			// 去重並排序
+			const uniqueDuplicates = [...new Set(duplicateIssues)].sort((a, b) => a - b);
+			
+			if (uniqueDuplicates.length <= 20) {
+				// 如果不多，全部顯示
+				message += uniqueDuplicates.join(', ');
+			} else {
+				// 如果太多，只顯示前 20 個
+				message += uniqueDuplicates.slice(0, 20).join(', ');
+				message += `\n... 還有 ${uniqueDuplicates.length - 20} 個重複的 Issue Number`;
+			}
+			
+			// 在控制台輸出完整列表
+			console.log('所有重複的 Issue Number:', uniqueDuplicates);
+			console.log('重複的 Issue Number 詳細列表:', duplicateIssues);
+		}
+		
+		// 顯示錯誤
 		if (errors.length > 0 && errors.length <= 10) {
-			message += '\n錯誤詳情:\n' + errors.join('\n');
+			message += '\n\n錯誤詳情:\n' + errors.join('\n');
 		} else if (errors.length > 10) {
-			message += '\n（有 ' + errors.length + ' 筆失敗，請查看瀏覽器控制台）';
+			message += '\n\n（有 ' + errors.length + ' 筆失敗，請查看瀏覽器控制台）';
 			console.error('匯入錯誤:', errors);
 		}
 		
 		alert(message);
-		migrateDetails.textContent = `成功: ${successCount} | 略過: ${skippedCount} | 失敗: ${failCount}`;
+		
+		// 更新詳細資訊
+		let detailsText = `成功: ${successCount} | 略過: ${skippedCount} | 失敗: ${failCount}`;
+		if (duplicateIssues.length > 0) {
+			detailsText += ` | 重複: ${duplicateIssues.length} 筆`;
+		}
+		migrateDetails.textContent = detailsText;
 	});
   </script>
   </div> <!-- 關閉主要內容容器 -->

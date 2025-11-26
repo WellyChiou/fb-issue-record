@@ -105,6 +105,9 @@
                 <button class="btn btn-info" onclick="expenseTracker.showTradingFeesConfig()">
                     💰 交易費用配置
                 </button>
+                <button class="btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white;" onclick="expenseTracker.showMigrateModal()">
+                    🔄 匯入到新系統
+                </button>
             </div>
         </header>
 
@@ -658,7 +661,7 @@
                         <button class="btn btn-secondary" onclick="expenseTracker.hideDataMigration()">
                             取消
                         </button>
-                        <button class="btn btn-primary" onclick="expenseTracker.startMigration()">
+                        <button class="btn btn-primary" onclick="expenseTracker.startAssetRecordMigration()">
                             🚀 開始轉移
                         </button>
                     </div>
@@ -820,6 +823,7 @@
                 this.recordsPerPage = 20;
                 this.currentUser = null;
                 this.isFirebaseReady = false;
+                this.selectedExpenseIds = new Set(); // 用於存儲選中的記帳記錄 ID
                 
                 // 載入動畫元素
                 this.loadingOverlay = document.getElementById('loadingOverlay');
@@ -2427,6 +2431,606 @@ service cloud.firestore {
                     console.error('儲存交易費用配置失敗:', error);
                     this.showNotification('儲存配置失敗', 'error');
                 }
+            }
+            
+            // === 🔄 匯入到新系統功能 ===
+            showMigrateModal() {
+                const modal = document.getElementById('migrateModal');
+                if (modal) {
+                    modal.style.display = 'block';
+                }
+            }
+            
+            hideMigrateModal() {
+                const modal = document.getElementById('migrateModal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+            }
+            
+            // 顯示選擇記帳記錄 Modal
+            async showExpenseSelectionModal() {
+                const modal = document.getElementById('expenseSelectionModal');
+                if (!modal) return;
+                
+                modal.style.display = 'block';
+                await this.loadExpensesForSelection();
+            }
+            
+            // 隱藏選擇記帳記錄 Modal
+            hideExpenseSelectionModal() {
+                const modal = document.getElementById('expenseSelectionModal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+            }
+            
+            // 載入記帳記錄供選擇
+            async loadExpensesForSelection() {
+                const tbody = document.getElementById('expenseSelectionBody');
+                if (!tbody) return;
+                
+                tbody.innerHTML = '<tr><td colspan="7" style="padding: 20px; text-align: center; color: #999;">載入中...</td></tr>';
+                
+                try {
+                    // 讀取 Firebase 的 records 集合（記帳記錄存儲在這裡）
+                    const recordsRef = window.firebaseCollection(window.firebaseDb, 'records');
+                    const q = window.firebaseQuery(
+                        recordsRef,
+                        window.firebaseOrderBy('date', 'desc')
+                    );
+                    const recordsSnap = await window.firebaseGetDocs(q);
+                    const expenses = recordsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    
+                    if (expenses.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" style="padding: 20px; text-align: center; color: #999;">沒有找到記帳記錄</td></tr>';
+                        document.getElementById('expenseSelectionCount').textContent = '已選 0 / 0 筆';
+                        return;
+                    }
+                    
+                    // 渲染記錄列表
+                    tbody.innerHTML = expenses.map(expense => {
+                        const isSelected = this.selectedExpenseIds.has(expense.id);
+                        return `
+                            <tr style="border-bottom: 1px solid #eee;">
+                                <td style="padding: 10px;">
+                                    <input type="checkbox" class="expense-select-checkbox" 
+                                           data-expense-id="${expense.id}" 
+                                           ${isSelected ? 'checked' : ''}
+                                           onchange="expenseTracker.updateExpenseSelection()">
+                                </td>
+                                <td style="padding: 10px;">${expense.date || '-'}</td>
+                                <td style="padding: 10px;">${expense.member || '-'}</td>
+                                <td style="padding: 10px;">${expense.type || '-'}</td>
+                                <td style="padding: 10px;">${expense.mainCategory || '-'} / ${expense.subCategory || '-'}</td>
+                                <td style="padding: 10px;">${expense.currency || 'TWD'} ${this.formatNumber(expense.amount || 0)}</td>
+                                <td style="padding: 10px;">${expense.description || '-'}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                    
+                    // 更新計數
+                    this.updateExpenseSelectionCount();
+                    
+                } catch (error) {
+                    console.error('載入記帳記錄失敗:', error);
+                    tbody.innerHTML = `<tr><td colspan="7" style="padding: 20px; text-align: center; color: #d32f2f;">載入失敗: ${error.message}</td></tr>`;
+                }
+            }
+            
+            // 更新記帳記錄選擇計數
+            updateExpenseSelectionCount() {
+                const checkboxes = document.querySelectorAll('.expense-select-checkbox');
+                const selectedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+                const totalCount = checkboxes.length;
+                
+                document.getElementById('expenseSelectionCount').textContent = `已選 ${selectedCount} / ${totalCount} 筆`;
+                
+                // 更新遷移 Modal 中的計數顯示
+                const countSpan = document.getElementById('selectedExpensesCount');
+                if (countSpan) {
+                    countSpan.textContent = selectedCount > 0 ? `（已選 ${selectedCount} 筆）` : '';
+                    countSpan.style.color = selectedCount > 0 ? '#1976d2' : '#666';
+                    countSpan.style.fontWeight = selectedCount > 0 ? 'bold' : 'normal';
+                }
+            }
+            
+            // 更新記帳記錄選擇（單選框變更時）
+            updateExpenseSelection() {
+                const checkboxes = document.querySelectorAll('.expense-select-checkbox');
+                this.selectedExpenseIds.clear();
+                
+                checkboxes.forEach(cb => {
+                    if (cb.checked) {
+                        this.selectedExpenseIds.add(cb.dataset.expenseId);
+                    }
+                });
+                
+                this.updateExpenseSelectionCount();
+            }
+            
+            // 全選/全不選記帳記錄
+            toggleSelectAllExpenses() {
+                const checkbox = document.getElementById('expenseSelectAllCheckbox');
+                const checkboxes = document.querySelectorAll('.expense-select-checkbox');
+                
+                const isAllSelected = Array.from(checkboxes).every(cb => cb.checked);
+                
+                checkboxes.forEach(cb => {
+                    cb.checked = !isAllSelected;
+                    if (!isAllSelected) {
+                        this.selectedExpenseIds.add(cb.dataset.expenseId);
+                    } else {
+                        this.selectedExpenseIds.delete(cb.dataset.expenseId);
+                    }
+                });
+                
+                checkbox.checked = !isAllSelected;
+                this.updateExpenseSelectionCount();
+            }
+            
+            // 確認選擇記帳記錄
+            confirmExpenseSelection() {
+                const selectedCount = this.selectedExpenseIds.size;
+                this.hideExpenseSelectionModal();
+                if (selectedCount > 0) {
+                    this.showNotification(`已選擇 ${selectedCount} 筆記帳記錄，遷移時只會匯入這些記錄`, 'success');
+                } else {
+                    this.showNotification('已清空選擇，遷移時將匯入所有記錄', 'info');
+                }
+            }
+            
+            // 清空記帳記錄選擇
+            clearExpenseSelection() {
+                this.selectedExpenseIds.clear();
+                const checkboxes = document.querySelectorAll('.expense-select-checkbox');
+                checkboxes.forEach(cb => cb.checked = false);
+                const allCheckbox = document.getElementById('expenseSelectAllCheckbox');
+                if (allCheckbox) allCheckbox.checked = false;
+                this.updateExpenseSelectionCount();
+                this.showNotification('已清空選擇', 'info');
+            }
+            
+            // 轉換 Expense 記錄格式
+            convertExpenseToNewFormat(fbExpense) {
+                return {
+                    firebaseId: fbExpense.id,
+                    date: fbExpense.date || null,
+                    member: fbExpense.member || null,
+                    type: fbExpense.type || null,
+                    mainCategory: fbExpense.mainCategory || null,
+                    subCategory: fbExpense.subCategory || null,
+                    amount: fbExpense.amount || 0,
+                    currency: fbExpense.currency || 'TWD',
+                    exchangeRate: fbExpense.exchangeRate || 1,
+                    description: fbExpense.description || null,
+                    createdByUid: fbExpense.createdByUid || null,
+                    updatedByUid: fbExpense.updatedByUid || null
+                };
+            }
+            
+            // 轉換 Asset 記錄格式
+            convertAssetToNewFormat(fbAsset) {
+                // 從 stock_code 判斷幣別
+                const getCurrencyFromStockCode = (stockCode) => {
+                    if (!stockCode) return 'TWD';
+                    // 美股：字母開頭
+                    if (/^[A-Za-z]/.test(stockCode)) {
+                        return 'USD';
+                    }
+                    // 台股：數字開頭
+                    if (/^\d/.test(stockCode)) {
+                        return 'TWD';
+                    }
+                    return 'TWD'; // 預設台幣
+                };
+                
+                // 生成資產名稱（如果沒有）
+                const generateAssetName = (fbAsset) => {
+                    // 如果有名稱，直接使用
+                    if (fbAsset.name && fbAsset.name !== 'undefined' && fbAsset.name.trim() !== '') {
+                        return fbAsset.name;
+                    }
+                    
+                    const assetType = fbAsset.type || fbAsset.assetType || '資產';
+                    const stockCode = fbAsset.stockCode;
+                    
+                    // 根據股票代碼生成有意義的名稱
+                    if (stockCode) {
+                        // 美股：VOO, SPY 等
+                        if (/^[A-Za-z]/.test(stockCode)) {
+                            return `${stockCode} ${assetType}`;
+                        } 
+                        // 台股：2330, 00692, 00937B 等
+                        else if (/^\d/.test(stockCode)) {
+                            // 台股 ETF/債券通常以 00 開頭
+                            if (stockCode.startsWith('00')) {
+                                // 00937B 這種格式通常是債券 ETF
+                                if (/00937B|00937/.test(stockCode)) {
+                                    return `台股債券 ETF ${stockCode}`;
+                                }
+                                return `台股 ETF ${stockCode}`;
+                            } else {
+                                // 一般台股（如 5880）
+                                return `台股 ${stockCode}`;
+                            }
+                        }
+                        return `${assetType} (${stockCode})`;
+                    }
+                    
+                    // 如果都沒有，使用類型
+                    return assetType || '資產';
+                };
+                
+                // 確保 type 和 assetType 都正確設置
+                const assetType = fbAsset.type || fbAsset.assetType || null;
+                const currency = fbAsset.currency || getCurrencyFromStockCode(fbAsset.stockCode);
+                const name = generateAssetName(fbAsset);
+                
+                return {
+                    firebaseId: fbAsset.id,
+                    name: name, // 生成資產名稱
+                    stockCode: fbAsset.stockCode || null,
+                    assetType: assetType, // 新系統數據庫使用 assetType
+                    type: assetType, // 前端期望 type 欄位
+                    quantity: fbAsset.quantity || 0,
+                    cost: fbAsset.cost || 0,
+                    unitPrice: fbAsset.purchasePrice || fbAsset.unitPrice || null,
+                    purchasePrice: fbAsset.purchasePrice || fbAsset.unitPrice || null,
+                    currentPrice: fbAsset.currentPrice || 0,
+                    currency: currency, // 根據股票代碼判斷幣別
+                    member: fbAsset.member || null,
+                    category: fbAsset.category || null,
+                    purchaseDate: fbAsset.purchaseDate || null,
+                    description: fbAsset.description || null,
+                    orderIndex: fbAsset.order || fbAsset.orderIndex || 0,
+                    createdByUid: fbAsset.createdByUid || null,
+                    updatedByUid: fbAsset.updatedByUid || null
+                };
+            }
+            
+            // 轉換 ExchangeRate 記錄格式
+            convertExchangeRateToNewFormat(fbRate) {
+                const rates = fbRate.rates || {};
+                return {
+                    date: fbRate.date || null,
+                    usdRate: rates.USD || null,
+                    eurRate: rates.EUR || null,
+                    jpyRate: rates.JPY || null,
+                    cnyRate: rates.CNY || null
+                };
+            }
+            
+            // 檢查記錄是否存在（使用遷移端點）
+            async checkExpenseExists(apiBaseUrl, firebaseId) {
+                try {
+                    const response = await fetch(`${apiBaseUrl}/api/migration/expenses/firebase/${firebaseId}`);
+                    if (response.ok) {
+                        const exists = await response.json();
+                        return exists === true;
+                    }
+                    return false;
+                } catch (error) {
+                    return false;
+                }
+            }
+            
+            // 檢查資產是否存在（使用遷移端點）
+            async checkAssetExists(apiBaseUrl, firebaseId) {
+                try {
+                    const response = await fetch(`${apiBaseUrl}/api/migration/assets/firebase/${firebaseId}`);
+                    if (response.ok) {
+                        const exists = await response.json();
+                        return exists === true;
+                    }
+                    return false;
+                } catch (error) {
+                    return false;
+                }
+            }
+            
+            // 匯入單筆 Expense（使用遷移端點）
+            async importExpense(apiBaseUrl, expense, checkExisting) {
+                try {
+                    if (checkExisting && expense.firebaseId) {
+                        const exists = await this.checkExpenseExists(apiBaseUrl, expense.firebaseId);
+                        if (exists) {
+                            return { success: false, skipped: true, message: '記錄已存在' };
+                        }
+                    }
+                    
+                    const response = await fetch(`${apiBaseUrl}/api/migration/expenses`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(expense)
+                    });
+                    
+                    if (!response.ok) {
+                        const error = await response.text();
+                        return { success: false, message: error };
+                    }
+                    
+                    return { success: true };
+                } catch (error) {
+                    return { success: false, message: error.message };
+                }
+            }
+            
+            // 匯入單筆 Asset（使用遷移端點）
+            async importAsset(apiBaseUrl, asset, checkExisting) {
+                try {
+                    if (checkExisting && asset.firebaseId) {
+                        const exists = await this.checkAssetExists(apiBaseUrl, asset.firebaseId);
+                        if (exists) {
+                            return { success: false, skipped: true, message: '記錄已存在' };
+                        }
+                    }
+                    
+                    const response = await fetch(`${apiBaseUrl}/api/migration/assets`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(asset)
+                    });
+                    
+                    if (!response.ok) {
+                        const error = await response.text();
+                        return { success: false, message: error };
+                    }
+                    
+                    return { success: true };
+                } catch (error) {
+                    return { success: false, message: error.message };
+                }
+            }
+            
+            // 匯入匯率（使用遷移端點）
+            async importExchangeRate(apiBaseUrl, exchangeRate) {
+                try {
+                    const response = await fetch(`${apiBaseUrl}/api/migration/exchange-rates/${exchangeRate.date}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(exchangeRate)
+                    });
+                    
+                    if (!response.ok) {
+                        const error = await response.text();
+                        return { success: false, message: error };
+                    }
+                    
+                    return { success: true };
+                } catch (error) {
+                    return { success: false, message: error.message };
+                }
+            }
+            
+            // 開始匯入
+            async startMigration() {
+                const apiUrl = document.getElementById('migrateApiUrl').value.trim();
+                if (!apiUrl) {
+                    alert('請輸入 API 地址');
+                    return;
+                }
+                
+                let apiBaseUrl = apiUrl.replace(/\/+$/, '').replace(/\/api\/?$/, '');
+                
+                // 處理 Mixed Content
+                if (window.location.protocol === 'https:' && apiBaseUrl.startsWith('http://')) {
+                    const useHttp = confirm(
+                        '⚠️ Mixed Content 警告\n\n' +
+                        '您正在 HTTPS 頁面上請求 HTTP API，瀏覽器會阻止此請求。\n\n' +
+                        '建議解決方案：\n' +
+                        '1. 下載 expenses.html 到本地，用瀏覽器直接打開（推薦）\n' +
+                        '2. 在新系統設置 HTTPS\n' +
+                        '3. 點擊「確定」嘗試繼續（可能失敗）\n\n' +
+                        '點擊「取消」中止，或「確定」繼續嘗試。'
+                    );
+                    if (!useHttp) {
+                        return;
+                    }
+                }
+                
+                const migrateExpenses = document.getElementById('migrateExpenses').checked;
+                const migrateAssets = document.getElementById('migrateAssets').checked;
+                const migrateExchangeRates = document.getElementById('migrateExchangeRates').checked;
+                const checkExisting = document.getElementById('migrateCheckExisting').checked;
+                
+                if (!migrateExpenses && !migrateAssets && !migrateExchangeRates) {
+                    alert('請至少選擇一種資料類型進行匯入');
+                    return;
+                }
+                
+                const progressDiv = document.getElementById('migrateProgress');
+                const statusDiv = document.getElementById('migrateStatus');
+                const progressBar = document.getElementById('migrateProgressBar');
+                const detailsDiv = document.getElementById('migrateDetails');
+                
+                progressDiv.style.display = 'block';
+                statusDiv.textContent = '測試連線中...';
+                progressBar.style.width = '5%';
+                
+                // 測試連線（使用遷移端點）
+                try {
+                    const testResponse = await fetch(`${apiBaseUrl}/api/migration/test`);
+                    if (!testResponse.ok) {
+                        throw new Error('無法連接到新系統，請檢查 API 地址');
+                    }
+                    const testResult = await testResponse.json();
+                    console.log('遷移端點測試成功:', testResult);
+                } catch (error) {
+                    alert('連線失敗: ' + error.message);
+                    progressDiv.style.display = 'none';
+                    return;
+                }
+                
+                let totalSuccess = 0;
+                let totalSkipped = 0;
+                let totalFailed = 0;
+                const errors = [];
+                
+                // 匯入 Expenses
+                if (migrateExpenses) {
+                    statusDiv.textContent = '讀取記帳記錄中...';
+                    progressBar.style.width = '10%';
+                    
+                    try {
+                        // 讀取 Firebase 的 records 集合（記帳記錄實際存儲在這裡）
+                        const recordsRef = window.firebaseCollection(window.firebaseDb, 'records');
+                        const q = window.firebaseQuery(
+                            recordsRef,
+                            window.firebaseOrderBy('date', 'desc')
+                        );
+                        const recordsSnap = await window.firebaseGetDocs(q);
+                        let expenses = recordsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+                        
+                        // 如果已選擇特定記錄，只匯入選中的記錄
+                        if (this.selectedExpenseIds.size > 0) {
+                            expenses = expenses.filter(expense => this.selectedExpenseIds.has(expense.id));
+                            statusDiv.textContent = `已選擇 ${expenses.length} 筆記錄進行匯入`;
+                            detailsDiv.textContent = `只匯入選中的 ${expenses.length} 筆記錄`;
+                        }
+                        
+                        if (expenses.length === 0) {
+                            if (this.selectedExpenseIds.size > 0) {
+                                statusDiv.textContent = '沒有選中的記錄可匯入';
+                                detailsDiv.textContent = '請先選擇要匯入的記帳記錄';
+                                errors.push('沒有選中的記錄可匯入');
+                            } else {
+                                statusDiv.textContent = '沒有找到記帳記錄';
+                                detailsDiv.textContent = 'Firebase 的 records 集合中沒有資料';
+                                errors.push('沒有可轉移的記帳記錄：Firebase 的 records 集合為空');
+                            }
+                        } else {
+                            statusDiv.textContent = `匯入記帳記錄中... (0/${expenses.length})`;
+                            
+                            for (let i = 0; i < expenses.length; i++) {
+                                const fbExpense = expenses[i];
+                                const expense = this.convertExpenseToNewFormat(fbExpense);
+                                
+                                const progress = 10 + Math.floor((i / expenses.length) * 30);
+                                progressBar.style.width = progress + '%';
+                                statusDiv.textContent = `匯入記帳記錄中... (${i + 1}/${expenses.length})`;
+                                detailsDiv.textContent = `正在匯入: ${expense.date || 'N/A'} - ${expense.member || 'N/A'}`;
+                                
+                                const result = await this.importExpense(apiBaseUrl, expense, checkExisting);
+                                
+                                if (result.success) {
+                                    totalSuccess++;
+                                } else if (result.skipped) {
+                                    totalSkipped++;
+                                } else {
+                                    totalFailed++;
+                                    errors.push(`記帳記錄 ${expense.firebaseId || expense.date || 'N/A'}: ${result.message}`);
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.error('讀取記帳記錄失敗:', error);
+                        errors.push(`讀取記帳記錄失敗: ${error.message}`);
+                        statusDiv.textContent = `讀取記帳記錄失敗: ${error.message}`;
+                        detailsDiv.textContent = `錯誤詳情: ${error.message}`;
+                    }
+                }
+                
+                // 匯入 Assets
+                if (migrateAssets) {
+                    statusDiv.textContent = '讀取資產記錄中...';
+                    progressBar.style.width = '40%';
+                    
+                    try {
+                        const assetsRef = window.firebaseCollection(window.firebaseDb, 'assets');
+                        const assetsSnap = await window.firebaseGetDocs(assetsRef);
+                        const assets = assetsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+                        
+                        if (assets.length === 0) {
+                            statusDiv.textContent = '沒有找到資產記錄';
+                            detailsDiv.textContent = 'Firebase 的 assets 集合中沒有資料，請確認資產資料是否已建立';
+                            errors.push('沒有可轉移的資產記錄：Firebase 的 assets 集合為空');
+                        } else {
+                            statusDiv.textContent = `匯入資產記錄中... (0/${assets.length})`;
+                            
+                            for (let i = 0; i < assets.length; i++) {
+                                const fbAsset = assets[i];
+                                const asset = this.convertAssetToNewFormat(fbAsset);
+                                
+                                const progress = 40 + Math.floor((i / assets.length) * 30);
+                                progressBar.style.width = progress + '%';
+                                statusDiv.textContent = `匯入資產記錄中... (${i + 1}/${assets.length})`;
+                                detailsDiv.textContent = `正在匯入: ${asset.stockCode || asset.firebaseId || 'N/A'}`;
+                                
+                                const result = await this.importAsset(apiBaseUrl, asset, checkExisting);
+                                
+                                if (result.success) {
+                                    totalSuccess++;
+                                } else if (result.skipped) {
+                                    totalSkipped++;
+                                } else {
+                                    totalFailed++;
+                                    errors.push(`資產記錄 ${asset.firebaseId || asset.stockCode || 'N/A'}: ${result.message}`);
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.error('讀取資產記錄失敗:', error);
+                        errors.push(`讀取資產記錄失敗: ${error.message}`);
+                        statusDiv.textContent = `讀取資產記錄失敗: ${error.message}`;
+                        detailsDiv.textContent = `錯誤詳情: ${error.message}`;
+                    }
+                }
+                
+                // 匯入 Exchange Rates
+                if (migrateExchangeRates) {
+                    statusDiv.textContent = '讀取匯率記錄中...';
+                    progressBar.style.width = '70%';
+                    
+                    try {
+                        // 匯入 dailyExchangeRates
+                        const dailyRatesRef = window.firebaseCollection(window.firebaseDb, 'dailyExchangeRates');
+                        const dailyRatesSnap = await window.firebaseGetDocs(dailyRatesRef);
+                        const dailyRates = dailyRatesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+                        
+                        if (dailyRates.length > 0) {
+                            statusDiv.textContent = `匯入匯率記錄中... (0/${dailyRates.length})`;
+                            
+                            for (let i = 0; i < dailyRates.length; i++) {
+                                const fbRate = dailyRates[i];
+                                const exchangeRate = this.convertExchangeRateToNewFormat(fbRate);
+                                
+                                if (!exchangeRate.date) continue;
+                                
+                                const progress = 70 + Math.floor((i / dailyRates.length) * 25);
+                                progressBar.style.width = progress + '%';
+                                statusDiv.textContent = `匯入匯率記錄中... (${i + 1}/${dailyRates.length})`;
+                                detailsDiv.textContent = `正在匯入: ${exchangeRate.date}`;
+                                
+                                const result = await this.importExchangeRate(apiBaseUrl, exchangeRate);
+                                
+                                if (result.success) {
+                                    totalSuccess++;
+                                } else {
+                                    totalFailed++;
+                                    errors.push(`匯率記錄 ${exchangeRate.date}: ${result.message}`);
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        errors.push(`讀取匯率記錄失敗: ${error.message}`);
+                    }
+                }
+                
+                // 完成
+                progressBar.style.width = '100%';
+                statusDiv.textContent = '匯入完成！';
+                
+                let summary = `成功: ${totalSuccess}, 略過: ${totalSkipped}, 失敗: ${totalFailed}`;
+                if (errors.length > 0) {
+                    summary += `\n\n錯誤詳情:\n${errors.slice(0, 10).join('\n')}`;
+                    if (errors.length > 10) {
+                        summary += `\n... 還有 ${errors.length - 10} 個錯誤`;
+                    }
+                }
+                
+                detailsDiv.textContent = summary;
+                alert(`匯入完成！\n\n${summary}`);
             }
             
             // 顯示損益詳細資料
@@ -4488,7 +5092,7 @@ service cloud.firestore {
                 }
             }
             
-            async startMigration() {
+            async startAssetRecordMigration() {
                 const assetRecords = this.records.filter(r => r.type === '資產');
                 const migrateAll = document.getElementById('migrateAllAssets').checked;
                 const keepOriginal = document.getElementById('keepOriginalRecords').checked;
@@ -5682,6 +6286,122 @@ service cloud.firestore {
             <div class="modal-body">
                 <div id="profitLossDetailsContent">
                     <!-- 動態內容將在這裡顯示 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 選擇記帳記錄 Modal -->
+    <div id="expenseSelectionModal" class="modal" style="z-index: 2000;">
+        <div class="modal-content" style="max-width: 1200px; max-height: 90vh;">
+            <div class="modal-header">
+                <h2>📋 選擇要匯入的記帳記錄</h2>
+                <span class="close" onclick="expenseTracker.hideExpenseSelectionModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span id="expenseSelectionCount" style="font-size: 14px; color: #666;">已選 0 / 0 筆</span>
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-secondary" onclick="expenseTracker.clearExpenseSelection()" style="padding: 6px 12px; font-size: 14px; margin-right: 8px;">
+                            清空選擇
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="expenseTracker.confirmExpenseSelection()" style="padding: 6px 12px; font-size: 14px;">
+                            確認選擇
+                        </button>
+                    </div>
+                </div>
+                <div style="max-height: 60vh; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">
+                                <th style="padding: 10px; text-align: left; width: 40px;">
+                                    <input type="checkbox" id="expenseSelectAllCheckbox" onchange="expenseTracker.toggleSelectAllExpenses()">
+                                </th>
+                                <th style="padding: 10px; text-align: left;">日期</th>
+                                <th style="padding: 10px; text-align: left;">成員</th>
+                                <th style="padding: 10px; text-align: left;">類型</th>
+                                <th style="padding: 10px; text-align: left;">分類</th>
+                                <th style="padding: 10px; text-align: left;">金額</th>
+                                <th style="padding: 10px; text-align: left;">描述</th>
+                            </tr>
+                        </thead>
+                        <tbody id="expenseSelectionBody">
+                            <tr>
+                                <td colspan="7" style="padding: 20px; text-align: center; color: #999;">
+                                    載入中...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div style="margin-top: 15px; padding: 10px; background: #f0f7ff; border-radius: 4px; font-size: 13px; color: #1976d2;">
+                    💡 <strong>提示：</strong>您可以選擇特定的記帳記錄進行遷移。如果不選擇，遷移時會匯入所有記錄。
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 匯入到新系統 Modal -->
+    <div id="migrateModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>🔄 匯入到新系統 (MySQL)</h2>
+                <span class="close" onclick="expenseTracker.hideMigrateModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 20px;">
+                    <label for="migrateApiUrl" style="display: block; margin-bottom: 5px; font-weight: bold;">新系統 API 地址</label>
+                    <input type="text" id="migrateApiUrl" value="http://38.54.89.136:8080" placeholder="例如: http://your-ip:8080" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" id="migrateCheckExisting" checked style="margin-right: 8px;">
+                        <span>檢查重複的記錄（建議勾選）</span>
+                    </label>
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" id="migrateExpenses" checked style="margin-right: 8px;">
+                        <span>匯入記帳記錄 (expenses) <span id="selectedExpensesCount" style="font-size: 0.9em; color: #666;"></span></span>
+                    </label>
+                    <div style="margin-top: 8px; margin-left: 24px;">
+                        <button type="button" class="btn btn-secondary" onclick="expenseTracker.showExpenseSelectionModal()" style="padding: 6px 12px; font-size: 14px; margin-right: 8px;">
+                            📋 選擇要匯入的記錄
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="expenseTracker.clearExpenseSelection()" style="padding: 6px 12px; font-size: 14px;">
+                            清空選擇
+                        </button>
+                        <span style="font-size: 12px; color: #666; margin-left: 10px;">如不選擇，將匯入所有記錄</span>
+                    </div>
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" id="migrateAssets" checked style="margin-right: 8px;">
+                        <span>匯入資產組合 (assets)</span>
+                    </label>
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" id="migrateExchangeRates" checked style="margin-right: 8px;">
+                        <span>匯入匯率資料 (exchange_rates)</span>
+                    </label>
+                </div>
+                <div id="migrateProgress" style="display: none; margin-top: 20px;">
+                    <div style="font-weight: bold; margin-bottom: 10px;" id="migrateStatus">準備中...</div>
+                    <div style="width: 100%; background: #e0e0e0; border-radius: 4px; height: 20px; overflow: hidden;">
+                        <div id="migrateProgressBar" style="background: #4CAF50; height: 100%; width: 0%; transition: width 0.3s;"></div>
+                    </div>
+                    <div style="margin-top: 10px; font-size: 12px; color: #666;" id="migrateDetails"></div>
+                </div>
+                <div class="modal-footer" style="margin-top: 20px;">
+                    <button class="btn btn-primary" id="btnStartMigrate" onclick="expenseTracker.startMigration()">
+                        開始匯入
+                    </button>
+                    <button class="btn btn-secondary" onclick="expenseTracker.hideMigrateModal()">
+                        取消
+                    </button>
                 </div>
             </div>
         </div>
